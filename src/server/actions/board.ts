@@ -1,42 +1,72 @@
-// src/server/actions/board.ts
 "use server";
 
 import { db } from "~/server/db";
 
 export async function updateAssignment(
-    employeeId: string,
-    projectId: string | null,
-    dateIsoString: string
+  employeeId: string,
+  projectId: string | null,
+  dateIsoString: string,
+  weekId: string,
 ) {
-    const date = new Date(dateIsoString);
-
-    if (!projectId) {
-        await db.assignment.deleteMany({
-            where: {
-                employeeId,
-                date,
-            },
-        });
-
-        return { success: true };
-    }
-
-    await db.assignment.upsert({
+  const date = new Date(dateIsoString);
+  const assignmentDb = db as typeof db & {
+    assignment: {
+      deleteMany: (args: {
         where: {
-            employeeId_date: {
-                employeeId: employeeId,
-                date: date,
-            },
-        },
+          employeeId: string;
+          date: Date;
+        };
+      }) => Promise<unknown>;
+      upsert: (args: {
+        where: {
+          employeeId_date: {
+            employeeId: string;
+            date: Date;
+          };
+        };
         update: {
-            projectId: projectId,
-        },
+          projectId: string | null;
+          weekId: string;
+        };
         create: {
-            employeeId: employeeId,
-            projectId: projectId,
-            date: date,
-        },
+          employeeId: string;
+          projectId: string | null;
+          date: Date;
+          weekId: string;
+        };
+      }) => Promise<unknown>;
+    };
+  };
+
+  if (!projectId) {
+    await assignmentDb.assignment.deleteMany({
+      where: {
+        employeeId,
+        date,
+      },
     });
 
     return { success: true };
+  }
+
+  await assignmentDb.assignment.upsert({
+    where: {
+      employeeId_date: {
+        employeeId,
+        date,
+      },
+    },
+    update: {
+      projectId,
+      weekId,
+    },
+    create: {
+      employeeId,
+      projectId,
+      date,
+      weekId,
+    },
+  });
+
+  return { success: true };
 }

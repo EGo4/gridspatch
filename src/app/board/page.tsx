@@ -1,18 +1,19 @@
-// src/app/board/page.tsx
-import { db } from "~/server/db";
 import { BoardClient } from "~/components/board/BoardClient";
+import { db } from "~/server/db";
+import { getBoardPageData, type BoardDb } from "~/server/services/board";
 
-export default async function BoardPage() {
-    // Fetch initial data securely on the server
-    const projects = await db.project.findMany();
-    const employees = await db.employee.findMany();
-    const assignments = await db.assignment.findMany();
+type BoardPageProps = {
+  searchParams?: Promise<{
+    week?: string | string[];
+  }>;
+};
 
-    return (
-        <BoardClient
-            dbProjects={projects}
-            dbEmployees={employees}
-            dbAssignments={assignments}
-        />
-    );
+export default async function BoardPage({ searchParams }: BoardPageProps) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const selectedWeekParam = Array.isArray(resolvedSearchParams?.week)
+    ? resolvedSearchParams.week[0]
+    : resolvedSearchParams?.week;
+  const boardData = await getBoardPageData(db as unknown as BoardDb, selectedWeekParam);
+
+  return <BoardClient {...boardData} />;
 }

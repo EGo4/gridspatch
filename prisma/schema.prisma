@@ -75,8 +75,7 @@ model Employee {
   role        String?      // e.g., "Foreman", "Apprentice"
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
-  
-  // Relation: One employee can have many assignments
+
   assignments Assignment[]
 }
 
@@ -86,22 +85,32 @@ model Project {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
-  // Relation: One project can have many assignments
+  assignments Assignment[]
+}
+
+model Week {
+  id          String       @id @default(cuid())
+  startDate   DateTime     @unique @db.Date
+  endDate     DateTime     @db.Date
+  isCurrent   Boolean      @default(false)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
   assignments Assignment[]
 }
 
 model Assignment {
   id         String   @id @default(cuid())
-  date       DateTime @db.Date // Stores only the date, no time/timezone issues
-  
+  date       DateTime @db.Date
+  weekId     String
+  week       Week     @relation(fields: [weekId], references: [id], onDelete: Cascade)
+
   employeeId String
   employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  
-  projectId  String?  // Optional: If NULL, employee is in the "Pool" or on "Leave"
+
+  projectId  String?
   project    Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
-  // 💥 THE MAGIC: Collision detection!
-  // This strict constraint prevents the database from assigning 
-  // the same employee to multiple projects on the exact same date.
   @@unique([employeeId, date])
+  @@index([weekId, date])
 }

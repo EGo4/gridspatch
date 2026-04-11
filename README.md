@@ -2,12 +2,28 @@
 
 Gridspatch is a weekly construction staffing board built with Next.js, Prisma, and Better Auth.
 
+## Upcoming Features
+
+1. Quick marking of employees as vacation or sick
+2. Split employee days into pre-lunch / after-lunch
+3. Swimlane minimizing
+4. Building site management (add, edit, status)
+5. Construction manager per building site
+6. User management for resources and managers
+7. Login and route protection
+8. Personal account management
+9. Copy previous week as template
+10. Statistics on worked weeks
+11. Docker deployment for local network hosting
+
+Full details in [FEATURE_ROADMAP.md](./FEATURE_ROADMAP.md).
+
 ## Current Scope
 
-- Weekly board view for employees and projects
+- Weekly board view with per-week history
 - Drag-and-drop assignment management
 - Per-day employee pool handling
-- Feature roadmap in [FEATURE_ROADMAP.md](./FEATURE_ROADMAP.md)
+- Week navigation with dropdown selector
 
 ## Development
 
