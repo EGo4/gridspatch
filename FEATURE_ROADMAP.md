@@ -3,29 +3,6 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## Quick Marking Of Employees As Vacation Or Sick
-
-Priority: high
-
-Why:
-This is part of daily planning and should be fast to use on the board.
-
-Goal:
-Mark employees as unavailable without removing them from the week entirely, and allow reverting the status.
-
-Ideas to realize it:
-- Add an `availabilityStatus` for a week/day such as `available`, `vacation`, `sick`.
-- Keep employees visible in the board, but move unavailable ones into optional dedicated pools like `Vacation` and `Sick`.
-- Make those pools collapsible or toggleable so they do not clutter the main board.
-- Add quick actions on the employee card or context menu: `Mark sick`, `Mark vacation`, `Clear status`.
-- Preserve the assignment history for the week, but prevent unavailable employees from being assigned unless explicitly overridden.
-
-Possible schema shape:
-- `EmployeeAvailability` with `employeeId`, `weekId`, `date` or `dayOfWeek`, `status`.
-
-Decision:
-- Vacation and sick status should be stored per day, not as a whole-week range.
-
 ## Split Employee Days Into Pre-Lunch / After-Lunch
 
 Priority: high

@@ -4,3 +4,56 @@
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
+
+/* ── Employee card fly-out buttons ─────────────────────────────────────────── */
+
+.fly-btn {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  width: 2.25rem;
+  /* 36 px */
+  height: 2.25rem;
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  opacity: 0;
+}
+
+.fly-btn-sick {
+  background-color: #4e2e2e;
+  transform: translate(0px, -50%) scale(0);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
+}
+
+.fly-btn-sick:hover {
+  background-color: #5e3838;
+}
+
+.fly-btn-vacation {
+  background-color: #4a3d1a;
+  transform: translate(0px, -50%) scale(0);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
+  transition-delay: 0ms;
+}
+
+.fly-btn-vacation:hover {
+  background-color: #5a4c24;
+}
+
+/* Open state — toggled by adding .card-open to the wrapper */
+.card-open .fly-btn-sick {
+  transform: translate(44px, calc(-50% - 30px)) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.card-open .fly-btn-vacation {
+  transform: translate(44px, calc(-50% + 30px)) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
