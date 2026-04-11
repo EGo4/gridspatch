@@ -6,6 +6,7 @@ import { DragDropContext, Droppable } from "@hello-pangea/dnd";
 import type { DragStart, DropResult } from "@hello-pangea/dnd";
 
 import { EmployeeCard } from "./EmployeeCard";
+import { SyringeIcon, PalmTreeIcon } from "~/components/icons";
 import { updateAssignment } from "~/server/actions/board";
 import { DAYS } from "~/lib/constants";
 import {
@@ -422,8 +423,8 @@ export function BoardClient({
                             <span className="whitespace-nowrap text-xs font-medium text-[#ececef]">
                               {employee.name}
                             </span>
-                            <span className="ml-auto pl-1 text-base">
-                              {status === "sick" ? "💉" : "🌴"}
+                            <span className="ml-auto pl-1 text-[#c8c4be]">
+                              {status === "sick" ? <SyringeIcon size={16} /> : <PalmTreeIcon size={16} />}
                             </span>
                           </button>
                         ))}

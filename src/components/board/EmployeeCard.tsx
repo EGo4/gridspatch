@@ -4,6 +4,7 @@
 import React from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import type { Employee } from "~/types";
+import { SyringeIcon, PalmTreeIcon } from "~/components/icons";
 
 interface EmployeeCardProps {
   employee: Employee;
@@ -54,24 +55,24 @@ export function EmployeeCard({
             </span>
           </div>
 
-          {/* Sick button — 1:30 o'clock (upper-right) */}
+          {/* Sick button */}
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onMarkSick(); }}
             title="Mark as sick"
-            className="fly-btn fly-btn-sick"
+            className="fly-btn fly-btn-sick text-[#c8c4be]"
           >
-            💉
+            <SyringeIcon />
           </button>
 
-          {/* Vacation button — 4:30 o'clock (lower-right) */}
+          {/* Vacation button */}
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onMarkVacation(); }}
             title="Mark as on vacation"
-            className="fly-btn fly-btn-vacation"
+            className="fly-btn fly-btn-vacation text-[#c8c4be]"
           >
-            🌴
+            <PalmTreeIcon />
           </button>
         </div>
       )}

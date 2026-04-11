@@ -6,54 +6,58 @@
 }
 
 /* ── Employee card fly-out buttons ─────────────────────────────────────────── */
+/*
+ * Card height ≈ 44 px  (p-1.5 × 2 = 12 px  +  avatar h-8 = 32 px).
+ * Right-semicircle radius = 22 px.
+ * Button diameter ≈ 36 px  (slightly under 90 % for aesthetics).
+ *   → button radius = 18 px
+ *
+ * Vacation (🌴) — rightmost, concentric with the pill end:
+ *   centre 22 px from right edge  →  right: 22 – 18 = 4 px
+ *
+ * Sick (💉) — one diameter + 4 px gap to the left:
+ *   right: 4 + 36 + 4 = 44 px
+ */
 
 .fly-btn {
   position: absolute;
-  right: 0;
   top: 50%;
-  width: 2.25rem;
-  /* 36 px */
+  width: 2.25rem;       /* 36 px */
   height: 2.25rem;
   border-radius: 9999px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
   pointer-events: none;
   opacity: 0;
 }
 
 .fly-btn-sick {
+  right: 44px;
   background-color: #4e2e2e;
-  transform: translate(0px, -50%) scale(0);
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
+  transform: translateY(-50%) scale(0);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
+  transition-delay: 50ms;
 }
-
-.fly-btn-sick:hover {
-  background-color: #5e3838;
-}
+.fly-btn-sick:hover { background-color: #5e3838; }
 
 .fly-btn-vacation {
+  right: 4px;
   background-color: #4a3d1a;
-  transform: translate(0px, -50%) scale(0);
+  transform: translateY(-50%) scale(0);
   transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
-  transition-delay: 0ms;
 }
+.fly-btn-vacation:hover { background-color: #5a4c24; }
 
-.fly-btn-vacation:hover {
-  background-color: #5a4c24;
-}
-
-/* Open state — toggled by adding .card-open to the wrapper */
+/* Open state */
 .card-open .fly-btn-sick {
-  transform: translate(44px, calc(-50% - 30px)) scale(1);
+  transform: translateY(-50%) scale(1);
   opacity: 1;
   pointer-events: auto;
 }
 
 .card-open .fly-btn-vacation {
-  transform: translate(44px, calc(-50% + 30px)) scale(1);
+  transform: translateY(-50%) scale(1);
   opacity: 1;
   pointer-events: auto;
 }
