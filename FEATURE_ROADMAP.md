@@ -3,19 +3,6 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## Grey Out Other Days While Dragging
-
-Priority: high
-
-Why:
-Dragging an employee currently gives no visual feedback that drops are only valid within the same day column. Greying out all other day columns during a drag makes the constraint immediately obvious.
-
-Ideas to realize it:
-- Track which day is being dragged from in a piece of state on `DragDropContext`.
-- On drag start, mark all columns that do not belong to that day as visually inactive.
-- Apply a reduced opacity or desaturated overlay to those columns.
-- Clear the state on drag end.
-
 ## Quick Marking Of Employees As Vacation Or Sick
 
 Priority: high

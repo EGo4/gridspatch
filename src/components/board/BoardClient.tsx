@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { DragDropContext, Droppable } from "@hello-pangea/dnd";
-import type { DropResult } from "@hello-pangea/dnd";
+import type { DragStart, DropResult } from "@hello-pangea/dnd";
 
 import { EmployeeCard } from "./EmployeeCard";
 import { updateAssignment } from "~/server/actions/board";
@@ -35,6 +35,7 @@ export function BoardClient({
   const [activeDay, setActiveDay] = useState("Monday");
   const [isLoaded, setIsLoaded] = useState(false);
   const [weekDropdownOpen, setWeekDropdownOpen] = useState(false);
+  const [draggingDay, setDraggingDay] = useState<string | null>(null);
   const weekDates = getWeekDateMap(selectedWeek.startDateIso);
 
   const getDayFromDroppableId = (droppableId: string) => {
@@ -85,7 +86,12 @@ export function BoardClient({
     setIsLoaded(true);
   }, [dbProjects, dbEmployees, dbAssignments, selectedWeek.startDateIso]);
 
+  const onDragStart = (start: DragStart) => {
+    setDraggingDay(getDayFromDroppableId(start.source.droppableId) || null);
+  };
+
   const onDragEnd = async (result: DropResult) => {
+    setDraggingDay(null);
     const { source, destination, draggableId } = result;
     if (!destination) return;
 
@@ -205,15 +211,21 @@ export function BoardClient({
           ))}
         </div>
 
-        <DragDropContext onDragEnd={onDragEnd}>
+        <DragDropContext onDragEnd={onDragEnd} onDragStart={onDragStart}>
           <div className="w-full lg:min-w-max flex flex-col gap-4">
             <div className="flex gap-4">
               {DAYS.map((day) => (
                 <div
                   key={day}
-                  className={`w-full lg:min-w-max lg:flex-1 bg-[#28272d] rounded-md p-2.5 font-semibold text-sm ${
+                  className={`w-full lg:min-w-max lg:flex-1 rounded-md p-2.5 font-semibold text-sm transition-opacity duration-150 ${
                     day === activeDay ? "flex" : "hidden"
-                  } lg:flex`}
+                  } lg:flex ${
+                    draggingDay && day === draggingDay
+                      ? "bg-[#2d3748] text-blue-300 ring-1 ring-inset ring-blue-500/40"
+                      : draggingDay
+                      ? "bg-[#28272d] opacity-30"
+                      : "bg-[#28272d]"
+                  }`}
                 >
                   {day}
                 </div>
@@ -232,11 +244,15 @@ export function BoardClient({
                           <div
                             ref={provided.innerRef}
                             {...provided.droppableProps}
-                            className={`w-full lg:min-w-max lg:flex-1 min-h-[60px] rounded-md p-2.5 flex-col gap-2.5 border ${
+                            className={`w-full lg:min-w-max lg:flex-1 min-h-[60px] rounded-md p-2.5 flex-col gap-2.5 border transition-opacity duration-150 ${
                               day === activeDay ? "flex" : "hidden"
                             } lg:flex ${
-                              snapshot.isDraggingOver
+                              draggingDay && day !== draggingDay
+                                ? "opacity-30 bg-[#28272d] border-[#252428]"
+                                : snapshot.isDraggingOver
                                 ? "bg-[#333238] border-[#5a5961]"
+                                : draggingDay && day === draggingDay
+                                ? "bg-[#252e3d] border-blue-500/30"
                                 : "bg-[#28272d] border-[#313036]"
                             }`}
                           >
@@ -269,10 +285,16 @@ export function BoardClient({
                         <div
                           ref={provided.innerRef}
                           {...provided.droppableProps}
-                          className={`w-full lg:min-w-max lg:flex-1 min-h-[60px] rounded-md p-2.5 flex-col gap-2.5 border border-dashed ${
+                          className={`w-full lg:min-w-max lg:flex-1 min-h-[60px] rounded-md p-2.5 flex-col gap-2.5 border border-dashed transition-opacity duration-150 ${
                             day === activeDay ? "flex" : "hidden"
                           } lg:flex ${
-                            snapshot.isDraggingOver ? "bg-[#333238]" : "border-[#4a4950]"
+                            draggingDay && day !== draggingDay
+                              ? "opacity-30 border-[#252428]"
+                              : snapshot.isDraggingOver
+                              ? "bg-[#333238] border-[#5a5961]"
+                              : draggingDay && day === draggingDay
+                              ? "border-blue-500/30"
+                              : "border-[#4a4950]"
                           }`}
                         >
                           {assignmentsState[poolId]?.map((employee, index) => (
