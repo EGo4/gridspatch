@@ -10,6 +10,17 @@ export async function updateAssignment(
 ) {
     const date = new Date(dateIsoString);
 
+    if (!projectId) {
+        await db.assignment.deleteMany({
+            where: {
+                employeeId,
+                date,
+            },
+        });
+
+        return { success: true };
+    }
+
     await db.assignment.upsert({
         where: {
             employeeId_date: {

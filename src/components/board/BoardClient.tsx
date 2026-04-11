@@ -47,10 +47,10 @@ export function BoardClient({ dbProjects, dbEmployees, dbAssignments }: BoardCli
             const employee = dbEmployees.find(e => e.id === assignment.employeeId);
             if (!employee) return;
 
-            const poolId = `pool-${resolvedDayName}`;
-            initialState[poolId] = (initialState[poolId] ?? []).filter(e => e.id !== employee.id);
-
             if (assignment.projectId) {
+                const poolId = `pool-${resolvedDayName}`;
+                initialState[poolId] = (initialState[poolId] ?? []).filter(e => e.id !== employee.id);
+
                 const cellId = `${assignment.projectId}-${resolvedDayName}`;
                 if (initialState[cellId]) {
                     initialState[cellId].push(employee);
