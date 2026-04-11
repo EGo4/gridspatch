@@ -1,89 +1,107 @@
-// Prisma schema for Better Auth
-// learn more: https://better-auth.com/docs/concepts/database
+// prisma/schema.prisma
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../generated/prisma"
 }
-
-// NOTE: When using mysql or sqlserver, uncomment the //@db.Text annotations in model Account below
-// Further reading:
-// https://www.prisma.io/docs/reference/api-reference/prisma-schema-reference#string
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-model Post {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  createdBy   User   @relation(fields: [createdById], references: [id])
-  createdById String
-
-  @@index([name])
-}
+// ==========================================
+// 1. BETTER AUTH TABLES (User Management)
+// ==========================================
 
 model User {
-  id            String    @id
-  name          String //@db.Text
-  email         String
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
   emailVerified Boolean   @default(false)
-  image         String? //@db.Text
+  image         String?
   createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @default(now()) @updatedAt
+  updatedAt     DateTime  @updatedAt
   sessions      Session[]
   accounts      Account[]
-  posts         Post[]
-
-  @@unique([email])
-  @@map("user")
 }
 
 model Session {
-  id        String   @id
+  id        String   @id @default(cuid())
   expiresAt DateTime
-  token     String
+  token     String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  ipAddress String? //@db.Text
-  userAgent String? //@db.Text
+  ipAddress String?
+  userAgent String?
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([token])
-  @@map("session")
 }
 
 model Account {
-  id                    String    @id
-  accountId             String //@db.Text
-  providerId            String //@db.Text
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
   userId                String
   user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  accessToken           String? //@db.Text
-  refreshToken          String? //@db.Text
-  idToken               String? //@db.Text
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
   accessTokenExpiresAt  DateTime?
   refreshTokenExpiresAt DateTime?
-  scope                 String? //@db.Text
-  password              String? //@db.Text
+  scope                 String?
+  password              String?   // Used for email/password credentials login
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
-
-  @@map("account")
 }
 
 model Verification {
-  id         String   @id
-  identifier String //@db.Text
-  value      String //@db.Text
+  id         String    @id @default(cuid())
+  identifier String
+  value      String
   expiresAt  DateTime
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @default(now()) @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+}
 
-  @@map("verification")
+// ==========================================
+// 2. GRIDSPATCH TABLES (Core Logic)
+// ==========================================
+
+model Employee {
+  id          String       @id @default(cuid())
+  name        String
+  initials    String
+  img         String?      // Profile image URL
+  role        String?      // e.g., "Foreman", "Apprentice"
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  // Relation: One employee can have many assignments
+  assignments Assignment[]
+}
+
+model Project {
+  id          String       @id @default(cuid())
+  name        String
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relation: One project can have many assignments
+  assignments Assignment[]
+}
+
+model Assignment {
+  id         String   @id @default(cuid())
+  date       DateTime @db.Date // Stores only the date, no time/timezone issues
+  
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  projectId  String?  // Optional: If NULL, employee is in the "Pool" or on "Leave"
+  project    Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  // 💥 THE MAGIC: Collision detection!
+  // This strict constraint prevents the database from assigning 
+  // the same employee to multiple projects on the exact same date.
+  @@unique([employeeId, date])
 }
