@@ -3,9 +3,24 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## 1. Quick Marking Of Employees As Vacation Or Sick
+## Grey Out Other Days While Dragging
 
-Why this is early:
+Priority: high
+
+Why:
+Dragging an employee currently gives no visual feedback that drops are only valid within the same day column. Greying out all other day columns during a drag makes the constraint immediately obvious.
+
+Ideas to realize it:
+- Track which day is being dragged from in a piece of state on `DragDropContext`.
+- On drag start, mark all columns that do not belong to that day as visually inactive.
+- Apply a reduced opacity or desaturated overlay to those columns.
+- Clear the state on drag end.
+
+## Quick Marking Of Employees As Vacation Or Sick
+
+Priority: high
+
+Why:
 This is part of daily planning and should be fast to use on the board.
 
 Goal:
@@ -24,9 +39,11 @@ Possible schema shape:
 Decision:
 - Vacation and sick status should be stored per day, not as a whole-week range.
 
-## 2. Split Employee Days Into Pre-Lunch / After-Lunch
+## Split Employee Days Into Pre-Lunch / After-Lunch
 
-Why this is early:
+Priority: high
+
+Why:
 This directly affects the planning model and should be designed before the assignment system becomes more complex.
 
 Goal:
@@ -43,9 +60,27 @@ Possible schema shape:
 - Add a `dayPart` field on assignments such as `full_day`, `pre_lunch`, `after_lunch`.
 - If you want stricter data consistency, prevent multiple assignments for the same employee, date, and day-part combination.
 
-## 3. Swimlane Minimizing
+## Copy Assignments From Another Day
 
-Why this is early:
+Priority: mid
+
+Why:
+Repeating the same staffing pattern across days is common. A one-click copy action saves time without disrupting the drag-and-drop workflow.
+
+Goal:
+Let users copy all assignments from one day column into another day column within the same week.
+
+Ideas to realize it:
+- Add a right-aligned copy button in the day column header, next to the day name.
+- Clicking it opens a small popover or inline menu to select the source day.
+- Copying overwrites the destination day's assignments after a brief confirmation.
+- Only copy project assignments, not pool state.
+
+## Swimlane Minimizing
+
+Priority: mid
+
+Why:
 This improves day-to-day usability without requiring major backend work.
 
 Goal:
@@ -59,9 +94,11 @@ Ideas to realize it:
 - On-hold building sites should still appear on the board by default, but greyed out and minimized.
 - If a user expands an on-hold site, prompt whether the site should be moved back to `active`.
 
-## 4. Building Site Management
+## Building Site Management
 
-Why this is foundational:
+Priority: mid
+
+Why:
 The planning board depends on clean building site data.
 
 Goal:
@@ -83,9 +120,11 @@ Decision:
 - On-hold sites remain visible on the board by default.
 - Their default presentation should be greyed out and minimized.
 
-## 5. Construction Manager Per Building Site
+## Construction Manager Per Building Site
 
-Why this is next:
+Priority: mid
+
+Why:
 This adds responsibility structure directly to planning and supports permissions and statistics later.
 
 Goal:
@@ -97,9 +136,11 @@ Ideas to realize it:
 - Show the responsible manager in the swimlane header or site details.
 - Later use this relation for filtering, permissions, and reporting.
 
-## 6. User Management For Resources And Managers
+## User Management For Resources And Managers
 
-Why this comes after the core data model:
+Priority: mid
+
+Why:
 User management becomes much easier once employee/site concepts are stable.
 
 Goal:
@@ -124,9 +165,11 @@ Recommended direction:
 - Keep one invisible, god-like admin role for full system control.
 - That admin may also be a construction manager, but does not have to be.
 
-## 7. Login To Secure The Site
+## Login To Secure The Site
 
-Why this is mid-priority:
+Priority: mid
+
+Why:
 Important for production, but the data model and user boundaries should be clarified first.
 
 Goal:
@@ -145,10 +188,12 @@ Minimum rollout:
 - Session-aware header
 - Unauthorized fallback page
 
-## 8. Account Management For Personal Account
+## Account Management For Personal Account
 
-Why this follows login:
-It only makes sense once real accounts exist.
+Priority: mid
+
+Why:
+Only makes sense once real accounts exist.
 
 Goal:
 Let logged-in managers maintain their own account information.
@@ -164,9 +209,11 @@ Ideas to realize it:
 - Keep role editable only by admins, not by the user themselves.
 - Reuse the same image upload/display approach as in user management.
 
-## 9. Copy Previous Week As Template
+## Copy Previous Week As Template
 
-Why this is separate:
+Priority: mid
+
+Why:
 It is useful, but it should be an explicit user action and not an automatic side effect.
 
 Goal:
@@ -182,10 +229,12 @@ Open choice for implementation:
 - First version can copy only assignments.
 - Later versions can include availability, collapsed swimlanes, and manager-specific view settings.
 
-## 10. Statistics On Worked Weeks
+## Statistics On Worked Weeks
 
-Why this is later:
-It depends heavily on week-based historical data and stable domain relationships.
+Priority: mid
+
+Why:
+Depends heavily on week-based historical data and stable domain relationships.
 
 Goal:
 Provide statistics by employee, building site, and construction manager.
@@ -220,9 +269,27 @@ Implementation idea for warnings:
 - Track a local "suppress historical-change warning until timestamp" in session or local storage.
 - Show the warning again automatically after 5 minutes.
 
-## 11. Docker Deployment For Local Network Hosting
+## Light Mode
 
-Why this matters:
+Priority: low
+
+Why:
+Some users prefer a light theme, especially when working in bright environments.
+
+Goal:
+Add a light mode and a toggle in the top bar to switch between dark and light themes.
+
+Ideas to realize it:
+- Use a `data-theme` attribute on the root element and define CSS variables for each theme.
+- Store the user's preference in local storage so it persists across sessions.
+- Place the toggle in the top right of the board header, using a simple sun/moon icon button.
+- Tailwind's `dark:` variant can drive most of the color switching with minimal extra classes.
+
+## Docker Deployment For Local Network Hosting
+
+Priority: low
+
+Why:
 Deployment should be reproducible and simple, especially for a small Ubuntu server in a local network.
 
 Goal:
@@ -249,19 +316,22 @@ If Caddy is used with DuckDNS:
 - Ensure `BETTER_AUTH_URL` or future auth base URL settings use the final DuckDNS HTTPS URL.
 - If the app stays local-only without public exposure, skip DuckDNS and use a local hostname or IP.
 
-## Suggested Technical Order
+## Suggested Order
 
-1. Employee availability states: vacation and sick
-2. Split-day assignments for pre-lunch / after-lunch
-3. Swimlane minimizing
-4. Building site CRUD and status fields
-5. Construction manager relation on building sites
-6. User/resource management split
-7. Authentication and route protection
-8. Personal account management
-9. Copy previous week as template
-10. Statistics and reporting
-11. Docker deployment and production documentation
+- Grey out other days while dragging
+- Employee availability: vacation and sick
+- Split-day assignments for pre-lunch / after-lunch
+- Copy assignments from another day
+- Swimlane minimizing
+- Building site CRUD and status fields
+- Construction manager relation on building sites
+- User/resource management split
+- Authentication and route protection
+- Personal account management
+- Copy previous week as template
+- Statistics and reporting
+- Light mode
+- Docker deployment and production documentation
 
 ## Confirmed Product Decisions
 
