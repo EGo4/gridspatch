@@ -19,13 +19,13 @@ export function EmployeeCard({ employee, index, draggableId }: EmployeeCardProps
                     ref={provided.innerRef}
                     {...provided.draggableProps}
                     {...provided.dragHandleProps}
-                    className={`flex items-center gap-2.5 p-1.5 rounded-full border text-sm w-auto min-w-[140px] max-w-full ${snapshot.isDragging ? "bg-[#3f3e45] z-50 scale-105" : "bg-[#302f36]"
+                    className={`flex w-full min-w-max items-center gap-2.5 rounded-full border p-1.5 text-sm ${snapshot.isDragging ? "bg-[#3f3e45] z-50 scale-105" : "bg-[#302f36]"
                         }`}
                 >
                     <div className="w-8 h-8 rounded-full bg-gray-600 flex-shrink-0 overflow-hidden">
                         {employee.img && <img src={employee.img} alt={employee.name} className="w-full h-full object-cover" />}
                     </div>
-                    <span className="font-medium text-xs text-[#ececef] truncate">{employee.name}</span>
+                    <span className="whitespace-nowrap font-medium text-xs text-[#ececef]">{employee.name}</span>
                 </div>
             )}
         </Draggable>

@@ -134,7 +134,7 @@ export function BoardClient({ dbProjects, dbEmployees, dbAssignments }: BoardCli
 
                         <div className="flex gap-4">
                             {DAYS.map(day => (
-                                <div key={day} className={`w-full lg:w-80 flex-shrink-0 bg-[#28272d] rounded-md p-2.5 font-semibold text-sm ${day === activeDay ? 'flex' : 'hidden'} lg:flex`}>
+                                <div key={day} className={`w-full lg:min-w-max lg:flex-1 bg-[#28272d] rounded-md p-2.5 font-semibold text-sm ${day === activeDay ? 'flex' : 'hidden'} lg:flex`}>
                                     {day}
                                 </div>
                             ))}
@@ -152,7 +152,7 @@ export function BoardClient({ dbProjects, dbEmployees, dbAssignments }: BoardCli
                                                     <div
                                                         ref={provided.innerRef}
                                                         {...provided.droppableProps}
-                                                        className={`w-full lg:w-80 flex-shrink-0 min-h-[60px] rounded-md p-2.5 flex-col gap-2.5 border ${day === activeDay ? 'flex' : 'hidden'} lg:flex ${snapshot.isDraggingOver ? "bg-[#333238] border-[#5a5961]" : "bg-[#28272d] border-[#313036]"}`}
+                                                        className={`w-full lg:min-w-max lg:flex-1 min-h-[60px] rounded-md p-2.5 flex-col gap-2.5 border ${day === activeDay ? 'flex' : 'hidden'} lg:flex ${snapshot.isDraggingOver ? "bg-[#333238] border-[#5a5961]" : "bg-[#28272d] border-[#313036]"}`}
                                                     >
                                                         {assignmentsState[cellId]?.map((emp, index) => (
                                                             <EmployeeCard
@@ -183,7 +183,7 @@ export function BoardClient({ dbProjects, dbEmployees, dbAssignments }: BoardCli
                                                 <div
                                                     ref={provided.innerRef}
                                                     {...provided.droppableProps}
-                                                    className={`w-full lg:w-80 flex-shrink-0 min-h-[60px] rounded-md p-2.5 flex-col gap-2.5 border border-dashed ${day === activeDay ? 'flex' : 'hidden'} lg:flex ${snapshot.isDraggingOver ? "bg-[#333238]" : "border-[#4a4950]"}`}
+                                                    className={`w-full lg:min-w-max lg:flex-1 min-h-[60px] rounded-md p-2.5 flex-col gap-2.5 border border-dashed ${day === activeDay ? 'flex' : 'hidden'} lg:flex ${snapshot.isDraggingOver ? "bg-[#333238]" : "border-[#4a4950]"}`}
                                                 >
                                                     {assignmentsState[poolId]?.map((emp, index) => (
                                                         <EmployeeCard
