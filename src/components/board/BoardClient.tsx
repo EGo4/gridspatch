@@ -2,7 +2,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { DragDropContext, Droppable, DropResult } from "@hello-pangea/dnd";
+import { DragDropContext, Droppable } from "@hello-pangea/dnd";
+import type { DropResult } from "@hello-pangea/dnd";
 import { updateAssignment } from "~/server/actions/board";
 import { DAYS, DAY_DATES } from "~/lib/constants";
 import { EmployeeCard } from "./EmployeeCard";
@@ -19,6 +20,17 @@ export function BoardClient({ dbProjects, dbEmployees, dbAssignments }: BoardCli
     const [activeDay, setActiveDay] = useState("Monday");
     const [isLoaded, setIsLoaded] = useState(false);
 
+    const getDayFromDroppableId = (droppableId: string) => {
+        if (droppableId.startsWith("pool-")) {
+            return droppableId.replace("pool-", "");
+        }
+
+        return DAYS.find(day => droppableId.endsWith(`-${day}`)) ?? "";
+    };
+
+    const getDraggableId = (employeeId: string, day: string) => `${employeeId}::${day}`;
+    const getEmployeeIdFromDraggableId = (draggableId: string) => draggableId.split("::")[0] ?? draggableId;
+
     useEffect(() => {
         const initialState: Record<string, Employee[]> = {};
 
@@ -26,18 +38,20 @@ export function BoardClient({ dbProjects, dbEmployees, dbAssignments }: BoardCli
         DAYS.forEach(d => initialState[`pool-${d}`] = [...dbEmployees]);
 
         dbAssignments.forEach(assignment => {
-            const dayName = Object.keys(DAY_DATES).find(
-                key => new Date(DAY_DATES[key]).getTime() === assignment.date.getTime()
+            const dayName = (Object.entries(DAY_DATES) as Array<[string, string]>).find(
+                ([, dateIso]) => new Date(dateIso).getTime() === assignment.date.getTime()
             );
 
             if (!dayName) return;
+            const [resolvedDayName] = dayName;
             const employee = dbEmployees.find(e => e.id === assignment.employeeId);
             if (!employee) return;
 
-            initialState[`pool-${dayName}`] = initialState[`pool-${dayName}`].filter(e => e.id !== employee.id);
+            const poolId = `pool-${resolvedDayName}`;
+            initialState[poolId] = (initialState[poolId] ?? []).filter(e => e.id !== employee.id);
 
             if (assignment.projectId) {
-                const cellId = `${assignment.projectId}-${dayName}`;
+                const cellId = `${assignment.projectId}-${resolvedDayName}`;
                 if (initialState[cellId]) {
                     initialState[cellId].push(employee);
                 }
@@ -52,9 +66,17 @@ export function BoardClient({ dbProjects, dbEmployees, dbAssignments }: BoardCli
         const { source, destination, draggableId } = result;
         if (!destination) return;
 
-        const sourceList = [...assignmentsState[source.droppableId]];
-        const destList = [...assignmentsState[destination.droppableId]];
+        const sourceDay = getDayFromDroppableId(source.droppableId);
+        const destinationDay = getDayFromDroppableId(destination.droppableId);
+
+        if (!sourceDay || !destinationDay || sourceDay !== destinationDay) {
+            return;
+        }
+
+        const sourceList = [...(assignmentsState[source.droppableId] ?? [])];
+        const destList = [...(assignmentsState[destination.droppableId] ?? [])];
         const [removed] = sourceList.splice(source.index, 1);
+        if (!removed) return;
 
         if (source.droppableId === destination.droppableId) {
             sourceList.splice(destination.index, 0, removed);
@@ -84,7 +106,7 @@ export function BoardClient({ dbProjects, dbEmployees, dbAssignments }: BoardCli
 
         const targetDateIso = DAY_DATES[targetDay];
         if (targetDateIso) {
-            await updateAssignment(draggableId, targetProjectId, targetDateIso);
+            await updateAssignment(getEmployeeIdFromDraggableId(draggableId), targetProjectId, targetDateIso);
         }
     };
 
@@ -125,7 +147,7 @@ export function BoardClient({ dbProjects, dbEmployees, dbAssignments }: BoardCli
                                     {DAYS.map(day => {
                                         const cellId = `${project.id}-${day}`;
                                         return (
-                                            <Droppable key={cellId} droppableId={cellId}>
+                                            <Droppable key={cellId} droppableId={cellId} type={day}>
                                                 {(provided, snapshot) => (
                                                     <div
                                                         ref={provided.innerRef}
@@ -133,7 +155,12 @@ export function BoardClient({ dbProjects, dbEmployees, dbAssignments }: BoardCli
                                                         className={`w-full lg:w-80 flex-shrink-0 min-h-[60px] rounded-md p-2.5 flex-col gap-2.5 border ${day === activeDay ? 'flex' : 'hidden'} lg:flex ${snapshot.isDraggingOver ? "bg-[#333238] border-[#5a5961]" : "bg-[#28272d] border-[#313036]"}`}
                                                     >
                                                         {assignmentsState[cellId]?.map((emp, index) => (
-                                                            <EmployeeCard key={emp.id} employee={emp} index={index} />
+                                                            <EmployeeCard
+                                                                key={`${emp.id}-${day}`}
+                                                                employee={emp}
+                                                                index={index}
+                                                                draggableId={getDraggableId(emp.id, day)}
+                                                            />
                                                         ))}
                                                         {provided.placeholder}
                                                     </div>
@@ -151,7 +178,7 @@ export function BoardClient({ dbProjects, dbEmployees, dbAssignments }: BoardCli
                                 {DAYS.map(day => {
                                     const poolId = `pool-${day}`;
                                     return (
-                                        <Droppable key={poolId} droppableId={poolId}>
+                                        <Droppable key={poolId} droppableId={poolId} type={day}>
                                             {(provided, snapshot) => (
                                                 <div
                                                     ref={provided.innerRef}
@@ -159,7 +186,12 @@ export function BoardClient({ dbProjects, dbEmployees, dbAssignments }: BoardCli
                                                     className={`w-full lg:w-80 flex-shrink-0 min-h-[60px] rounded-md p-2.5 flex-col gap-2.5 border border-dashed ${day === activeDay ? 'flex' : 'hidden'} lg:flex ${snapshot.isDraggingOver ? "bg-[#333238]" : "border-[#4a4950]"}`}
                                                 >
                                                     {assignmentsState[poolId]?.map((emp, index) => (
-                                                        <EmployeeCard key={emp.id} employee={emp} index={index} />
+                                                        <EmployeeCard
+                                                            key={`${emp.id}-${day}`}
+                                                            employee={emp}
+                                                            index={index}
+                                                            draggableId={getDraggableId(emp.id, day)}
+                                                        />
                                                     ))}
                                                     {provided.placeholder}
                                                 </div>

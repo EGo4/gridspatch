@@ -8,11 +8,12 @@ import type { Employee } from "~/types";
 interface EmployeeCardProps {
     employee: Employee;
     index: number;
+    draggableId: string;
 }
 
-export function EmployeeCard({ employee, index }: EmployeeCardProps) {
+export function EmployeeCard({ employee, index, draggableId }: EmployeeCardProps) {
     return (
-        <Draggable draggableId={employee.id} index={index}>
+        <Draggable draggableId={draggableId} index={index}>
             {(provided, snapshot) => (
                 <div
                     ref={provided.innerRef}
