@@ -6,8 +6,8 @@ import { DragDropContext, Droppable } from "@hello-pangea/dnd";
 import type { DragStart, DropResult } from "@hello-pangea/dnd";
 
 import { EmployeeCard } from "./EmployeeCard";
-import { SyringeIcon, PalmTreeIcon } from "~/components/icons";
-import { updateAssignment, splitAssignment, mergeAssignment } from "~/server/actions/board";
+import { SyringeIcon, PalmTreeIcon, CopyIcon } from "~/components/icons";
+import { updateAssignment, splitAssignment, mergeAssignment, copyDayAssignments } from "~/server/actions/board";
 import { DAYS } from "~/lib/constants";
 import {
   getDayNameFromDate,
@@ -100,8 +100,22 @@ export function BoardClient({
   const [openCardId, setOpenCardId] = useState<string | null>(null);
   const [availability, setAvailability] = useState<Record<string, AvailabilityStatus>>({});
   const [sickVacationCollapsed, setSickVacationCollapsed] = useState(true);
+  const [copyPopoverDay, setCopyPopoverDay] = useState<string | null>(null);
 
   const weekDates = getWeekDateMap(selectedWeek.startDateIso);
+
+  // ── Close copy popover on outside click or Escape ─────────────────────────
+  useEffect(() => {
+    if (!copyPopoverDay) return;
+    const handleClick = () => setCopyPopoverDay(null);
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") setCopyPopoverDay(null); };
+    document.addEventListener("click", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("click", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [copyPopoverDay]);
 
   // ── Initialise state from DB ───────────────────────────────────────────────
 
@@ -208,6 +222,61 @@ export function BoardClient({
     }
   };
 
+  // ── Copy day ──────────────────────────────────────────────────────────────
+
+  const copyDay = (sourceDay: string, targetDay: string) => {
+    setAssignmentsState((prev) => {
+      const next = { ...prev };
+
+      // Clear all project cells for the target day.
+      dbProjects.forEach((project) => {
+        next[fullDayDroppableId(project.id, targetDay)]    = [];
+        next[preLunchDroppableId(project.id, targetDay)]   = [];
+        next[afterLunchDroppableId(project.id, targetDay)] = [];
+      });
+
+      // Copy each project cell from source to target.
+      dbProjects.forEach((project) => {
+        next[fullDayDroppableId(project.id, targetDay)]    = [...(prev[fullDayDroppableId(project.id, sourceDay)]    ?? [])];
+        next[preLunchDroppableId(project.id, targetDay)]   = [...(prev[preLunchDroppableId(project.id, sourceDay)]   ?? [])];
+        next[afterLunchDroppableId(project.id, targetDay)] = [...(prev[afterLunchDroppableId(project.id, sourceDay)] ?? [])];
+      });
+
+      // Rebuild the pool for the target day: anyone not in a project cell and
+      // not marked sick/vacation goes back to the pool.
+      const assignedInTarget = new Set<string>();
+      dbProjects.forEach((project) => {
+        [
+          fullDayDroppableId(project.id, targetDay),
+          preLunchDroppableId(project.id, targetDay),
+          afterLunchDroppableId(project.id, targetDay),
+        ].forEach((cellId) => {
+          (next[cellId] ?? []).forEach((e) => assignedInTarget.add(e.employee.id));
+        });
+      });
+
+      const unavailableInTarget = new Set(
+        Object.keys(availability)
+          .filter((key) => key.endsWith(`-${targetDay}`))
+          .map((key) => key.slice(0, -(targetDay.length + 1))),
+      );
+
+      next[poolFullDayId(targetDay)] = dbEmployees
+        .filter((e) => !assignedInTarget.has(e.id) && !unavailableInTarget.has(e.id))
+        .map((e) => ({ employee: e, dayPart: "full_day" as DayPart }));
+
+      return next;
+    });
+
+    setCopyPopoverDay(null);
+
+    const sourceDateIso = weekDates[sourceDay as keyof typeof weekDates];
+    const targetDateIso = weekDates[targetDay as keyof typeof weekDates];
+    if (sourceDateIso && targetDateIso) {
+      void copyDayAssignments(sourceDateIso, targetDateIso, selectedWeek.id);
+    }
+  };
+
   // ── Split day ─────────────────────────────────────────────────────────────
   // Only allowed from project cells (pool cards don't have a split button).
 
@@ -277,6 +346,7 @@ export function BoardClient({
     setDraggingDay(getDayFromDroppableId(start.source.droppableId) || null);
     setDraggingDayPart(parseFromDraggableId(start.draggableId).dayPart);
     setOpenCardId(null);
+    setCopyPopoverDay(null);
   };
 
   const onDragEnd = async (result: DropResult) => {
@@ -577,9 +647,10 @@ export function BoardClient({
               {DAYS.map((day) => (
                 <div
                   key={day}
-                  className={`w-full lg:min-w-max lg:flex-1 rounded-md p-2.5 font-semibold text-sm transition-opacity duration-150 ${
+                  onClick={(e) => e.stopPropagation()}
+                  className={`relative w-full lg:min-w-max lg:flex-1 rounded-md p-2.5 font-semibold text-sm transition-opacity duration-150 ${
                     day === activeDay ? "flex" : "hidden"
-                  } lg:flex ${
+                  } lg:flex items-center justify-between ${
                     draggingDay && day === draggingDay
                       ? "bg-[#2d3748] text-blue-300 ring-1 ring-inset ring-blue-500/40"
                       : draggingDay
@@ -587,7 +658,40 @@ export function BoardClient({
                       : "bg-[#28272d]"
                   }`}
                 >
-                  {day}
+                  <span>{day}</span>
+                  {!draggingDay && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCopyPopoverDay(copyPopoverDay === day ? null : day);
+                      }}
+                      title={`Copy assignments to ${day}`}
+                      className="flex items-center rounded bg-[#3a3940] p-1.5 text-[#c8c4be] transition-colors hover:bg-[#4a4950] hover:text-white"
+                    >
+                      <CopyIcon size={14} />
+                    </button>
+                  )}
+                  {copyPopoverDay === day && (
+                    <div className="absolute top-full left-0 z-50 mt-1 min-w-[140px] rounded-lg border border-[#313036] bg-[#1f1e24] p-2 shadow-xl">
+                      <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#6b6875]">
+                        Copy from
+                      </div>
+                      {DAYS.filter((d) => d !== day).map((sourceDay) => (
+                        <button
+                          key={sourceDay}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            copyDay(sourceDay, day);
+                          }}
+                          className="block w-full rounded px-2 py-1.5 text-left text-xs font-medium text-[#a09fa6] transition-colors hover:bg-[#333238] hover:text-[#ececef]"
+                        >
+                          {sourceDay}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -77,6 +77,7 @@ await run(
           return [
             {
               date: new Date("2026-04-13T00:00:00.000Z"),
+              dayPart: "full_day",
               employeeId: "employee-1",
               id: "assignment-1",
               projectId: "project-1",

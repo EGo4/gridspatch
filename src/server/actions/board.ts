@@ -3,12 +3,17 @@
 import { db } from "~/server/db";
 import type { DayPart } from "~/types";
 
+type AssignmentRow = {
+  employeeId: string;
+  projectId: string | null;
+  dayPart: string;
+};
+
 // Manual type shim until the generated Prisma client catches up after migration.
-type AssignmentDb = typeof db & {
+type AssignmentDb = {
   assignment: {
-    deleteMany: (args: {
-      where: { employeeId: string; date: Date; dayPart?: string };
-    }) => Promise<unknown>;
+    deleteMany: (args: { where: unknown }) => Promise<unknown>;
+    findMany: (args: { where: unknown }) => Promise<AssignmentRow[]>;
     upsert: (args: {
       where: { employeeId_date_dayPart: { employeeId: string; date: Date; dayPart: string } };
       update: { projectId: string | null; weekId: string };
@@ -127,6 +132,44 @@ export async function mergeAssignment(
     update: { projectId, weekId },
     create: { employeeId, projectId, date, weekId, dayPart: "full_day" },
   });
+
+  return { success: true };
+}
+
+/**
+ * Copy all project assignments from one day to another within the same week.
+ * Overwrites any existing project assignments on the target date.
+ * Pool state is not affected.
+ */
+export async function copyDayAssignments(
+  sourceDateIso: string,
+  targetDateIso: string,
+  weekId: string,
+) {
+  const sourceDate = new Date(sourceDateIso);
+  const targetDate = new Date(targetDateIso);
+  const assignmentDb = db as unknown as AssignmentDb;
+
+  const sourceAssignments = await assignmentDb.assignment.findMany({
+    where: { date: sourceDate, weekId, NOT: { projectId: null } },
+  });
+
+  await assignmentDb.assignment.deleteMany({
+    where: { date: targetDate, weekId, NOT: { projectId: null } },
+  });
+
+  if (sourceAssignments.length > 0) {
+    await assignmentDb.assignment.createMany({
+      data: sourceAssignments.map((a) => ({
+        employeeId: a.employeeId,
+        projectId: a.projectId,
+        date: targetDate,
+        weekId,
+        dayPart: a.dayPart,
+      })),
+      skipDuplicates: true,
+    });
+  }
 
   return { success: true };
 }

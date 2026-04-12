@@ -3,22 +3,6 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## Copy Assignments From Another Day
-
-Priority: mid
-
-Why:
-Repeating the same staffing pattern across days is common. A one-click copy action saves time without disrupting the drag-and-drop workflow.
-
-Goal:
-Let users copy all assignments from one day column into another day column within the same week.
-
-Ideas to realize it:
-- Add a right-aligned copy button in the day column header, next to the day name.
-- Clicking it opens a small popover or inline menu to select the source day.
-- Copying overwrites the destination day's assignments after a brief confirmation.
-- Only copy project assignments, not pool state.
-
 ## Swimlane Minimizing
 
 Priority: mid
