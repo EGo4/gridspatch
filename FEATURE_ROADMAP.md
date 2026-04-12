@@ -3,27 +3,6 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## Split Employee Days Into Pre-Lunch / After-Lunch
-
-Priority: high
-
-Why:
-This directly affects the planning model and should be designed before the assignment system becomes more complex.
-
-Goal:
-Allow a single employee day to be split into half-day assignments, with quick actions similar to vacation and sick marking.
-
-Ideas to realize it:
-- Model each day as two assignable slots: `morning` and `afternoon`, or `preLunch` and `afterLunch`.
-- Let a quick action on the employee card switch a full-day availability into split-day mode.
-- Allow marking only one half as vacation/sick if needed later, even if the first version only supports splitting for assignments.
-- In the UI, show a compact two-segment card or two stacked mini-cards inside the same day cell.
-- Keep full-day assignment as the default to avoid slowing down the common case.
-
-Possible schema shape:
-- Add a `dayPart` field on assignments such as `full_day`, `pre_lunch`, `after_lunch`.
-- If you want stricter data consistency, prevent multiple assignments for the same employee, date, and day-part combination.
-
 ## Copy Assignments From Another Day
 
 Priority: mid

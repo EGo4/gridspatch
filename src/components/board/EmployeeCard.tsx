@@ -3,28 +3,38 @@
 
 import React from "react";
 import { Draggable } from "@hello-pangea/dnd";
-import type { Employee } from "~/types";
-import { SyringeIcon, PalmTreeIcon } from "~/components/icons";
+import type { DayPart, Employee } from "~/types";
+import { SyringeIcon, PalmTreeIcon, SplitDayIcon, MergeIcon } from "~/components/icons";
 
 interface EmployeeCardProps {
   employee: Employee;
   index: number;
   draggableId: string;
+  dayPart: DayPart;
   isOpen: boolean;
   onToggle: () => void;
   onMarkSick: () => void;
   onMarkVacation: () => void;
+  /** Only passed for full-day cards inside a project cell (not pool). */
+  onSplitDay?: () => void;
+  /** Only passed for half-day cards. */
+  onMergeDay?: () => void;
 }
 
 export function EmployeeCard({
   employee,
   index,
   draggableId,
+  dayPart,
   isOpen,
   onToggle,
   onMarkSick,
   onMarkVacation,
+  onSplitDay,
+  onMergeDay,
 }: EmployeeCardProps) {
+  const isHalfDay = dayPart !== "full_day";
+
   return (
     <Draggable draggableId={draggableId} index={index}>
       {(provided, snapshot) => (
@@ -37,43 +47,74 @@ export function EmployeeCard({
           <div
             {...provided.dragHandleProps}
             onClick={onToggle}
-            className={`flex w-full min-w-max cursor-pointer select-none items-center gap-2.5 rounded-full border p-1.5 text-sm transition-colors ${
+            className={`flex w-full ${isHalfDay ? "min-w-0" : "min-w-max"} cursor-pointer select-none items-center gap-2.5 rounded-full border p-1.5 text-sm transition-colors ${
               snapshot.isDragging
                 ? "scale-105 border-[#5a5961] bg-[#3f3e45]"
                 : isOpen
                   ? "border-[#5a5961] bg-[#3a3940]"
-                  : "border-transparent bg-[#302f36] hover:border-[#4a4950]"
+                  : dayPart === "pre_lunch"
+                    ? "border-[var(--am-border)] bg-[var(--am-card)]"
+                    : dayPart === "after_lunch"
+                      ? "border-[var(--pm-border)] bg-[var(--pm-card)]"
+                      : "border-transparent bg-[#302f36] hover:border-[#4a4950]"
             }`}
           >
-            <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-full bg-gray-600">
+            <div className="h-7 w-7 flex-shrink-0 overflow-hidden rounded-full bg-gray-600">
               {employee.img && (
                 <img src={employee.img} alt={employee.name} className="h-full w-full object-cover" />
               )}
             </div>
-            <span className="whitespace-nowrap text-xs font-medium text-[#ececef]">
+            <span className={`text-xs font-medium text-[#ececef] ${isHalfDay ? "truncate" : "whitespace-nowrap"}`}>
               {employee.name}
             </span>
           </div>
 
-          {/* Sick button */}
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onMarkSick(); }}
-            title="Mark as sick"
-            className="fly-btn fly-btn-sick text-[#c8c4be]"
-          >
-            <SyringeIcon />
-          </button>
+          {/* Fly-out buttons */}
+          {isHalfDay ? (
+            /* Half-day card: only merge button */
+            onMergeDay && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onMergeDay(); }}
+                title="Merge back to full day"
+                className="fly-btn fly-btn-merge text-[#c8c4be]"
+              >
+                <MergeIcon />
+              </button>
+            )
+          ) : (
+            /* Full-day card: split (optional), sick, vacation */
+            <>
+              {onSplitDay && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onSplitDay(); }}
+                  title="Split into half-days"
+                  className="fly-btn fly-btn-split text-[#c8c4be]"
+                >
+                  <SplitDayIcon />
+                </button>
+              )}
 
-          {/* Vacation button */}
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onMarkVacation(); }}
-            title="Mark as on vacation"
-            className="fly-btn fly-btn-vacation text-[#c8c4be]"
-          >
-            <PalmTreeIcon />
-          </button>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onMarkSick(); }}
+                title="Mark as sick"
+                className={`fly-btn fly-btn-sick text-[#c8c4be] ${!onSplitDay ? "fly-btn-sick-nosplit" : ""}`}
+              >
+                <SyringeIcon />
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onMarkVacation(); }}
+                title="Mark as on vacation"
+                className="fly-btn fly-btn-vacation text-[#c8c4be]"
+              >
+                <PalmTreeIcon />
+              </button>
+            </>
+          )}
         </div>
       )}
     </Draggable>

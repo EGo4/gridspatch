@@ -5,6 +5,19 @@
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
+/* ── AM / PM colour tokens ─────────────────────────────────────────────────── */
+:root {
+  --am-zone:         #2c2619;   /* warm dark amber — AM background */
+  --am-zone-active:  #38301e;   /* AM background when dragging over */
+  --am-card:         #302818;   /* AM employee card background */
+  --am-border:       #4a3c1e;   /* AM card border */
+
+  --pm-zone:         #1a2232;   /* cool dark blue — PM background */
+  --pm-zone-active:  #1f2b3e;   /* PM background when dragging over */
+  --pm-card:         #1c263e;   /* PM employee card background */
+  --pm-border:       #253350;   /* PM card border */
+}
+
 /* ── Employee card fly-out buttons ─────────────────────────────────────────── */
 /*
  * Card height ≈ 44 px  (p-1.5 × 2 = 12 px  +  avatar h-8 = 32 px).
@@ -49,6 +62,30 @@
 }
 .fly-btn-vacation:hover { background-color: #5a4c24; }
 
+/*
+ * Split (✂) — third from right:
+ *   right: 44 + 36 + 4 = 84 px
+ */
+.fly-btn-split {
+  right: 84px;
+  background-color: #1e3a5f;
+  transform: translateY(-50%) scale(0);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
+  transition-delay: 100ms;
+}
+.fly-btn-split:hover { background-color: #274d7a; }
+
+/*
+ * Merge (↩) — on half-day cards only, single button at right: 4px.
+ */
+.fly-btn-merge {
+  right: 4px;
+  background-color: #1a3a2e;
+  transform: translateY(-50%) scale(0);
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
+}
+.fly-btn-merge:hover { background-color: #234d3c; }
+
 /* Open state */
 .card-open .fly-btn-sick {
   transform: translateY(-50%) scale(1);
@@ -60,4 +97,119 @@
   transform: translateY(-50%) scale(1);
   opacity: 1;
   pointer-events: auto;
+}
+
+.card-open .fly-btn-split {
+  transform: translateY(-50%) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.card-open .fly-btn-merge {
+  transform: translateY(-50%) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ── Half-day divider inside a day cell ─────────────────────────────────────── */
+.half-day-divider {
+  width: 100%;
+  border-top: 1px dashed #4a4950;
+  margin: 2px 0;
+}
+
+/* ── Day cell — container query root ──────────────────────────────────────── */
+/*
+ * Applied to each project day cell so that child container queries can
+ * adapt the AM/PM layout based on the actual cell width.
+ */
+.day-cell {
+  container-type: inline-size;
+}
+
+/* ── AM / PM columns wrapper ──────────────────────────────────────────────── */
+/*
+ * Stacked (column) by default — switches to side-by-side (row) once the
+ * cell container is at least 260 px wide.  The threshold is chosen so that
+ * two employee cards can sit comfortably next to each other.
+ */
+.half-day-cols {
+  display: flex;
+  flex-direction: column;
+}
+
+@container (min-width: 260px) {
+  .half-day-cols {
+    flex-direction: row;
+  }
+}
+
+/* ── Divider between AM and PM ───────────────────────────────────────────── */
+/*
+ * Horizontal line when stacked, vertical line when side-by-side.
+ */
+.half-day-col-divider {
+  background-color: #3a3940;
+  flex-shrink: 0;
+  /* Default (stacked): horizontal line */
+  width: 100%;
+  height: 1px;
+  margin: 2px 0;
+}
+
+@container (min-width: 260px) {
+  .half-day-col-divider {
+    /* Side-by-side: vertical line */
+    width: 1px;
+    height: auto;
+    margin: 6px 0;
+  }
+}
+
+/* ── Half-day section visibility helpers ────────────────────────────────────── */
+/*
+ * The AM/PM Droppables must always have a usable bounding rect so that
+ * @hello-pangea/dnd (which snapshots Droppable positions at drag-start) can
+ * register them as valid drop targets even before a split exists in this cell.
+ *
+ * Solution: always give each column a 32 px minimum height, but hide it via
+ * opacity when there is nothing to show.  The opacity is toggled in JSX based
+ * on `showHalfSection || snapshot.isDraggingOver`.
+ */
+.half-col-visible   { min-height: 40px; }
+.half-col-collapsed { min-height: 32px; }
+
+/*
+ * Half-day column flex sizing:
+ *   Stacked (default): flex: 1 0 auto  — starts at content height, can grow,
+ *     never shrinks below content, so cards never overflow into the other zone.
+ *   Side-by-side (≥260px): flex: 1 1 0% — equal width split.
+ */
+.half-day-col {
+  flex: 0 0 auto;
+}
+
+@container (min-width: 260px) {
+  .half-day-col {
+    flex: 1 1 0%;
+  }
+}
+
+/*
+ * Applied to the full-day Droppable when the split section is also visible,
+ * so the split zone (not the full-day zone) fills the remaining cell height.
+ */
+.fd-no-grow {
+  flex-grow: 0;
+  flex-shrink: 0;
+}
+
+/*
+ * Applied to .half-day-cols when the split section is visible so the colored
+ * AM/PM zones stretch to fill the rest of the cell height.
+ */
+.half-day-cols-fill {
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0%;
 }

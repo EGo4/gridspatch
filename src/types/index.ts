@@ -1,5 +1,7 @@
 // src/types/index.ts
 
+export type DayPart = "full_day" | "pre_lunch" | "after_lunch";
+
 export type Employee = {
   id: string;
   name: string;
@@ -16,6 +18,7 @@ export type Assignment = {
   projectId: string | null;
   date: Date;
   weekId: string;
+  dayPart: DayPart;
 };
 
 export type BoardWeek = {

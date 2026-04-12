@@ -99,9 +99,16 @@ model Week {
   assignments Assignment[]
 }
 
+enum DayPart {
+  full_day
+  pre_lunch
+  after_lunch
+}
+
 model Assignment {
   id         String   @id @default(cuid())
   date       DateTime @db.Date
+  dayPart    DayPart  @default(full_day)
   weekId     String
   week       Week     @relation(fields: [weekId], references: [id], onDelete: Cascade)
 
@@ -111,6 +118,6 @@ model Assignment {
   projectId  String?
   project    Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
 
-  @@unique([employeeId, date])
+  @@unique([employeeId, date, dayPart])
   @@index([weekId, date])
 }

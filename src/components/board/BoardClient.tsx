@@ -7,7 +7,7 @@ import type { DragStart, DropResult } from "@hello-pangea/dnd";
 
 import { EmployeeCard } from "./EmployeeCard";
 import { SyringeIcon, PalmTreeIcon } from "~/components/icons";
-import { updateAssignment } from "~/server/actions/board";
+import { updateAssignment, splitAssignment, mergeAssignment } from "~/server/actions/board";
 import { DAYS } from "~/lib/constants";
 import {
   getDayNameFromDate,
@@ -15,9 +15,16 @@ import {
   getPreviousWeekParam,
   getWeekDateMap,
 } from "~/lib/week";
-import type { Assignment, BoardWeek, Employee, Project } from "~/types";
+import type { Assignment, BoardWeek, DayPart, Employee, Project } from "~/types";
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type AvailabilityStatus = "sick" | "vacation";
+
+type EmployeeEntry = {
+  employee: Employee;
+  dayPart: DayPart;
+};
 
 interface BoardClientProps {
   dbProjects: Project[];
@@ -27,6 +34,56 @@ interface BoardClientProps {
   weeks: BoardWeek[];
 }
 
+// ── ID helpers ────────────────────────────────────────────────────────────────
+
+/**
+ * Encode a draggable ID.
+ * Format: `${employeeId}::${day}::${dayPart}`
+ */
+const getDraggableId = (employeeId: string, day: string, dayPart: DayPart) =>
+  `${employeeId}::${day}::${dayPart}`;
+
+const parseFromDraggableId = (id: string): { employeeId: string; day: string; dayPart: DayPart } => {
+  const [employeeId = "", day = "", dayPart = "full_day"] = id.split("::");
+  return { employeeId, day, dayPart: dayPart as DayPart };
+};
+
+/**
+ * Strip the `-pre` / `-post` suffix to get the base droppable ID,
+ * then extract the day name from it.
+ */
+const getDayFromDroppableId = (droppableId: string): string => {
+  const stripped = droppableId.replace(/-(pre|post)$/, "");
+  if (stripped.startsWith("pool-")) return stripped.replace("pool-", "");
+  return DAYS.find((day) => stripped.endsWith(`-${day}`)) ?? "";
+};
+
+/** Extract the projectId from a droppable ID (null for pool droppables). */
+const getProjectIdFromDroppableId = (droppableId: string): string | null => {
+  const stripped = droppableId.replace(/-(pre|post)$/, "");
+  if (stripped.startsWith("pool-")) return null;
+  const day = DAYS.find((d) => stripped.endsWith(`-${d}`));
+  if (!day) return null;
+  return stripped.slice(0, -(day.length + 1));
+};
+
+/** Determine which DayPart a droppable represents from its suffix. */
+const getDayPartFromDroppableId = (droppableId: string): DayPart => {
+  if (droppableId.endsWith("-pre")) return "pre_lunch";
+  if (droppableId.endsWith("-post")) return "after_lunch";
+  return "full_day";
+};
+
+// Droppable IDs — project cells
+const fullDayDroppableId  = (projectId: string, day: string) => `${projectId}-${day}`;
+const preLunchDroppableId = (projectId: string, day: string) => `${projectId}-${day}-pre`;
+const afterLunchDroppableId = (projectId: string, day: string) => `${projectId}-${day}-post`;
+
+// Droppable IDs — pool (full-day only, no split section)
+const poolFullDayId = (day: string) => `pool-${day}`;
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export function BoardClient({
   dbProjects,
   dbEmployees,
@@ -34,71 +91,102 @@ export function BoardClient({
   selectedWeek,
   weeks,
 }: BoardClientProps) {
-  const [assignmentsState, setAssignmentsState] = useState<Record<string, Employee[]>>({});
+  const [assignmentsState, setAssignmentsState] = useState<Record<string, EmployeeEntry[]>>({});
   const [activeDay, setActiveDay] = useState("Monday");
   const [isLoaded, setIsLoaded] = useState(false);
   const [weekDropdownOpen, setWeekDropdownOpen] = useState(false);
   const [draggingDay, setDraggingDay] = useState<string | null>(null);
+  const [draggingDayPart, setDraggingDayPart] = useState<DayPart | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
   const [availability, setAvailability] = useState<Record<string, AvailabilityStatus>>({});
   const [sickVacationCollapsed, setSickVacationCollapsed] = useState(true);
+
   const weekDates = getWeekDateMap(selectedWeek.startDateIso);
 
-  const getDayFromDroppableId = (droppableId: string) => {
-    if (droppableId.startsWith("pool-")) {
-      return droppableId.replace("pool-", "");
-    }
-    return DAYS.find((day) => droppableId.endsWith(`-${day}`)) ?? "";
-  };
-
-  const getDraggableId = (employeeId: string, day: string) => `${employeeId}::${day}`;
-  const getEmployeeIdFromDraggableId = (draggableId: string) =>
-    draggableId.split("::")[0] ?? draggableId;
+  // ── Initialise state from DB ───────────────────────────────────────────────
 
   useEffect(() => {
-    const initialState: Record<string, Employee[]> = {};
+    const state: Record<string, EmployeeEntry[]> = {};
 
+    // Seed all cells with empty arrays.
     dbProjects.forEach((project) =>
       DAYS.forEach((day) => {
-        initialState[`${project.id}-${day}`] = [];
+        state[fullDayDroppableId(project.id, day)]    = [];
+        state[preLunchDroppableId(project.id, day)]   = [];
+        state[afterLunchDroppableId(project.id, day)] = [];
       }),
     );
     DAYS.forEach((day) => {
-      initialState[`pool-${day}`] = [...dbEmployees];
+      state[poolFullDayId(day)] = [];
     });
 
+    // Track which employees are split (have any half-day assignment) per day.
+    const splitSet = new Set<string>(); // `${employeeId}-${day}`
+    const fullDayProjectAssigned = new Set<string>(); // `${employeeId}-${day}`
+
     dbAssignments.forEach((assignment) => {
-      const resolvedDayName = getDayNameFromDate(assignment.date, selectedWeek.startDateIso);
-      if (!resolvedDayName) return;
-      const employee = dbEmployees.find((entry) => entry.id === assignment.employeeId);
+      const dayName = getDayNameFromDate(assignment.date, selectedWeek.startDateIso);
+      if (!dayName) return;
+      const employee = dbEmployees.find((e) => e.id === assignment.employeeId);
       if (!employee) return;
 
-      if (assignment.projectId) {
-        const poolId = `pool-${resolvedDayName}`;
-        initialState[poolId] = (initialState[poolId] ?? []).filter(
-          (entry) => entry.id !== employee.id,
-        );
-        const cellId = `${assignment.projectId}-${resolvedDayName}`;
-        if (initialState[cellId]) {
-          initialState[cellId].push(employee);
+      const key = `${assignment.employeeId}-${dayName}`;
+
+      if (assignment.dayPart === "full_day") {
+        if (assignment.projectId) {
+          fullDayProjectAssigned.add(key);
+          const cellId = fullDayDroppableId(assignment.projectId, dayName);
+          state[cellId] = [...(state[cellId] ?? []), { employee, dayPart: "full_day" }];
+        }
+      } else if (assignment.dayPart === "pre_lunch") {
+        splitSet.add(key);
+        if (assignment.projectId) {
+          const cellId = preLunchDroppableId(assignment.projectId, dayName);
+          state[cellId] = [...(state[cellId] ?? []), { employee, dayPart: "pre_lunch" }];
+        }
+      } else if (assignment.dayPart === "after_lunch") {
+        splitSet.add(key);
+        if (assignment.projectId) {
+          const cellId = afterLunchDroppableId(assignment.projectId, dayName);
+          state[cellId] = [...(state[cellId] ?? []), { employee, dayPart: "after_lunch" }];
         }
       }
     });
 
-    setAssignmentsState(initialState);
+    // Unassigned full-day employees go to the pool.
+    // Split employees are fully represented by their project-cell halves;
+    // they don't appear in the pool.
+    dbEmployees.forEach((employee) => {
+      DAYS.forEach((day) => {
+        const key = `${employee.id}-${day}`;
+        if (!splitSet.has(key) && !fullDayProjectAssigned.has(key)) {
+          state[poolFullDayId(day)] = [
+            ...(state[poolFullDayId(day)] ?? []),
+            { employee, dayPart: "full_day" },
+          ];
+        }
+      });
+    });
+
+    setAssignmentsState(state);
     setIsLoaded(true);
   }, [dbProjects, dbEmployees, dbAssignments, selectedWeek.startDateIso]);
 
-  const toggleOpenCard = (cardId: string) => {
+  // ── Card toggle ───────────────────────────────────────────────────────────
+
+  const toggleOpenCard = (cardId: string) =>
     setOpenCardId((prev) => (prev === cardId ? null : cardId));
-  };
+
+  // ── Availability (sick / vacation) ───────────────────────────────────────
 
   const markAvailability = (employeeId: string, day: string, status: AvailabilityStatus) => {
     setAvailability((prev) => ({ ...prev, [`${employeeId}-${day}`]: status }));
     setAssignmentsState((prev) => {
       const next = { ...prev };
-      for (const key of Object.keys(next).filter((k) => k.endsWith(`-${day}`))) {
-        next[key] = (next[key] ?? []).filter((e) => e.id !== employeeId);
+      for (const key of Object.keys(next)) {
+        if (getDayFromDroppableId(key) === day) {
+          next[key] = (next[key] ?? []).filter((e) => e.employee.id !== employeeId);
+        }
       }
       return next;
     });
@@ -115,28 +203,93 @@ export function BoardClient({
     if (employee) {
       setAssignmentsState((prev) => ({
         ...prev,
-        [`pool-${day}`]: [...(prev[`pool-${day}`] ?? []), employee],
+        [poolFullDayId(day)]: [...(prev[poolFullDayId(day)] ?? []), { employee, dayPart: "full_day" }],
       }));
     }
   };
 
+  // ── Split day ─────────────────────────────────────────────────────────────
+  // Only allowed from project cells (pool cards don't have a split button).
+
+  const splitDay = (employeeId: string, day: string, sourceCellId: string) => {
+    const employee = dbEmployees.find((e) => e.id === employeeId);
+    if (!employee) return;
+
+    const projectId = getProjectIdFromDroppableId(sourceCellId);
+    if (!projectId) return;
+
+    const preId  = preLunchDroppableId(projectId, day);
+    const postId = afterLunchDroppableId(projectId, day);
+
+    setAssignmentsState((prev) => {
+      const next = { ...prev };
+      next[sourceCellId] = (next[sourceCellId] ?? []).filter(
+        (e) => !(e.employee.id === employeeId && e.dayPart === "full_day"),
+      );
+      next[preId]  = [...(next[preId]  ?? []), { employee, dayPart: "pre_lunch" }];
+      next[postId] = [...(next[postId] ?? []), { employee, dayPart: "after_lunch" }];
+      return next;
+    });
+
+    setOpenCardId(null);
+
+    const dateIso = weekDates[day as keyof typeof weekDates];
+    if (dateIso) {
+      void splitAssignment(employeeId, projectId, dateIso, selectedWeek.id);
+    }
+  };
+
+  // ── Merge day ─────────────────────────────────────────────────────────────
+
+  const mergeDay = (employeeId: string, day: string, sourceCellId: string) => {
+    const employee = dbEmployees.find((e) => e.id === employeeId);
+    if (!employee) return;
+
+    const projectId = getProjectIdFromDroppableId(sourceCellId);
+    const fdId = projectId
+      ? fullDayDroppableId(projectId, day)
+      : poolFullDayId(day);
+
+    setAssignmentsState((prev) => {
+      const next = { ...prev };
+      // Remove all halves for this employee across the whole day.
+      for (const key of Object.keys(next)) {
+        if (getDayFromDroppableId(key) === day) {
+          next[key] = (next[key] ?? []).filter((e) => e.employee.id !== employeeId);
+        }
+      }
+      // Re-add as full_day in the project cell (or pool).
+      next[fdId] = [...(next[fdId] ?? []), { employee, dayPart: "full_day" }];
+      return next;
+    });
+
+    setOpenCardId(null);
+
+    const dateIso = weekDates[day as keyof typeof weekDates];
+    if (dateIso) {
+      void mergeAssignment(employeeId, projectId, dateIso, selectedWeek.id);
+    }
+  };
+
+  // ── Drag and drop ─────────────────────────────────────────────────────────
+
   const onDragStart = (start: DragStart) => {
     setDraggingDay(getDayFromDroppableId(start.source.droppableId) || null);
+    setDraggingDayPart(parseFromDraggableId(start.draggableId).dayPart);
     setOpenCardId(null);
   };
 
   const onDragEnd = async (result: DropResult) => {
     setDraggingDay(null);
+    setDraggingDayPart(null);
     const { source, destination, draggableId } = result;
     if (!destination) return;
 
     const sourceDay = getDayFromDroppableId(source.droppableId);
     const destinationDay = getDayFromDroppableId(destination.droppableId);
-
     if (!sourceDay || !destinationDay || sourceDay !== destinationDay) return;
 
     const sourceList = [...(assignmentsState[source.droppableId] ?? [])];
-    const destList = [...(assignmentsState[destination.droppableId] ?? [])];
     const [removed] = sourceList.splice(source.index, 1);
     if (!removed) return;
 
@@ -146,38 +299,207 @@ export function BoardClient({
       return;
     }
 
-    destList.splice(destination.index, 0, removed);
+    const destList = [...(assignmentsState[destination.droppableId] ?? [])];
+
+    // When a half-day card moves between AM/PM columns, update its dayPart.
+    const destDayPart = getDayPartFromDroppableId(destination.droppableId);
+    const updatedEntry: EmployeeEntry = { ...removed, dayPart: destDayPart };
+
+    destList.splice(destination.index, 0, updatedEntry);
     setAssignmentsState({
       ...assignmentsState,
       [source.droppableId]: sourceList,
       [destination.droppableId]: destList,
     });
 
-    let targetProjectId: string | null = null;
-    let targetDay = "";
+    const { employeeId, dayPart: sourceDayPart } = parseFromDraggableId(draggableId);
+    const targetProjectId = getProjectIdFromDroppableId(destination.droppableId);
+    const targetDateIso = weekDates[destinationDay as keyof typeof weekDates];
 
-    if (destination.droppableId.startsWith("pool-")) {
-      targetDay = destination.droppableId.replace("pool-", "");
-    } else {
-      const daySuffix = DAYS.find((day) => destination.droppableId.endsWith(day));
-      if (daySuffix) {
-        targetDay = daySuffix;
-        targetProjectId = destination.droppableId.replace(`-${daySuffix}`, "");
-      }
-    }
-
-    const targetDateIso = weekDates[targetDay as keyof typeof weekDates];
     if (targetDateIso) {
-      await updateAssignment(
-        getEmployeeIdFromDraggableId(draggableId),
-        targetProjectId,
-        targetDateIso,
-        selectedWeek.id,
-      );
+      // If the card switched AM↔PM columns, delete the old assignment first.
+      if (sourceDayPart !== destDayPart && sourceDayPart !== "full_day") {
+        await updateAssignment(employeeId, null, targetDateIso, selectedWeek.id, sourceDayPart);
+      }
+      await updateAssignment(employeeId, targetProjectId, targetDateIso, selectedWeek.id, destDayPart);
     }
   };
 
+  // ── Render ────────────────────────────────────────────────────────────────
+
   if (!isLoaded) return <div className="p-10 text-white">Loading board...</div>;
+
+  /**
+   * Render a project day cell.
+   * Full-day cards sit above the horizontal divider.
+   * Below it: AM cards on the left and PM cards on the right, separated by a
+   * vertical line. The divider and half-day section are only shown when at
+   * least one half-day card exists (or the user is dragging a half-day card
+   * onto this day column so the drop zones need to be visible).
+   */
+  const renderCell = (projectId: string, day: string) => {
+    const fdId   = fullDayDroppableId(projectId, day);
+    const preId  = preLunchDroppableId(projectId, day);
+    const postId = afterLunchDroppableId(projectId, day);
+
+    const isDimmed = Boolean(draggingDay && day !== draggingDay);
+    const isDraggingFullHere = draggingDay === day && draggingDayPart === "full_day";
+    const isDraggingAmHere   = draggingDay === day && draggingDayPart === "pre_lunch";
+    const isDraggingPmHere   = draggingDay === day && draggingDayPart === "after_lunch";
+    const isDraggingHalfHere = isDraggingAmHere || isDraggingPmHere;
+
+    const hasAm = (assignmentsState[preId]  ?? []).length > 0;
+    const hasPm = (assignmentsState[postId] ?? []).length > 0;
+    const hasHalves = hasAm || hasPm;
+
+    // Show the half-section (horizontal divider + AM/PM area) whenever halves
+    // exist or a half-day card of this day is being dragged.
+    const showHalfSection = hasHalves || isDraggingHalfHere;
+
+    return (
+      <div
+        key={day}
+        className={`day-cell w-full lg:min-w-max lg:flex-1 flex flex-col rounded-md border transition-opacity duration-150 overflow-hidden ${
+          day === activeDay ? "" : "hidden"
+        } lg:flex lg:flex-col ${
+          isDimmed ? "opacity-30 border-[#252428] bg-[#28272d]" : "border-[#313036] bg-[#28272d]"
+        }`}
+      >
+        {/* Full-day section */}
+        <Droppable droppableId={fdId} type={day}>
+          {(provided, snapshot) => (
+            <div
+              ref={provided.innerRef}
+              {...provided.droppableProps}
+              className={`flex-1 min-h-[56px] p-2.5 flex flex-col gap-2.5 transition-colors ${
+                snapshot.isDraggingOver
+                  ? "bg-[#333238]"
+                  : isDraggingFullHere
+                    ? "bg-[#252e3d]"
+                    : ""
+              }`}
+            >
+              {(assignmentsState[fdId] ?? []).map((entry, index) => (
+                <EmployeeCard
+                  key={`${entry.employee.id}-${day}-full`}
+                  employee={entry.employee}
+                  index={index}
+                  draggableId={getDraggableId(entry.employee.id, day, "full_day")}
+                  dayPart="full_day"
+                  isOpen={openCardId === getDraggableId(entry.employee.id, day, "full_day")}
+                  onToggle={() => toggleOpenCard(getDraggableId(entry.employee.id, day, "full_day"))}
+                  onMarkSick={() => markAvailability(entry.employee.id, day, "sick")}
+                  onMarkVacation={() => markAvailability(entry.employee.id, day, "vacation")}
+                  onSplitDay={() => splitDay(entry.employee.id, day, fdId)}
+                />
+              ))}
+              {provided.placeholder}
+            </div>
+          )}
+        </Droppable>
+
+        {/* Horizontal divider — only when this cell has split employees */}
+        {showHalfSection && <div className="half-day-divider mx-2.5" />}
+
+        {/* AM / PM columns — always mounted for DnD at real height so @hello-pangea/dnd
+             can detect them even before any split exists in this cell.
+             Invisible (opacity-0) when there is nothing to show; visible on drag-over.
+             isDropDisabled prevents AM cards landing in PM and vice versa. */}
+        <div className="half-day-cols overflow-hidden flex-none">
+          {/* AM column — rejects PM card drops */}
+          <Droppable
+            droppableId={preId}
+            type={`${day}-half`}
+            isDropDisabled={draggingDayPart === "after_lunch"}
+          >
+            {(provided, snapshot) => {
+              return (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className={`half-day-col flex flex-col gap-2 transition-all ${
+                    showHalfSection ? "p-2 pb-2.5 half-col-visible" : "half-col-collapsed"
+                  } ${showHalfSection ? "" : "opacity-0"} ${
+                    snapshot.isDraggingOver
+                      ? "bg-[var(--am-zone-active)]"
+                      : showHalfSection
+                        ? "bg-[var(--am-zone)]"
+                        : ""
+                  }`}
+                >
+                  {showHalfSection && (
+                    <div className="text-[9px] font-semibold text-[#6b6875] uppercase tracking-wider">AM</div>
+                  )}
+                  {(assignmentsState[preId] ?? []).map((entry, index) => (
+                    <EmployeeCard
+                      key={`${entry.employee.id}-${day}-pre`}
+                      employee={entry.employee}
+                      index={index}
+                      draggableId={getDraggableId(entry.employee.id, day, "pre_lunch")}
+                      dayPart="pre_lunch"
+                      isOpen={openCardId === getDraggableId(entry.employee.id, day, "pre_lunch")}
+                      onToggle={() => toggleOpenCard(getDraggableId(entry.employee.id, day, "pre_lunch"))}
+                      onMarkSick={() => markAvailability(entry.employee.id, day, "sick")}
+                      onMarkVacation={() => markAvailability(entry.employee.id, day, "vacation")}
+                      onMergeDay={() => mergeDay(entry.employee.id, day, preId)}
+                    />
+                  ))}
+                  {provided.placeholder}
+                </div>
+              );
+            }}
+          </Droppable>
+
+          {/* Divider — shown whenever the split section is visible */}
+          {showHalfSection && <div className="half-day-col-divider" />}
+
+          {/* PM column — rejects AM card drops */}
+          <Droppable
+            droppableId={postId}
+            type={`${day}-half`}
+            isDropDisabled={draggingDayPart === "pre_lunch"}
+          >
+            {(provided, snapshot) => {
+              return (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  className={`half-day-col flex flex-col gap-2 transition-all ${
+                    showHalfSection ? "p-2 pb-2.5 half-col-visible" : "half-col-collapsed"
+                  } ${showHalfSection ? "" : "opacity-0"} ${
+                    snapshot.isDraggingOver
+                      ? "bg-[var(--pm-zone-active)]"
+                      : showHalfSection
+                        ? "bg-[var(--pm-zone)]"
+                        : ""
+                  }`}
+                >
+                  {showHalfSection && (
+                    <div className="text-[9px] font-semibold text-[#6b6875] uppercase tracking-wider">PM</div>
+                  )}
+                  {(assignmentsState[postId] ?? []).map((entry, index) => (
+                    <EmployeeCard
+                      key={`${entry.employee.id}-${day}-post`}
+                      employee={entry.employee}
+                      index={index}
+                      draggableId={getDraggableId(entry.employee.id, day, "after_lunch")}
+                      dayPart="after_lunch"
+                      isOpen={openCardId === getDraggableId(entry.employee.id, day, "after_lunch")}
+                      onToggle={() => toggleOpenCard(getDraggableId(entry.employee.id, day, "after_lunch"))}
+                      onMarkSick={() => markAvailability(entry.employee.id, day, "sick")}
+                      onMarkVacation={() => markAvailability(entry.employee.id, day, "vacation")}
+                      onMergeDay={() => mergeDay(entry.employee.id, day, postId)}
+                    />
+                  ))}
+                  {provided.placeholder}
+                </div>
+              );
+            }}
+          </Droppable>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-[#1f1e24] font-sans text-[#ececef] flex flex-col lg:flex-row">
@@ -275,88 +597,60 @@ export function BoardClient({
               <div key={project.id} className="flex flex-col gap-2">
                 <div className="py-1 text-sm font-semibold">{project.name}</div>
                 <div className="flex gap-4 items-stretch">
-                  {DAYS.map((day) => {
-                    const cellId = `${project.id}-${day}`;
-                    return (
-                      <Droppable key={cellId} droppableId={cellId} type={day}>
+                  {DAYS.map((day) => renderCell(project.id, day))}
+                </div>
+              </div>
+            ))}
+
+            {/* Pool swimlane — full-day only, no split section */}
+            <div className="flex flex-col gap-2 mt-6">
+              <div className="py-1 text-sm font-semibold text-blue-400">Pool (Available)</div>
+              <div className="flex gap-4 items-stretch">
+                {DAYS.map((day) => {
+                  const fdId = poolFullDayId(day);
+                  const isDimmed = Boolean(draggingDay && day !== draggingDay);
+                  const isDraggingFullHere = draggingDay === day && draggingDayPart === "full_day";
+
+                  return (
+                    <div
+                      key={day}
+                      className={`w-full lg:min-w-max lg:flex-1 flex flex-col rounded-md border border-dashed transition-opacity duration-150 ${
+                        day === activeDay ? "" : "hidden"
+                      } lg:block ${
+                        isDimmed ? "opacity-30 border-[#252428]" : "border-[#4a4950]"
+                      }`}
+                    >
+                      <Droppable droppableId={fdId} type={day}>
                         {(provided, snapshot) => (
                           <div
                             ref={provided.innerRef}
                             {...provided.droppableProps}
-                            className={`w-full lg:min-w-max lg:flex-1 min-h-[60px] rounded-md p-2.5 flex-col gap-2.5 border transition-opacity duration-150 ${
-                              day === activeDay ? "flex" : "hidden"
-                            } lg:flex ${
-                              draggingDay && day !== draggingDay
-                                ? "opacity-30 bg-[#28272d] border-[#252428]"
-                                : snapshot.isDraggingOver
-                                ? "bg-[#333238] border-[#5a5961]"
-                                : draggingDay && day === draggingDay
-                                ? "bg-[#252e3d] border-blue-500/30"
-                                : "bg-[#28272d] border-[#313036]"
+                            className={`flex-1 min-h-[56px] p-2.5 flex flex-col gap-2.5 transition-colors ${
+                              snapshot.isDraggingOver
+                                ? "bg-[#333238]"
+                                : isDraggingFullHere
+                                  ? "bg-[#252e3d]"
+                                  : ""
                             }`}
                           >
-                            {assignmentsState[cellId]?.map((employee, index) => (
+                            {(assignmentsState[fdId] ?? []).map((entry, index) => (
                               <EmployeeCard
-                                key={`${employee.id}-${day}`}
-                                employee={employee}
+                                key={`${entry.employee.id}-${day}-pool`}
+                                employee={entry.employee}
                                 index={index}
-                                draggableId={getDraggableId(employee.id, day)}
-                                isOpen={openCardId === getDraggableId(employee.id, day)}
-                                onToggle={() => toggleOpenCard(getDraggableId(employee.id, day))}
-                                onMarkSick={() => markAvailability(employee.id, day, "sick")}
-                                onMarkVacation={() => markAvailability(employee.id, day, "vacation")}
+                                draggableId={getDraggableId(entry.employee.id, day, "full_day")}
+                                dayPart="full_day"
+                                isOpen={openCardId === getDraggableId(entry.employee.id, day, "full_day")}
+                                onToggle={() => toggleOpenCard(getDraggableId(entry.employee.id, day, "full_day"))}
+                                onMarkSick={() => markAvailability(entry.employee.id, day, "sick")}
+                                onMarkVacation={() => markAvailability(entry.employee.id, day, "vacation")}
                               />
                             ))}
                             {provided.placeholder}
                           </div>
                         )}
                       </Droppable>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-
-            {/* Pool swimlane */}
-            <div className="flex flex-col gap-2 mt-6">
-              <div className="py-1 text-sm font-semibold text-blue-400">Pool (Available)</div>
-              <div className="flex gap-4 items-stretch">
-                {DAYS.map((day) => {
-                  const poolId = `pool-${day}`;
-                  return (
-                    <Droppable key={poolId} droppableId={poolId} type={day}>
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                          className={`w-full lg:min-w-max lg:flex-1 min-h-[60px] rounded-md p-2.5 flex-col gap-2.5 border border-dashed transition-opacity duration-150 ${
-                            day === activeDay ? "flex" : "hidden"
-                          } lg:flex ${
-                            draggingDay && day !== draggingDay
-                              ? "opacity-30 border-[#252428]"
-                              : snapshot.isDraggingOver
-                              ? "bg-[#333238] border-[#5a5961]"
-                              : draggingDay && day === draggingDay
-                              ? "border-blue-500/30"
-                              : "border-[#4a4950]"
-                          }`}
-                        >
-                          {assignmentsState[poolId]?.map((employee, index) => (
-                            <EmployeeCard
-                              key={`${employee.id}-${day}`}
-                              employee={employee}
-                              index={index}
-                              draggableId={getDraggableId(employee.id, day)}
-                              isOpen={openCardId === getDraggableId(employee.id, day)}
-                              onToggle={() => toggleOpenCard(getDraggableId(employee.id, day))}
-                              onMarkSick={() => markAvailability(employee.id, day, "sick")}
-                              onMarkVacation={() => markAvailability(employee.id, day, "vacation")}
-                            />
-                          ))}
-                          {provided.placeholder}
-                        </div>
-                      )}
-                    </Droppable>
+                    </div>
                   );
                 })}
               </div>

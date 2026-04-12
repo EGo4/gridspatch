@@ -4,7 +4,6 @@ Gridspatch is a weekly construction staffing board built with Next.js, Prisma, a
 
 ## Upcoming Features
 
-- Split employee days into pre-lunch / after-lunch *(high)*
 - Copy assignments from another day *(mid)*
 - Swimlane minimizing *(mid)*
 - Building site management — add, edit, status *(mid)*
@@ -26,6 +25,7 @@ Full details in [FEATURE_ROADMAP.md](./FEATURE_ROADMAP.md).
 - Per-day employee pool handling
 - Week navigation with dropdown selector
 - Quick marking of employees as vacation or sick
+- Split employee days into pre-lunch / after-lunch
 
 ## Development
 
@@ -36,12 +36,52 @@ npm run dev
 
 ## Database
 
-Useful commands:
+### First-time setup (fresh database)
+
+The database runs in WSL. Prisma commands can be run from Windows (PowerShell/cmd) — they connect via `localhost:5432`.
+
+1. Start the database (in WSL):
+
+   ```bash
+   # e.g. docker compose up -d  or  sudo service postgresql start
+   ```
+
+2. Create and apply all migrations:
+
+   ```bash
+   npx prisma migrate dev --name init
+   ```
+
+3. Seed development data (employees, projects, current week):
+
+   ```bash
+   npx tsx prisma/seed.ts
+   ```
+
+### Schema changes
+
+After editing `prisma/schema.prisma`, create and apply a new migration:
 
 ```bash
-npm run db:push
-npm run db:seed
-npm run db:studio
+npx prisma migrate dev --name <description>
+```
+
+> **Note:** `npm run db:seed` requires `tsx` to be installed globally. Use `npx tsx prisma/seed.ts` if it isn't.
+
+### If migrations are out of sync with the database
+
+If Prisma reports drift (schema and migration history don't match), reset the dev database and re-apply everything:
+
+```bash
+npx prisma migrate reset   # drops all data, re-applies all migrations
+npx tsx prisma/seed.ts     # re-seed
+```
+
+### Other useful commands
+
+```bash
+npm run db:push     # push schema directly without migrations (skips migration history)
+npm run db:studio   # open Prisma Studio
 ```
 
 ## Deployment Target
