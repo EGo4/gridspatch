@@ -3,6 +3,37 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
+## Appearance Refactor (GitHub Kanban Style)
+
+Priority: mid
+
+Why:
+Establishes the visual foundation the rest of the UI builds on, including the accent color that the side navigation will integrate with.
+
+Goal:
+Make minimal targeted changes so the board feels closer to a polished GitHub-style kanban, and introduce a consistent accent color into the codebase.
+
+Ideas to realize it:
+- Add a thin decorative "lip" border around the full site using the accent color.
+- Move the accent color value into a central styles file (e.g. CSS custom property or Tailwind config) so it can be reused across all components.
+- Keep all other visual changes minimal — this is not a full redesign.
+
+## Sticky Board Sections
+
+Priority: high
+
+Why:
+The board grows long as more sites are added. Without sticky anchors, the day headers scroll out of view and the pool disappears entirely, making it hard to orient assignments or drag from the pool. These are pure CSS/layout changes with no backend dependency.
+
+Goal:
+Keep the day-column headers visible while scrolling down, and pin the pool section to the bottom of the viewport once it reaches a threshold scroll position so content above can flow beneath it.
+
+Ideas to realize it:
+- **Sticky day headers**: apply `position: sticky; top: 0` (or the height of any fixed navbar above it) to the day-column header row so it remains visible as the swimlanes scroll past.
+- **Sticky pool section**: once the pool section is within 25 % of the viewport bottom, pin it with `position: sticky; bottom: 0` and let the swimlane content scroll behind it using a `z-index` layer.
+- Centralize the `25 %` threshold value (and any related magic numbers like the pool's collapsed height) in the central styles file (CSS custom property, Tailwind config, or a dedicated `layout.ts` constants file) so they can be adjusted in one place.
+- Ensure the sticky pool still scrolls naturally when the page is near the very top (i.e. it should only "stick" once the user has scrolled far enough that the pool would otherwise disappear).
+
 ## Swimlane Minimizing
 
 Priority: mid
@@ -20,6 +51,24 @@ Ideas to realize it:
 - Start with project swimlanes and special pools like `Pool`, `Vacation`, `Sick`.
 - On-hold building sites should still appear on the board by default, but greyed out and minimized.
 - If a user expands an on-hold site, prompt whether the site should be moved back to `active`.
+
+## Assign Worker From Pool To Building Site
+
+Priority: mid
+
+Why:
+Currently there is no direct way to move a pooled worker to a building site from the card itself. This closes that gap and makes the daily assignment workflow faster.
+
+Goal:
+Let a manager move a worker from the pool directly to a building site through the card's fly-out menu.
+
+Ideas to realize it:
+- When a card in the pool is clicked, show the existing fly-out action buttons as usual.
+- Add a new "Move to site" (or "Add to site") button in that fly-out.
+- Clicking it opens an inline list at the click position showing all currently available (active) building sites.
+- Selecting a site moves the card to that site's swimlane for that day.
+- Clicking anywhere outside the list cancels the operation without making any change.
+- Keyboard escape should also abort.
 
 ## Building Site Management
 
@@ -62,6 +111,26 @@ Ideas to realize it:
 - Restrict selectable managers to users with the `construction_manager` role.
 - Show the responsible manager in the swimlane header or site details.
 - Later use this relation for filtering, permissions, and reporting.
+
+## Filter Board By Building Site Manager
+
+Priority: mid
+
+Why:
+Once construction managers are assigned to sites, a manager opening the board sees every site regardless of who is responsible. A filter lets each manager focus on only their own sites and reduces visual noise on busy boards.
+
+Goal:
+Let users filter the planning board so only the swimlanes belonging to a selected building site manager are shown.
+
+Ideas to realize it:
+- Add a filter control in the board header (e.g. a dropdown or button group) listing all construction managers.
+- Selecting a manager hides swimlanes not assigned to them; selecting "All" restores the full board.
+- The active filter should persist for the session (local storage) so a page refresh keeps the view focused.
+- A visual indicator (e.g. a badge or highlighted label) should make it obvious when a filter is active.
+- Later, a logged-in manager could have their own sites pre-filtered by default based on their account.
+
+Dependency:
+Requires the construction manager relation on building sites to be in place first.
 
 ## User Management For Resources And Managers
 
@@ -156,6 +225,23 @@ Open choice for implementation:
 - First version can copy only assignments.
 - Later versions can include availability, collapsed swimlanes, and manager-specific view settings.
 
+## Side Navigation Menu
+
+Priority: mid
+
+Why:
+As the app grows to include statistics and potentially other views, a persistent navigation structure is needed. Integrating it with the accent-color lip keeps the visual language consistent.
+
+Goal:
+Add a collapsible side menu that gives access to the main sections of the app.
+
+Ideas to realize it:
+- Menu is hidden by default, showing only icons.
+- On hover it expands to reveal labels alongside the icons.
+- Initial tabs: Planning (current board view) and Statistics.
+- The menu should visually connect to the accent-color lip introduced in the appearance refactor — e.g. the lip continues along the menu edge or the menu shares the same border treatment.
+- Keep the menu out of the way when collapsed so it does not reduce board space on smaller screens.
+
 ## Statistics On Worked Weeks
 
 Priority: mid
@@ -195,6 +281,27 @@ Decision:
 Implementation idea for warnings:
 - Track a local "suppress historical-change warning until timestamp" in session or local storage.
 - Show the warning again automatically after 5 minutes.
+
+## Preference Menu
+
+Priority: low (very late feature)
+
+Why:
+Nice-to-have personalization once the core product is stable and the visual design is locked in.
+
+Goal:
+Let users customize the look and feel of the app and persist those preferences.
+
+Requested settings:
+- AM and PM color overrides
+- Accent color override
+- A simple global scaling factor for text and element sizes
+
+Ideas to realize it:
+- Add a settings/preferences page or modal accessible from the side menu or header.
+- Store all preferences in local storage initially; tie them to a user account later.
+- Apply the scaling factor via a CSS custom property on the root element (e.g. `--ui-scale`) so a single value drives spacing, font size, and element dimensions uniformly.
+- Accent color preference should override the central accent color CSS variable introduced in the appearance refactor.
 
 ## Light Mode
 
@@ -245,18 +352,20 @@ If Caddy is used with DuckDNS:
 
 ## Suggested Order
 
-- Grey out other days while dragging
-- Employee availability: vacation and sick
-- Split-day assignments for pre-lunch / after-lunch
-- Copy assignments from another day
+- Appearance refactor (GitHub kanban style, accent color lip)
+- Sticky board sections (sticky day headers + sticky pool at bottom)
 - Swimlane minimizing
+- Assign worker from pool to building site
 - Building site CRUD and status fields
 - Construction manager relation on building sites
+- Filter board by building site manager
 - User/resource management split
 - Authentication and route protection
 - Personal account management
+- Side navigation menu (planning + statistics tabs, integrates with lip)
 - Copy previous week as template
 - Statistics and reporting
+- Preference menu (colors, scaling factor)
 - Light mode
 - Docker deployment and production documentation
 
