@@ -3,21 +3,6 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## Appearance Refactor (GitHub Kanban Style)
-
-Priority: mid
-
-Why:
-Establishes the visual foundation the rest of the UI builds on, including the accent color that the side navigation will integrate with.
-
-Goal:
-Make minimal targeted changes so the board feels closer to a polished GitHub-style kanban, and introduce a consistent accent color into the codebase.
-
-Ideas to realize it:
-- Add a thin decorative "lip" border around the full site using the accent color.
-- Move the accent color value into a central styles file (e.g. CSS custom property or Tailwind config) so it can be reused across all components.
-- Keep all other visual changes minimal — this is not a full redesign.
-
 ## Sticky Board Sections
 
 Priority: high

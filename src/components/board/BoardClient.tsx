@@ -611,7 +611,7 @@ export function BoardClient({
                     onClick={() => setWeekDropdownOpen(false)}
                     className={`block px-4 py-2.5 text-sm font-medium transition ${
                       week.id === selectedWeek.id
-                        ? "bg-blue-600 text-white"
+                        ? "bg-accent text-white"
                         : "text-[#a09fa6] hover:bg-[#333238] hover:text-[#ececef]"
                     }`}
                   >
@@ -631,7 +631,7 @@ export function BoardClient({
               type="button"
               onClick={() => setActiveDay(day)}
               className={`px-4 py-2 rounded-full text-sm font-medium ${
-                activeDay === day ? "bg-blue-600 text-white" : "bg-[#28272d] text-[#a09fa6]"
+                activeDay === day ? "bg-accent text-white" : "bg-[#28272d] text-[#a09fa6]"
               }`}
             >
               {day}
@@ -652,7 +652,7 @@ export function BoardClient({
                     day === activeDay ? "flex" : "hidden"
                   } lg:flex items-center justify-between ${
                     draggingDay && day === draggingDay
-                      ? "bg-[#2d3748] text-blue-300 ring-1 ring-inset ring-blue-500/40"
+                      ? "bg-[#2d3748] text-accent/80 ring-1 ring-inset ring-accent/40"
                       : draggingDay
                       ? "bg-[#28272d] opacity-30"
                       : "bg-[#28272d]"
@@ -708,7 +708,7 @@ export function BoardClient({
 
             {/* Pool swimlane — full-day only, no split section */}
             <div className="flex flex-col gap-2 mt-6">
-              <div className="py-1 text-sm font-semibold text-blue-400">Pool (Available)</div>
+              <div className="py-1 text-sm font-semibold text-accent">Pool (Available)</div>
               <div className="flex gap-4 items-stretch">
                 {DAYS.map((day) => {
                   const fdId = poolFullDayId(day);
