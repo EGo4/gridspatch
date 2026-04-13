@@ -47,72 +47,72 @@ await run("parseWeekParam accepts date params and formatWeekLabel renders a stab
   const parsed = parseWeekParam("2026-04-13");
 
   assert.ok(parsed);
-  assert.equal(formatWeekLabel(parsed), "13 Apr - 17 Apr 2026");
+  assert.equal(formatWeekLabel(parsed), "13 - 17 Apr 26");
 });
 
 await run(
   "getBoardPageData creates or selects the requested week and scopes assignments by week",
   async () => {
-  const selectedWeek = {
-    endDate: new Date("2026-04-17T00:00:00.000Z"),
-    id: "week-1",
-    isCurrent: false,
-    startDate: new Date("2026-04-13T00:00:00.000Z"),
-  };
+    const selectedWeek = {
+      endDate: new Date("2026-04-17T00:00:00.000Z"),
+      id: "week-1",
+      isCurrent: false,
+      startDate: new Date("2026-04-13T00:00:00.000Z"),
+    };
 
-  let upsertArgs:
-    | {
+    let upsertArgs:
+      | {
         create: { endDate: Date; isCurrent: boolean; startDate: Date };
         update: { endDate: Date };
         where: { startDate: Date };
       }
-    | undefined;
-  let assignmentWhere: { weekId: string } | undefined;
+      | undefined;
+    let assignmentWhere: { weekId: string } | undefined;
 
-  const boardData = await getBoardPageData(
-    {
-      assignment: {
-        findMany: async ({ where }) => {
-          assignmentWhere = where;
-          return [
-            {
-              date: new Date("2026-04-13T00:00:00.000Z"),
-              dayPart: "full_day",
-              employeeId: "employee-1",
-              id: "assignment-1",
-              projectId: "project-1",
-              weekId: "week-1",
-            },
-          ];
-        },
-      },
-      employee: {
-        findMany: async () => [
-          {
-            id: "employee-1",
-            img: null,
-            name: "Alice",
+    const boardData = await getBoardPageData(
+      {
+        assignment: {
+          findMany: async ({ where }) => {
+            assignmentWhere = where;
+            return [
+              {
+                date: new Date("2026-04-13T00:00:00.000Z"),
+                dayPart: "full_day",
+                employeeId: "employee-1",
+                id: "assignment-1",
+                projectId: "project-1",
+                weekId: "week-1",
+              },
+            ];
           },
-        ],
-      },
-      project: {
-        findMany: async () => [{ id: "project-1", name: "Site A" }],
-      },
-      week: {
-        findMany: async () => [selectedWeek],
-        upsert: async (args) => {
-          upsertArgs = args;
-          return selectedWeek;
+        },
+        employee: {
+          findMany: async () => [
+            {
+              id: "employee-1",
+              img: null,
+              name: "Alice",
+            },
+          ],
+        },
+        project: {
+          findMany: async () => [{ id: "project-1", name: "Site A" }],
+        },
+        week: {
+          findMany: async () => [selectedWeek],
+          upsert: async (args) => {
+            upsertArgs = args;
+            return selectedWeek;
+          },
         },
       },
-    },
-    "2026-04-16",
-  );
+      "2026-04-16",
+    );
 
-  assert.equal(upsertArgs?.where.startDate.toISOString(), "2026-04-13T00:00:00.000Z");
-  assert.equal(upsertArgs?.create.endDate.toISOString(), "2026-04-17T00:00:00.000Z");
-  assert.deepEqual(assignmentWhere, { weekId: "week-1" });
-  assert.equal(boardData.selectedWeek.param, "2026-04-13");
-  assert.equal(boardData.weeks[0]?.label, "13 Apr - 17 Apr 2026");
+    assert.equal(upsertArgs?.where.startDate.toISOString(), "2026-04-13T00:00:00.000Z");
+    assert.equal(upsertArgs?.create.endDate.toISOString(), "2026-04-17T00:00:00.000Z");
+    assert.deepEqual(assignmentWhere, { weekId: "week-1" });
+    assert.equal(boardData.selectedWeek.param, "2026-04-13");
+    assert.equal(boardData.weeks[0]?.label, "13 - 17 Apr 26");
   },
 );

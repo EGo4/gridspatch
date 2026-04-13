@@ -95,6 +95,7 @@ export function BoardClient({
   const [activeDay, setActiveDay] = useState("Monday");
   const [isLoaded, setIsLoaded] = useState(false);
   const [weekDropdownOpen, setWeekDropdownOpen] = useState(false);
+  const [dayDropdownOpen, setDayDropdownOpen] = useState(false);
   const [draggingDay, setDraggingDay] = useState<string | null>(null);
   const [draggingDayPart, setDraggingDayPart] = useState<DayPart | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
@@ -103,6 +104,19 @@ export function BoardClient({
   const [copyPopoverDay, setCopyPopoverDay] = useState<string | null>(null);
 
   const weekDates = getWeekDateMap(selectedWeek.startDateIso);
+
+  // ── Close day dropdown on outside click or Escape ────────────────────────
+  useEffect(() => {
+    if (!dayDropdownOpen) return;
+    const handleClick = () => setDayDropdownOpen(false);
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") setDayDropdownOpen(false); };
+    document.addEventListener("click", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("click", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [dayDropdownOpen]);
 
   // ── Close copy popover on outside click or Escape ─────────────────────────
   useEffect(() => {
@@ -572,11 +586,13 @@ export function BoardClient({
   };
 
   return (
-    <div className="min-h-screen bg-[#1f1e24] font-sans text-[#ececef] flex flex-col lg:flex-row">
-      <main className="flex-1 overflow-x-auto p-4 flex flex-col">
+  <DragDropContext onDragEnd={onDragEnd} onDragStart={onDragStart}>
+    <div className="h-dvh bg-[#1f1e24] font-sans text-[#ececef] flex flex-col lg:flex-row">
+      <div className="flex-1 flex flex-col min-h-0">
+        <main className="flex-1 overflow-auto min-h-0 px-4 flex flex-col">
 
-        {/* Week selector */}
-        <div className="mb-6 flex items-center justify-center">
+        {/* Week selector — desktop only */}
+        <div className="mt-4 mb-6 hidden lg:flex items-center justify-center bg-[#1f1e24]">
           <div className="relative inline-flex items-center rounded-full bg-[#28272d] text-sm font-medium text-[#a09fa6]">
             <Link
               href={`/board?week=${getPreviousWeekParam(selectedWeek.startDateIso)}`}
@@ -623,27 +639,92 @@ export function BoardClient({
           </div>
         </div>
 
-        {/* Mobile day tabs */}
-        <div className="lg:hidden flex overflow-x-auto gap-2 mb-6 pb-2">
-          {DAYS.map((day) => (
+        {/* Mobile sticky header — day selector (left) + week selector (right) */}
+        <div className="sticky top-0 z-20 lg:hidden flex items-center justify-between bg-[#1f1e24] pt-4 pb-2 shadow-[0_6px_0_6px_#1f1e24]">
+
+          {/* Day selector pill */}
+          <div className="relative inline-flex items-center rounded-full bg-[#28272d] text-sm font-medium text-[#a09fa6]">
             <button
-              key={day}
               type="button"
-              onClick={() => setActiveDay(day)}
-              className={`px-4 py-2 rounded-full text-sm font-medium ${
-                activeDay === day ? "bg-accent text-white" : "bg-[#28272d] text-[#a09fa6]"
-              }`}
+              onClick={(e) => { e.stopPropagation(); setDayDropdownOpen((o) => !o); }}
+              className="flex items-center gap-1.5 px-4 py-2 text-[#ececef] transition hover:text-white"
             >
-              {day}
+              {activeDay}
+              <svg className="h-3 w-3 text-[#8b8893]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
             </button>
-          ))}
+            {dayDropdownOpen && (
+              <div className="absolute top-full left-0 z-50 mt-2 min-w-[160px] overflow-hidden rounded-xl border border-[#313036] bg-[#28272d] shadow-xl">
+                {DAYS.map((day) => (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => { setActiveDay(day); setDayDropdownOpen(false); }}
+                    className={`block w-full text-left px-4 py-2.5 text-sm font-medium transition ${
+                      day === activeDay
+                        ? "bg-accent text-white"
+                        : "text-[#a09fa6] hover:bg-[#333238] hover:text-[#ececef]"
+                    }`}
+                  >
+                    {day}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Week selector pill */}
+          <div className="relative inline-flex items-center rounded-full bg-[#28272d] text-sm font-medium text-[#a09fa6]">
+            <Link
+              href={`/board?week=${getPreviousWeekParam(selectedWeek.startDateIso)}`}
+              className="px-3 py-2 transition hover:text-[#ececef]"
+            >
+              &#8249;
+            </Link>
+            <div className="h-4 w-px bg-[#3a3940]" />
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setWeekDropdownOpen((o) => !o); }}
+              className="flex items-center gap-1.5 px-4 py-2 text-[#ececef] transition hover:text-white"
+            >
+              {selectedWeek.label}
+              <svg className="h-3 w-3 text-[#8b8893]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            <div className="h-4 w-px bg-[#3a3940]" />
+            <Link
+              href={`/board?week=${getNextWeekParam(selectedWeek.startDateIso)}`}
+              className="px-3 py-2 transition hover:text-[#ececef]"
+            >
+              &#8250;
+            </Link>
+            {weekDropdownOpen && (
+              <div className="absolute top-full right-0 z-50 mt-2 min-w-[200px] overflow-hidden rounded-xl border border-[#313036] bg-[#28272d] shadow-xl">
+                {weeks.map((week) => (
+                  <Link
+                    key={week.id}
+                    href={`/board?week=${week.param}`}
+                    onClick={() => setWeekDropdownOpen(false)}
+                    className={`block px-4 py-2.5 text-sm font-medium transition ${
+                      week.id === selectedWeek.id
+                        ? "bg-accent text-white"
+                        : "text-[#a09fa6] hover:bg-[#333238] hover:text-[#ececef]"
+                    }`}
+                  >
+                    {week.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        <DragDropContext onDragEnd={onDragEnd} onDragStart={onDragStart}>
           <div className="w-full lg:min-w-max flex flex-col gap-4">
 
-            {/* Day headers */}
-            <div className="flex gap-4">
+            {/* Day headers — sticky so column labels stay visible while scrolling */}
+            <div className="sticky top-0 z-20 hidden lg:flex gap-4 bg-[#1f1e24] -mt-4 pt-4 pb-2 shadow-[0_6px_0_6px_#1f1e24]">
               {DAYS.map((day) => (
                 <div
                   key={day}
@@ -706,62 +787,8 @@ export function BoardClient({
               </div>
             ))}
 
-            {/* Pool swimlane — full-day only, no split section */}
-            <div className="flex flex-col gap-2 mt-6">
-              <div className="py-1 text-sm font-semibold text-accent">Pool (Available)</div>
-              <div className="flex gap-4 items-stretch">
-                {DAYS.map((day) => {
-                  const fdId = poolFullDayId(day);
-                  const isDimmed = Boolean(draggingDay && day !== draggingDay);
-                  const isDraggingFullHere = draggingDay === day && draggingDayPart === "full_day";
-
-                  return (
-                    <div
-                      key={day}
-                      className={`w-full lg:min-w-max lg:flex-1 flex flex-col rounded-md border border-dashed transition-opacity duration-150 ${
-                        day === activeDay ? "" : "hidden"
-                      } lg:block ${
-                        isDimmed ? "opacity-30 border-[#252428]" : "border-[#4a4950]"
-                      }`}
-                    >
-                      <Droppable droppableId={fdId} type={day}>
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.droppableProps}
-                            className={`flex-1 min-h-[56px] p-2.5 flex flex-col gap-2.5 transition-colors ${
-                              snapshot.isDraggingOver
-                                ? "bg-[#333238]"
-                                : isDraggingFullHere
-                                  ? "bg-[#252e3d]"
-                                  : ""
-                            }`}
-                          >
-                            {(assignmentsState[fdId] ?? []).map((entry, index) => (
-                              <EmployeeCard
-                                key={`${entry.employee.id}-${day}-pool`}
-                                employee={entry.employee}
-                                index={index}
-                                draggableId={getDraggableId(entry.employee.id, day, "full_day")}
-                                dayPart="full_day"
-                                isOpen={openCardId === getDraggableId(entry.employee.id, day, "full_day")}
-                                onToggle={() => toggleOpenCard(getDraggableId(entry.employee.id, day, "full_day"))}
-                                onMarkSick={() => markAvailability(entry.employee.id, day, "sick")}
-                                onMarkVacation={() => markAvailability(entry.employee.id, day, "vacation")}
-                              />
-                            ))}
-                            {provided.placeholder}
-                          </div>
-                        )}
-                      </Droppable>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
             {/* Sick & Vacation swimlane */}
-            <div className="flex flex-col gap-2 mt-4">
+            <div className="flex flex-col gap-2 mt-4 pb-4">
               <button
                 type="button"
                 onClick={() => setSickVacationCollapsed((prev) => !prev)}
@@ -834,8 +861,64 @@ export function BoardClient({
             </div>
 
           </div>
-        </DragDropContext>
-      </main>
+        </main>
+
+        {/* Pool — always visible at the bottom of the content column, scrolls independently */}
+        <div className="pool-overlay flex flex-col gap-2 bg-[#1f1e24] border-t border-[#313036] px-4 pt-3 pb-4">
+          <div className="py-1 text-sm font-semibold text-accent">Pool (Available)</div>
+          <div className="flex gap-4 items-stretch">
+            {DAYS.map((day) => {
+              const fdId = poolFullDayId(day);
+              const isDimmed = Boolean(draggingDay && day !== draggingDay);
+              const isDraggingFullHere = draggingDay === day && draggingDayPart === "full_day";
+
+              return (
+                <div
+                  key={day}
+                  className={`w-full lg:min-w-max lg:flex-1 flex flex-col rounded-md border border-dashed transition-opacity duration-150 ${
+                    day === activeDay ? "" : "hidden"
+                  } lg:block ${
+                    isDimmed ? "opacity-30 border-[#252428]" : "border-[#4a4950]"
+                  }`}
+                >
+                  <Droppable droppableId={fdId} type={day}>
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        className={`flex-1 min-h-[56px] p-2.5 flex flex-col gap-2.5 transition-colors ${
+                          snapshot.isDraggingOver
+                            ? "bg-[#333238]"
+                            : isDraggingFullHere
+                              ? "bg-[#252e3d]"
+                              : ""
+                        }`}
+                      >
+                        {(assignmentsState[fdId] ?? []).map((entry, index) => (
+                          <EmployeeCard
+                            key={`${entry.employee.id}-${day}-pool`}
+                            employee={entry.employee}
+                            index={index}
+                            draggableId={getDraggableId(entry.employee.id, day, "full_day")}
+                            dayPart="full_day"
+                            isOpen={openCardId === getDraggableId(entry.employee.id, day, "full_day")}
+                            onToggle={() => toggleOpenCard(getDraggableId(entry.employee.id, day, "full_day"))}
+                            onMarkSick={() => markAvailability(entry.employee.id, day, "sick")}
+                            onMarkVacation={() => markAvailability(entry.employee.id, day, "vacation")}
+                          />
+                        ))}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+      </div>
     </div>
+  </DragDropContext>
   );
 }

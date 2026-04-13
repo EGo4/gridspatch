@@ -3,7 +3,7 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## Sticky Board Sections
+## ~~Sticky Board Sections~~ ✓ Done
 
 Priority: high
 
@@ -15,9 +15,11 @@ Keep the day-column headers visible while scrolling down, and pin the pool secti
 
 Ideas to realize it:
 - **Sticky day headers**: apply `position: sticky; top: 0` (or the height of any fixed navbar above it) to the day-column header row so it remains visible as the swimlanes scroll past.
-- **Sticky pool section**: once the pool section is within 25 % of the viewport bottom, pin it with `position: sticky; bottom: 0` and let the swimlane content scroll behind it using a `z-index` layer.
+- **Sticky pool section**: once the top of the pool section is within 25 % of the viewport bottom, pin it sticky and let the swimlane content scroll behind it.
 - Centralize the `25 %` threshold value (and any related magic numbers like the pool's collapsed height) in the central styles file (CSS custom property, Tailwind config, or a dedicated `layout.ts` constants file) so they can be adjusted in one place.
 - Ensure the sticky pool still scrolls naturally when the page is near the very top (i.e. it should only "stick" once the user has scrolled far enough that the pool would otherwise disappear).
+- not the whole pool section musst be visible when sticky if it is larger than the lower 25% it can overflow beneath the viewable area.
+- if the pool is smaller than 25% of the site height make the whole pool sticky once the bottom of it reaches the bottom of the viewable area.
 
 ## Swimlane Minimizing
 

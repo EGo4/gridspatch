@@ -63,20 +63,21 @@ export const formatWeekLabel = (weekStart: Date | string) => {
   const start = normalizeWeekStart(weekStart);
   const end = getWeekEnd(start);
 
-  const shortFormatter = new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    timeZone: "UTC",
-  });
+  const dayFmt   = new Intl.DateTimeFormat("en-GB", { day: "numeric",            timeZone: "UTC" });
+  const monthFmt = new Intl.DateTimeFormat("en-GB", { month: "short",            timeZone: "UTC" });
+  const yearFmt  = new Intl.DateTimeFormat("en-GB", { year: "2-digit",           timeZone: "UTC" });
 
-  const endFormatter = new Intl.DateTimeFormat("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    timeZone: "UTC",
-  });
+  const startDay   = dayFmt.format(start);
+  const endDay     = dayFmt.format(end);
+  const endMonth   = monthFmt.format(end);
+  const year       = yearFmt.format(end);
 
-  return `${shortFormatter.format(start)} - ${endFormatter.format(end)}`;
+  if (start.getUTCMonth() === end.getUTCMonth()) {
+    // Same month: "13 - 17 Apr 26"
+    return `${startDay} - ${endDay} ${endMonth} ${year}`;
+  }
+  // Spans two months: "28 Apr - 2 May 26"
+  return `${startDay} ${monthFmt.format(start)} - ${endDay} ${endMonth} ${year}`;
 };
 
 export const getPreviousWeekParam = (weekStart: Date | string) =>

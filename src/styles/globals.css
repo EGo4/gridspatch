@@ -10,6 +10,28 @@
   --color-accent: #4f7cf0;
 }
 
+/* ── Pool overlay constants ──────────────────────────────────────────────────── */
+/*
+ * The pool is a fixed overlay pinned to the bottom of the viewport.
+ * It scrolls independently and caps at --pool-max-height so it never
+ * consume more than that fraction of screen space.
+ * Change --pool-max-height here to adjust the cap site-wide.
+ */
+:root {
+  --pool-max-height: 25vh;
+}
+
+/*
+ * Pool sits at the bottom of the flex-column content area (sibling of main).
+ * flex-shrink: 0 keeps it at its natural size; max-height caps it so a large
+ * pool never dominates the screen; overflow-y: auto lets it scroll internally.
+ */
+.pool-overlay {
+  flex-shrink: 0;
+  max-height: var(--pool-max-height);
+  overflow-y: auto;
+}
+
 /* ── AM / PM colour tokens ─────────────────────────────────────────────────── */
 :root {
   --am-zone: #2c2619;
