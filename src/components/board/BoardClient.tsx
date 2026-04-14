@@ -82,6 +82,10 @@ const afterLunchDroppableId = (projectId: string, day: string) => `${projectId}-
 // Droppable IDs — pool (full-day only, no split section)
 const poolFullDayId = (day: string) => `pool-${day}`;
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const COLLAPSED_LS_KEY = "gridspatch:collapsed-rows";
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function BoardClient({
@@ -100,7 +104,7 @@ export function BoardClient({
   const [draggingDayPart, setDraggingDayPart] = useState<DayPart | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
   const [availability, setAvailability] = useState<Record<string, AvailabilityStatus>>({});
-  const [sickVacationCollapsed, setSickVacationCollapsed] = useState(true);
+  const [collapsedRows, setCollapsedRows] = useState<Set<string> | null>(null);
   const [copyPopoverDay, setCopyPopoverDay] = useState<string | null>(null);
 
   const weekDates = getWeekDateMap(selectedWeek.startDateIso);
@@ -130,6 +134,22 @@ export function BoardClient({
       document.removeEventListener("keydown", handleKey);
     };
   }, [copyPopoverDay]);
+
+  // ── Persist collapsed rows to localStorage ────────────────────────────────
+  useEffect(() => {
+    if (collapsedRows === null) return;
+    localStorage.setItem(COLLAPSED_LS_KEY, JSON.stringify([...collapsedRows]));
+  }, [collapsedRows]);
+
+  // ── Collapse toggle ───────────────────────────────────────────────────────
+  const toggleCollapsed = (id: string) => {
+    setCollapsedRows((prev) => {
+      const next = new Set(prev ?? []);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   // ── Initialise state from DB ───────────────────────────────────────────────
 
@@ -198,6 +218,17 @@ export function BoardClient({
 
     setAssignmentsState(state);
     setIsLoaded(true);
+
+    // Initialise collapsed rows from localStorage once; don't reset on week navigation.
+    setCollapsedRows((prev) => {
+      if (prev !== null) return prev;
+      const stored = localStorage.getItem(COLLAPSED_LS_KEY);
+      if (stored) {
+        try { return new Set(JSON.parse(stored) as string[]); } catch { /* ignore */ }
+      }
+      // Default: sick-vacation section starts collapsed.
+      return new Set(["sick-vacation"]);
+    });
   }, [dbProjects, dbEmployees, dbAssignments, selectedWeek.startDateIso]);
 
   // ── Card toggle ───────────────────────────────────────────────────────────
@@ -779,24 +810,41 @@ export function BoardClient({
             </div>
 
             {/* Project swimlanes */}
-            {dbProjects.map((project) => (
-              <div key={project.id} className="flex flex-col gap-2">
-                <div className="py-1 text-sm font-semibold">{project.name}</div>
-                <div className="flex gap-4 items-stretch">
-                  {DAYS.map((day) => renderCell(project.id, day))}
+            {dbProjects.map((project) => {
+              const isCollapsed = (collapsedRows ?? new Set()).has(project.id);
+              return (
+                <div key={project.id} className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleCollapsed(project.id)}
+                    className="flex items-center gap-2 py-1 text-left text-sm font-semibold text-[#ececef] transition-colors hover:text-white"
+                  >
+                    <svg
+                      className={`h-3 w-3 flex-shrink-0 transition-transform duration-200 ${isCollapsed ? "-rotate-90" : ""}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                    {project.name}
+                  </button>
+                  {!isCollapsed && (
+                    <div className="flex gap-4 items-stretch">
+                      {DAYS.map((day) => renderCell(project.id, day))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {/* Sick & Vacation swimlane */}
             <div className="flex flex-col gap-2 mt-4 pb-4">
               <button
                 type="button"
-                onClick={() => setSickVacationCollapsed((prev) => !prev)}
+                onClick={() => toggleCollapsed("sick-vacation")}
                 className="flex items-center gap-2 py-1 text-left text-sm font-semibold text-[#a09fa6] transition-colors hover:text-[#ececef]"
               >
                 <svg
-                  className={`h-3 w-3 transition-transform duration-200 ${sickVacationCollapsed ? "-rotate-90" : ""}`}
+                  className={`h-3 w-3 transition-transform duration-200 ${(collapsedRows ?? new Set()).has("sick-vacation") ? "-rotate-90" : ""}`}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -807,7 +855,7 @@ export function BoardClient({
                 Sick &amp; Vacation
               </button>
 
-              {!sickVacationCollapsed && (
+              {!(collapsedRows ?? new Set()).has("sick-vacation") && (
                 <div className="flex gap-4 items-stretch">
                   {DAYS.map((day) => {
                     const entries = Object.entries(availability)
@@ -866,8 +914,20 @@ export function BoardClient({
 
         {/* Pool — always visible at the bottom of the content column, scrolls independently */}
         <div className="pool-overlay flex flex-col gap-2 bg-[#1f1e24] border-t border-[#313036] px-4 pt-3 pb-4">
-          <div className="py-1 text-sm font-semibold text-accent">Pool (Available)</div>
-          <div className="flex gap-4 items-stretch">
+          <button
+            type="button"
+            onClick={() => toggleCollapsed("pool")}
+            className="flex items-center gap-2 py-1 text-left text-sm font-semibold text-accent transition-colors hover:text-accent/80"
+          >
+            <svg
+              className={`h-3 w-3 flex-shrink-0 transition-transform duration-200 ${(collapsedRows ?? new Set()).has("pool") ? "-rotate-90" : ""}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+            Pool (Available)
+          </button>
+          {!(collapsedRows ?? new Set()).has("pool") && <div className="flex gap-4 items-stretch">
             {DAYS.map((day) => {
               const fdId = poolFullDayId(day);
               const isDimmed = Boolean(draggingDay && day !== draggingDay);
@@ -915,7 +975,7 @@ export function BoardClient({
                 </div>
               );
             })}
-          </div>
+          </div>}
         </div>
 
       </div>

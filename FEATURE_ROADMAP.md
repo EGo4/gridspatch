@@ -3,24 +3,6 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## Swimlane Minimizing
-
-Priority: mid
-
-Why:
-This improves day-to-day usability without requiring major backend work.
-
-Goal:
-Collapse project rows or special pools to keep the board manageable.
-
-Ideas to realize it:
-- Add a collapse/expand toggle per swimlane.
-- Persist collapsed state in local storage first.
-- Later, optionally store collapsed state per manager account.
-- Start with project swimlanes and special pools like `Pool`, `Vacation`, `Sick`.
-- On-hold building sites should still appear on the board by default, but greyed out and minimized.
-- If a user expands an on-hold site, prompt whether the site should be moved back to `active`.
-
 ## Assign Worker From Pool To Building Site
 
 Priority: mid
