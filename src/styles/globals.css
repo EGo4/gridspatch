@@ -105,6 +105,28 @@
 }
 
 /*
+ * Assign-to-site (→) — pool cards only, third from right (same slot as split on project cards):
+ *   right: 44 + 36 + 4 = 84 px
+ */
+.fly-btn-assign-site {
+  right: 84px;
+  background-color: #1e3a2e;
+  transform: translateY(-50%) scale(0);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
+  transition-delay: 100ms;
+}
+
+.fly-btn-assign-site:hover {
+  background-color: #275240;
+}
+
+.card-open .fly-btn-assign-site {
+  transform: translateY(-50%) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/*
  * Split (✂) — third from right:
  *   right: 44 + 36 + 4 = 84 px
  */
@@ -265,4 +287,16 @@
   flex-grow: 1;
   flex-shrink: 1;
   flex-basis: 0%;
+}
+
+/* ── Site picker overlay ─────────────────────────────────────────────────────── */
+/*
+ * Position is driven by --picker-left / --picker-bottom CSS custom properties
+ * set inline on the element (custom properties are exempt from "no inline style"
+ * lint rules since they carry no layout semantics on their own).
+ */
+.site-picker {
+  position: fixed;
+  left: var(--picker-left);
+  bottom: var(--picker-bottom);
 }

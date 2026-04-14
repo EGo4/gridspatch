@@ -4,7 +4,7 @@
 import React from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import type { DayPart, Employee } from "~/types";
-import { SyringeIcon, PalmTreeIcon, SplitDayIcon, MergeIcon } from "~/components/icons";
+import { SyringeIcon, PalmTreeIcon, SplitDayIcon, MergeIcon, AssignSiteIcon } from "~/components/icons";
 
 interface EmployeeCardProps {
   employee: Employee;
@@ -19,6 +19,8 @@ interface EmployeeCardProps {
   onSplitDay?: () => void;
   /** Only passed for half-day cards. */
   onMergeDay?: () => void;
+  /** Pool cards only: open the "assign to site" picker anchored to the button. */
+  onAssignToSite?: (anchor: { left: number; top: number }) => void;
 }
 
 export function EmployeeCard({
@@ -32,6 +34,7 @@ export function EmployeeCard({
   onMarkVacation,
   onSplitDay,
   onMergeDay,
+  onAssignToSite,
 }: EmployeeCardProps) {
   const isHalfDay = dayPart !== "full_day";
 
@@ -83,8 +86,22 @@ export function EmployeeCard({
               </button>
             )
           ) : (
-            /* Full-day card: split (optional), sick, vacation */
+            /* Full-day card: assign-site (pool only) or split (project only), sick, vacation */
             <>
+              {onAssignToSite && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    onAssignToSite({ left: rect.left, top: rect.top });
+                  }}
+                  title="Assign to building site"
+                  className="fly-btn fly-btn-assign-site text-[#c8c4be]"
+                >
+                  <AssignSiteIcon />
+                </button>
+              )}
               {onSplitDay && (
                 <button
                   type="button"

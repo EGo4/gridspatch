@@ -6,7 +6,7 @@ import { DragDropContext, Droppable } from "@hello-pangea/dnd";
 import type { DragStart, DropResult } from "@hello-pangea/dnd";
 
 import { EmployeeCard } from "./EmployeeCard";
-import { SyringeIcon, PalmTreeIcon, CopyIcon } from "~/components/icons";
+import { SyringeIcon, PalmTreeIcon, CopyIcon, AssignSiteIcon } from "~/components/icons";
 import { updateAssignment, splitAssignment, mergeAssignment, copyDayAssignments } from "~/server/actions/board";
 import { DAYS } from "~/lib/constants";
 import {
@@ -106,6 +106,12 @@ export function BoardClient({
   const [availability, setAvailability] = useState<Record<string, AvailabilityStatus>>({});
   const [collapsedRows, setCollapsedRows] = useState<Set<string> | null>(null);
   const [copyPopoverDay, setCopyPopoverDay] = useState<string | null>(null);
+  const [sitePickerFor, setSitePickerFor] = useState<{
+    employeeId: string;
+    day: string;
+    left: number;
+    top: number;
+  } | null>(null);
 
   const weekDates = getWeekDateMap(selectedWeek.startDateIso);
 
@@ -149,6 +155,43 @@ export function BoardClient({
       else next.add(id);
       return next;
     });
+  };
+
+  // ── Close site picker on outside click or Escape ──────────────────────────
+  useEffect(() => {
+    if (!sitePickerFor) return;
+    const handleClick = () => setSitePickerFor(null);
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSitePickerFor(null); };
+    document.addEventListener("click", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("click", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [sitePickerFor]);
+
+  // ── Assign pool worker to a project site ──────────────────────────────────
+  const assignToSite = (employeeId: string, day: string, projectId: string) => {
+    const employee = dbEmployees.find((e) => e.id === employeeId);
+    if (!employee) return;
+
+    const poolId   = poolFullDayId(day);
+    const targetId = fullDayDroppableId(projectId, day);
+
+    setAssignmentsState((prev) => {
+      const next = { ...prev };
+      next[poolId]   = (next[poolId]   ?? []).filter((e) => e.employee.id !== employeeId);
+      next[targetId] = [...(next[targetId] ?? []), { employee, dayPart: "full_day" }];
+      return next;
+    });
+
+    setSitePickerFor(null);
+    setOpenCardId(null);
+
+    const dateIso = weekDates[day as keyof typeof weekDates];
+    if (dateIso) {
+      void updateAssignment(employeeId, projectId, dateIso, selectedWeek.id, "full_day");
+    }
   };
 
   // ── Initialise state from DB ───────────────────────────────────────────────
@@ -966,6 +1009,10 @@ export function BoardClient({
                             onToggle={() => toggleOpenCard(getDraggableId(entry.employee.id, day, "full_day"))}
                             onMarkSick={() => markAvailability(entry.employee.id, day, "sick")}
                             onMarkVacation={() => markAvailability(entry.employee.id, day, "vacation")}
+                            onAssignToSite={(anchor) => {
+                              setOpenCardId(null);
+                              setSitePickerFor({ employeeId: entry.employee.id, day, ...anchor });
+                            }}
                           />
                         ))}
                         {provided.placeholder}
@@ -980,6 +1027,36 @@ export function BoardClient({
 
       </div>
     </div>
+
+    {/* Site picker — fixed overlay, pops up above the "assign to site" button */}
+    {sitePickerFor && (
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="site-picker z-[100] min-w-[180px] overflow-hidden rounded-xl border border-[#313036] bg-[#1f1e24] py-1 shadow-2xl"
+        style={{
+          "--picker-left": `${Math.min(sitePickerFor.left, window.innerWidth - 196)}px`,
+          "--picker-bottom": `${window.innerHeight - sitePickerFor.top + 8}px`,
+        } as React.CSSProperties}
+      >
+        <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#6b6875]">
+          Assign to site
+        </div>
+        {dbProjects.map((project) => (
+          <button
+            key={project.id}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              assignToSite(sitePickerFor.employeeId, sitePickerFor.day, project.id);
+            }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-[#a09fa6] transition-colors hover:bg-[#333238] hover:text-[#ececef]"
+          >
+            <AssignSiteIcon size={12} className="flex-shrink-0 text-[#6b6875]" />
+            {project.name}
+          </button>
+        ))}
+      </div>
+    )}
   </DragDropContext>
   );
 }

@@ -303,10 +303,6 @@ If Caddy is used with DuckDNS:
 
 ## Suggested Order
 
-- Appearance refactor (GitHub kanban style, accent color lip)
-- Sticky board sections (sticky day headers + sticky pool at bottom)
-- Swimlane minimizing
-- Assign worker from pool to building site
 - Building site CRUD and status fields
 - Construction manager relation on building sites
 - Filter board by building site manager
