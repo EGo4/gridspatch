@@ -3,24 +3,6 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## Assign Worker From Pool To Building Site
-
-Priority: mid
-
-Why:
-Currently there is no direct way to move a pooled worker to a building site from the card itself. This closes that gap and makes the daily assignment workflow faster.
-
-Goal:
-Let a manager move a worker from the pool directly to a building site through the card's fly-out menu.
-
-Ideas to realize it:
-- When a card in the pool is clicked, show the existing fly-out action buttons as usual.
-- Add a new "Move to site" (or "Add to site") button in that fly-out.
-- Clicking it opens an inline list at the click position showing all currently available (active) building sites.
-- Selecting a site moves the card to that site's swimlane for that day.
-- Clicking anywhere outside the list cancels the operation without making any change.
-- Keyboard escape should also abort.
-
 ## Building Site Management
 
 Priority: mid

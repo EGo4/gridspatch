@@ -8,9 +8,15 @@ export type Employee = {
   img: string | null;
 };
 
+export type ProjectStatus = "active" | "on_hold" | "not_active";
+
 export type Project = {
   id: string;
   name: string;
+  description: string | null;
+  startDate: Date | null;
+  endDate: Date | null;
+  status: ProjectStatus;
 };
 
 export type Assignment = {

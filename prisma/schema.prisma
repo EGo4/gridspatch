@@ -79,11 +79,21 @@ model Employee {
   assignments Assignment[]
 }
 
+enum ProjectStatus {
+  active
+  on_hold
+  not_active
+}
+
 model Project {
-  id          String       @id @default(cuid())
+  id          String        @id @default(cuid())
   name        String
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  description String?
+  startDate   DateTime?     @db.Date
+  endDate     DateTime?     @db.Date
+  status      ProjectStatus @default(active)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
 
   assignments Assignment[]
 }

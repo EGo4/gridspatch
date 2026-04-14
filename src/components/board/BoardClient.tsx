@@ -269,8 +269,10 @@ export function BoardClient({
       if (stored) {
         try { return new Set(JSON.parse(stored) as string[]); } catch { /* ignore */ }
       }
-      // Default: sick-vacation section starts collapsed.
-      return new Set(["sick-vacation"]);
+      // Default: sick-vacation section + all on-hold projects start collapsed.
+      const defaults = new Set(["sick-vacation"]);
+      dbProjects.forEach((p) => { if (p.status === "on_hold") defaults.add(p.id); });
+      return defaults;
     });
   }, [dbProjects, dbEmployees, dbAssignments, selectedWeek.startDateIso]);
 
@@ -749,7 +751,7 @@ export function BoardClient({
         <main className="flex-1 overflow-auto min-h-0 px-4 flex flex-col">
 
         {/* Week selector — desktop only */}
-        <div className="mt-4 mb-6 hidden lg:flex items-center justify-center bg-[#1f1e24]">
+        <div className="mt-4 mb-6 hidden lg:flex items-center justify-center bg-[#1f1e24] relative">
           <div className="relative inline-flex items-center rounded-full bg-[#28272d] text-sm font-medium text-[#a09fa6]">
             <Link
               href={`/board?week=${getPreviousWeekParam(selectedWeek.startDateIso)}`}
@@ -794,6 +796,19 @@ export function BoardClient({
               </div>
             )}
           </div>
+
+          {/* Admin link — top-right corner of the desktop header row */}
+          <Link
+            href="/admin/sites"
+            className="absolute right-0 flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-[#6b6875] transition-colors hover:bg-[#28272d] hover:text-[#a09fa6]"
+            title="Manage building sites"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <polyline points="9 22 9 12 15 12 15 22" />
+            </svg>
+            Sites
+          </Link>
         </div>
 
           <div className="w-full lg:min-w-max flex flex-col gap-4">
@@ -853,31 +868,39 @@ export function BoardClient({
             </div>
 
             {/* Project swimlanes */}
-            {dbProjects.map((project) => {
-              const isCollapsed = (collapsedRows ?? new Set()).has(project.id);
-              return (
-                <div key={project.id} className="flex flex-col gap-2">
-                  <button
-                    type="button"
-                    onClick={() => toggleCollapsed(project.id)}
-                    className="flex items-center gap-2 py-1 text-left text-sm font-semibold text-[#ececef] transition-colors hover:text-white"
-                  >
-                    <svg
-                      className={`h-3 w-3 flex-shrink-0 transition-transform duration-200 ${isCollapsed ? "-rotate-90" : ""}`}
-                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+            {dbProjects
+              .filter((p) => p.status !== "not_active")
+              .map((project) => {
+                const isCollapsed = (collapsedRows ?? new Set()).has(project.id);
+                const isOnHold = project.status === "on_hold";
+                return (
+                  <div key={project.id} className={`flex flex-col gap-2 ${isOnHold ? "opacity-50" : ""}`}>
+                    <button
+                      type="button"
+                      onClick={() => toggleCollapsed(project.id)}
+                      className="flex items-center gap-2 py-1 text-left text-sm font-semibold text-[#ececef] transition-colors hover:text-white"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                    {project.name}
-                  </button>
-                  {!isCollapsed && (
-                    <div className="flex gap-4 items-stretch">
-                      {DAYS.map((day) => renderCell(project.id, day))}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                      <svg
+                        className={`h-3 w-3 flex-shrink-0 transition-transform duration-200 ${isCollapsed ? "-rotate-90" : ""}`}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                      {project.name}
+                      {isOnHold && (
+                        <span className="ml-1 rounded-full bg-[#2c2619] px-2 py-0.5 text-[10px] font-semibold text-[#fbbf24]">
+                          On hold
+                        </span>
+                      )}
+                    </button>
+                    {!isCollapsed && (
+                      <div className="flex gap-4 items-stretch">
+                        {DAYS.map((day) => renderCell(project.id, day))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
 
             {/* Sick & Vacation swimlane */}
             <div className="flex flex-col gap-2 mt-4 pb-4">
@@ -1057,6 +1080,8 @@ export function BoardClient({
         ))}
       </div>
     )}
+
+
   </DragDropContext>
   );
 }

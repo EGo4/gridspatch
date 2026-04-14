@@ -24,7 +24,7 @@ export type BoardDb = {
     findMany: () => Promise<Employee[]>;
   };
   project: {
-    findMany: () => Promise<Project[]>;
+    findMany: (args?: { orderBy?: { name: "asc" | "desc" } }) => Promise<Project[]>;
   };
   week: {
     findMany: (args: { orderBy: { startDate: "asc" | "desc" } }) => Promise<WeekRecord[]>;
@@ -72,7 +72,7 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
 
   const [weeks, projects, employees, assignments] = await Promise.all([
     database.week.findMany({ orderBy: { startDate: "desc" } }),
-    database.project.findMany(),
+    database.project.findMany({ orderBy: { name: "asc" } }),
     database.employee.findMany(),
     database.assignment.findMany({ where: { weekId: selectedWeek.id } }),
   ]);
