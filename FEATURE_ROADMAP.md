@@ -3,32 +3,6 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## Building Site Management
-
-Priority: mid
-
-Why:
-The planning board depends on clean building site data.
-
-Goal:
-Manage construction sites including metadata and lifecycle state.
-
-Requested fields:
-- Add, delete, modify building sites
-- Starting date
-- Ending date
-- Status: `active`, `not-active`, `on-hold`
-
-Ideas to realize it:
-- Extend the current `Project` model or rename it to `BuildingSite` if that better matches the domain.
-- Add fields like `startDate`, `endDate`, `status`, `description`.
-- Filter inactive or on-hold sites in the board by default, with an option to show them.
-- Prevent assigning people to inactive sites unless explicitly allowed.
-
-Decision:
-- On-hold sites remain visible on the board by default.
-- Their default presentation should be greyed out and minimized.
-
 ## Construction Manager Per Building Site
 
 Priority: mid
