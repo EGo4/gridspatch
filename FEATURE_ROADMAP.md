@@ -3,6 +3,50 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
+## User Management For Managers
+
+Priority: mid
+
+Why:
+User management becomes much easier once employee/site concepts are stable.
+
+Goal:
+Manage employees as resources and construction managers as actual account holders.
+
+Requested scope:
+- Add, delete, modify users
+- Pictures
+- Roles: `construction_manager`, `admin`
+- add an admin page manage all account
+
+Recommended direction:
+- Keep one invisible, god-like admin role for full system control.
+- That admin may also be a construction manager, but does not have to be.
+
+## Login To Secure The Site
+
+Priority: mid
+
+Why:
+Important for production, but the data model and user boundaries should be clarified first.
+
+Goal:
+Require authentication before accessing the planning board and admin functions.
+
+Ideas to realize it:
+- Use the existing auth stack already present in the app.
+- Protect board and admin routes with middleware or layout guards.
+- Allow login only for construction managers and future admins.
+- Add role-based route protection so resource employees cannot log in.
+- Start with email/password or single provider login, whichever matches your environment.
+
+Minimum rollout:
+- Login page
+- Protected routes
+- Session-aware header
+- Unauthorized fallback page
+
+
 ## Construction Manager Per Building Site
 
 Priority: mid
@@ -38,58 +82,6 @@ Ideas to realize it:
 
 Dependency:
 Requires the construction manager relation on building sites to be in place first.
-
-## User Management For Resources And Managers
-
-Priority: mid
-
-Why:
-User management becomes much easier once employee/site concepts are stable.
-
-Goal:
-Manage employees as resources and construction managers as actual account holders.
-
-Requested scope:
-- Add, delete, modify users
-- Pictures
-- Roles: `employee`, `construction_manager`
-- Only construction managers get login accounts
-- Employees are planning resources only
-
-Ideas to realize it:
-- Separate "person resource" data from "auth account" data.
-- Keep `Employee` as the resource entity used on the board.
-- Add an `AccountUser` or similar auth-linked profile only for construction managers.
-- Allow employee profiles to have image, name, and role metadata without login credentials.
-- Add admin CRUD screens for employees and construction managers.
-
-Recommended direction:
-- Use roles like `admin`, `construction_manager`, `employee_resource`.
-- Keep one invisible, god-like admin role for full system control.
-- That admin may also be a construction manager, but does not have to be.
-
-## Login To Secure The Site
-
-Priority: mid
-
-Why:
-Important for production, but the data model and user boundaries should be clarified first.
-
-Goal:
-Require authentication before accessing the planning board and admin functions.
-
-Ideas to realize it:
-- Use the existing auth stack already present in the app.
-- Protect board and admin routes with middleware or layout guards.
-- Allow login only for construction managers and future admins.
-- Add role-based route protection so resource employees cannot log in.
-- Start with email/password or single provider login, whichever matches your environment.
-
-Minimum rollout:
-- Login page
-- Protected routes
-- Session-aware header
-- Unauthorized fallback page
 
 ## Account Management For Personal Account
 

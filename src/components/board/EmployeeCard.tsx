@@ -4,7 +4,7 @@
 import React from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import type { DayPart, Employee } from "~/types";
-import { SyringeIcon, PalmTreeIcon, SplitDayIcon, MergeIcon, AssignSiteIcon } from "~/components/icons";
+import { SyringeIcon, PalmTreeIcon, SplitDayIcon, MergeIcon, AssignSiteIcon, UserIcon } from "~/components/icons";
 
 interface EmployeeCardProps {
   employee: Employee;
@@ -62,9 +62,11 @@ export function EmployeeCard({
                       : "border-transparent bg-[#302f36] hover:border-[#4a4950]"
             }`}
           >
-            <div className="h-7 w-7 flex-shrink-0 overflow-hidden rounded-full bg-gray-600">
-              {employee.img && (
+            <div className="h-7 w-7 flex-shrink-0 overflow-hidden rounded-full bg-[#3a3940] flex items-center justify-center">
+              {employee.img ? (
                 <img src={employee.img} alt={employee.name} className="h-full w-full object-cover" />
+              ) : (
+                <UserIcon size={16} className="text-[#6b6875]" />
               )}
             </div>
             <span className={`text-xs font-medium text-[#ececef] ${isHalfDay ? "truncate" : "whitespace-nowrap"}`}>
