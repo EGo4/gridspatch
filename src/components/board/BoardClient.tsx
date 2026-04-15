@@ -800,6 +800,17 @@ export function BoardClient({
           {/* Admin links — top-right corner of the desktop header row */}
           <div className="absolute right-0 flex items-center gap-1">
             <Link
+              href="/admin/users"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-[#6b6875] transition-colors hover:bg-[#28272d] hover:text-[#a09fa6]"
+              title="Manage users"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+              </svg>
+              Users
+            </Link>
+            <Link
               href="/admin/employees"
               className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-[#6b6875] transition-colors hover:bg-[#28272d] hover:text-[#a09fa6]"
               title="Manage employees"
