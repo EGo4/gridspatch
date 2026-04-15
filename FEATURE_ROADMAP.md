@@ -3,50 +3,6 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## User Management For Managers
-
-Priority: mid
-
-Why:
-User management becomes much easier once employee/site concepts are stable.
-
-Goal:
-Manage employees as resources and construction managers as actual account holders.
-
-Requested scope:
-- Add, delete, modify users
-- Pictures
-- Roles: `construction_manager`, `admin`
-- add an admin page manage all account
-
-Recommended direction:
-- Keep one invisible, god-like admin role for full system control.
-- That admin may also be a construction manager, but does not have to be.
-
-## Login To Secure The Site
-
-Priority: mid
-
-Why:
-Important for production, but the data model and user boundaries should be clarified first.
-
-Goal:
-Require authentication before accessing the planning board and admin functions.
-
-Ideas to realize it:
-- Use the existing auth stack already present in the app.
-- Protect board and admin routes with middleware or layout guards.
-- Allow login only for construction managers and future admins.
-- Add role-based route protection so resource employees cannot log in.
-- Start with email/password or single provider login, whichever matches your environment.
-
-Minimum rollout:
-- Login page
-- Protected routes
-- Session-aware header
-- Unauthorized fallback page
-
-
 ## Construction Manager Per Building Site
 
 Priority: mid

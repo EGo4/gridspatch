@@ -2,11 +2,13 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { DragDropContext, Droppable } from "@hello-pangea/dnd";
 import type { DragStart, DropResult } from "@hello-pangea/dnd";
 
 import { EmployeeCard } from "./EmployeeCard";
 import { SyringeIcon, PalmTreeIcon, CopyIcon, AssignSiteIcon } from "~/components/icons";
+import { authClient } from "~/server/better-auth/client";
 import { updateAssignment, splitAssignment, mergeAssignment, copyDayAssignments } from "~/server/actions/board";
 import { DAYS } from "~/lib/constants";
 import {
@@ -95,6 +97,14 @@ export function BoardClient({
   selectedWeek,
   weeks,
 }: BoardClientProps) {
+  const router = useRouter();
+  const { data: session } = authClient.useSession();
+  const isAdmin = session?.user?.role === "admin";
+
+  async function handleLogout() {
+    await authClient.signOut();
+    router.push("/login");
+  }
   const [assignmentsState, setAssignmentsState] = useState<Record<string, EmployeeEntry[]>>({});
   const [activeDay, setActiveDay] = useState("Monday");
   const [isLoaded, setIsLoaded] = useState(false);
@@ -797,19 +807,21 @@ export function BoardClient({
             )}
           </div>
 
-          {/* Admin links — top-right corner of the desktop header row */}
+          {/* Admin links + logout — top-right corner of the desktop header row */}
           <div className="absolute right-0 flex items-center gap-1">
-            <Link
-              href="/admin/users"
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-[#6b6875] transition-colors hover:bg-[#28272d] hover:text-[#a09fa6]"
-              title="Manage users"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="8" r="4" />
-                <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-              </svg>
-              Users
-            </Link>
+            {isAdmin && (
+              <Link
+                href="/admin/users"
+                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-[#6b6875] transition-colors hover:bg-[#28272d] hover:text-[#a09fa6]"
+                title="Manage users"
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                </svg>
+                Users
+              </Link>
+            )}
             <Link
               href="/admin/employees"
               className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-[#6b6875] transition-colors hover:bg-[#28272d] hover:text-[#a09fa6]"
@@ -834,6 +846,20 @@ export function BoardClient({
               </svg>
               Sites
             </Link>
+            <div className="mx-1 h-4 w-px bg-[#3a3940]" />
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-[#6b6875] transition-colors hover:bg-[#28272d] hover:text-[#a09fa6]"
+              title="Sign out"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              Sign out
+            </button>
           </div>
         </div>
 

@@ -28,6 +28,10 @@ type UserDb = {
         createdAt: Date;
       }>
     >;
+    findFirst: (args: {
+      where: { name: string };
+      select: { email: true };
+    }) => Promise<{ email: string } | null>;
     count: () => Promise<number>;
     update: (args: {
       where: { id: string };
@@ -37,6 +41,14 @@ type UserDb = {
 };
 
 const userDb = db as unknown as UserDb;
+
+export async function findEmailByUsername(name: string): Promise<string | null> {
+  const user = await userDb.user.findFirst({
+    where: { name },
+    select: { email: true },
+  });
+  return user?.email ?? null;
+}
 
 export async function listUsers() {
   return userDb.user.findMany({
