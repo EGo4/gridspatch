@@ -1,5 +1,37 @@
 @import "tailwindcss";
 
+/* ── Viewport lock ───────────────────────────────────────────────────────────── */
+/*
+ * Prevent the document body from ever showing a scrollbar.
+ * All scrolling is handled by internal scroll containers (main, pool-overlay).
+ */
+html,
+body {
+  overflow: hidden;
+}
+
+/* ── Custom dark scrollbars (Webkit / Blink) ─────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #3a3940;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4a4950;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3a3940 transparent;
+}
+
 @theme {
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";

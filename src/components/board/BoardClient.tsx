@@ -7,7 +7,7 @@ import { DragDropContext, Droppable } from "@hello-pangea/dnd";
 import type { DragStart, DropResult } from "@hello-pangea/dnd";
 
 import { EmployeeCard } from "./EmployeeCard";
-import { SyringeIcon, PalmTreeIcon, CopyIcon, AssignSiteIcon } from "~/components/icons";
+import { SyringeIcon, PalmTreeIcon, CopyIcon, AssignSiteIcon, FilterIcon } from "~/components/icons";
 import { authClient } from "~/server/better-auth/client";
 import { updateAssignment, splitAssignment, mergeAssignment, copyDayAssignments } from "~/server/actions/board";
 import { DAYS } from "~/lib/constants";
@@ -86,7 +86,8 @@ const poolFullDayId = (day: string) => `pool-${day}`;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const COLLAPSED_LS_KEY = "gridspatch:collapsed-rows";
+const COLLAPSED_LS_KEY  = "gridspatch:collapsed-rows";
+const FILTER_MANAGER_KEY = "gridspatch:filter-manager";
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -122,6 +123,10 @@ export function BoardClient({
     left: number;
     top: number;
   } | null>(null);
+  const [filterManagerId, setFilterManagerId] = useState<string | null>(null);
+  const [sideMenuOpen, setSideMenuOpen] = useState(false);
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [pendingManagerId, setPendingManagerId] = useState<string | null>(null);
 
   const weekDates = getWeekDateMap(selectedWeek.startDateIso);
 
@@ -179,6 +184,64 @@ export function BoardClient({
       document.removeEventListener("keydown", handleKey);
     };
   }, [sitePickerFor]);
+
+  // ── Hydrate filter from localStorage ─────────────────────────────────────
+  useEffect(() => {
+    const stored = localStorage.getItem(FILTER_MANAGER_KEY);
+    if (stored) setFilterManagerId(stored);
+  }, []);
+
+  // ── Persist filter to localStorage ───────────────────────────────────────
+  useEffect(() => {
+    if (filterManagerId) {
+      localStorage.setItem(FILTER_MANAGER_KEY, filterManagerId);
+    } else {
+      localStorage.removeItem(FILTER_MANAGER_KEY);
+    }
+  }, [filterManagerId]);
+
+  // ── Close fly-out side menu on outside click or Escape ───────────────────
+  useEffect(() => {
+    if (!sideMenuOpen) return;
+    const handleClick = () => setSideMenuOpen(false);
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") setSideMenuOpen(false); };
+    document.addEventListener("click", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("click", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [sideMenuOpen]);
+
+  // ── Filter modal: sync pending selection and handle Escape ──────────────────
+  useEffect(() => {
+    if (!filterModalOpen) return;
+    setPendingManagerId(filterManagerId);
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") setFilterModalOpen(false); };
+    document.addEventListener("keydown", handleKey);
+    return () => document.removeEventListener("keydown", handleKey);
+  }, [filterModalOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Managers that have at least one project ───────────────────────────────
+  const managersWithSites = React.useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const p of dbProjects) {
+      if (p.constructionManagerId && p.constructionManagerName && !seen.has(p.constructionManagerId)) {
+        seen.set(p.constructionManagerId, p.constructionManagerName);
+      }
+    }
+    return [...seen.entries()].map(([id, name]) => ({ id, name }));
+  }, [dbProjects]);
+
+  // ── Active filter label ───────────────────────────────────────────────────
+  const activeManagerName = filterManagerId
+    ? (managersWithSites.find((m) => m.id === filterManagerId)?.name ?? null)
+    : null;
+
+  // ── Filtered projects ─────────────────────────────────────────────────────
+  const visibleProjects = filterManagerId
+    ? dbProjects.filter((p) => p.constructionManagerId === filterManagerId)
+    : dbProjects;
 
   // ── Assign pool worker to a project site ──────────────────────────────────
   const assignToSite = (employeeId: string, day: string, projectId: string) => {
@@ -807,8 +870,10 @@ export function BoardClient({
             )}
           </div>
 
-          {/* Admin links + logout — top-right corner of the desktop header row */}
+          {/* Filter + admin links + logout — top-right corner of the desktop header row */}
           <div className="absolute right-0 flex items-center gap-1">
+
+
             {isAdmin && (
               <Link
                 href="/admin/users"
@@ -920,7 +985,7 @@ export function BoardClient({
             </div>
 
             {/* Project swimlanes */}
-            {dbProjects
+            {visibleProjects
               .filter((p) => p.status !== "not_active")
               .map((project) => {
                 const isCollapsed = (collapsedRows ?? new Set()).has(project.id);
@@ -1039,8 +1104,70 @@ export function BoardClient({
           </div>
         </main>
 
-        {/* Pool — always visible at the bottom of the content column, scrolls independently */}
-        <div className="pool-overlay flex flex-col gap-2 bg-[#1f1e24] border-t border-[#313036] px-4 pt-3 pb-4">
+        {/* Pool wrapper — fly-out side menu lives here, always above the pool */}
+        <div className="relative">
+
+          {/* Fly-out side menu */}
+          <div
+            className="absolute bottom-full right-0 flex items-end pr-4 pb-2 z-30"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+
+              {/* Expanded panel — flies out to the left */}
+              {sideMenuOpen && (
+                <div className="flex items-center gap-1 mr-1">
+                  {/* Filter button */}
+                  <button
+                    type="button"
+                    onClick={() => { setSideMenuOpen(false); setFilterModalOpen(true); }}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                      filterManagerId
+                        ? "bg-accent text-white"
+                        : "bg-[#28272d] text-[#a09fa6] hover:bg-[#313036] hover:text-[#ececef]"
+                    }`}
+                  >
+                    <FilterIcon size={12} />
+                    {activeManagerName ?? "Filter"}
+                  </button>
+
+                  {/* Reset — only when a filter is active */}
+                  {filterManagerId && (
+                    <button
+                      type="button"
+                      onClick={() => setFilterManagerId(null)}
+                      title="Clear filter"
+                      className="flex items-center rounded-lg p-2 bg-[#28272d] text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]"
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Toggle handle */}
+              <button
+                type="button"
+                onClick={() => setSideMenuOpen((o) => !o)}
+                title={sideMenuOpen ? "Close menu" : "Open menu"}
+                className={`flex items-center justify-center rounded-lg w-8 h-9 transition-colors ${
+                  filterManagerId
+                    ? "bg-accent text-white shadow-lg"
+                    : "bg-[#313036] text-[#6b6875] hover:bg-[#3a3940] hover:text-[#a09fa6]"
+                }`}
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                  <path d={sideMenuOpen ? "M9 18l6-6-6-6" : "M15 18l-6-6 6-6"} />
+                </svg>
+              </button>
+
+            </div>
+          </div>
+
+          {/* Pool — always visible at the bottom of the content column, scrolls independently */}
+          <div className="pool-overlay flex flex-col gap-2 bg-[#1f1e24] border-t border-[#313036] px-4 pt-3 pb-4">
           <button
             type="button"
             onClick={() => toggleCollapsed("pool")}
@@ -1107,7 +1234,8 @@ export function BoardClient({
               );
             })}
           </div>}
-        </div>
+        </div>{/* end pool */}
+        </div>{/* end pool wrapper */}
 
       </div>
     </div>
@@ -1142,6 +1270,97 @@ export function BoardClient({
       </div>
     )}
 
+
+    {/* Filter modal */}
+    {filterModalOpen && (
+      <>
+        {/* Backdrop */}
+        <div
+          className="fixed inset-0 z-40 bg-black/60"
+          onClick={() => setFilterModalOpen(false)}
+        />
+
+        {/* Dialog */}
+        <div
+          className="fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[#313036] bg-[#1f1e24] shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-[#313036] px-5 py-4">
+            <h3 className="text-sm font-semibold text-[#ececef]">Filters</h3>
+            <button
+              type="button"
+              onClick={() => setFilterModalOpen(false)}
+              title="Close"
+              className="flex items-center rounded p-1 text-[#6b6875] transition-colors hover:text-[#ececef]"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Section: Construction manager */}
+          <div className="px-5 py-4">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[#6b6875]">
+              Construction manager
+            </div>
+            <div className="flex flex-col gap-1">
+              <button
+                type="button"
+                onClick={() => setPendingManagerId(null)}
+                className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
+                  pendingManagerId === null
+                    ? "bg-[#252e3d] text-accent"
+                    : "text-[#a09fa6] hover:bg-[#28272d] hover:text-[#ececef]"
+                }`}
+              >
+                All managers
+              </button>
+              {managersWithSites.length === 0 ? (
+                <p className="px-3 py-2 text-sm text-[#4a4950]">No managers assigned yet</p>
+              ) : (
+                managersWithSites.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setPendingManagerId(m.id)}
+                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
+                      pendingManagerId === m.id
+                        ? "bg-[#252e3d] text-accent"
+                        : "text-[#a09fa6] hover:bg-[#28272d] hover:text-[#ececef]"
+                    }`}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                    </svg>
+                    {m.name}
+                  </button>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-between border-t border-[#313036] px-5 py-4">
+            <button
+              type="button"
+              onClick={() => setPendingManagerId(null)}
+              className="text-xs text-[#6b6875] transition-colors hover:text-[#a09fa6]"
+            >
+              Clear all
+            </button>
+            <button
+              type="button"
+              onClick={() => { setFilterManagerId(pendingManagerId); setFilterModalOpen(false); }}
+              className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white transition-colors hover:opacity-90"
+            >
+              Apply
+            </button>
+          </div>
+        </div>
+      </>
+    )}
 
   </DragDropContext>
   );
