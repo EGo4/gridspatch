@@ -7,7 +7,7 @@ import {
   createUser,
   updateUser,
   deleteUser,
-  changePassword,
+  resetUserPassword,
   type UserRole,
 } from "~/server/actions/users";
 import { UserIcon } from "~/components/icons";
@@ -28,6 +28,7 @@ type FormState = {
   name: string;
   email: string;
   password: string;
+  adminPassword: string;
   role: UserRole;
   image: string;
   pendingFile: File | null;
@@ -37,6 +38,7 @@ const EMPTY_FORM: FormState = {
   name: "",
   email: "",
   password: "",
+  adminPassword: "",
   role: "construction_manager",
   image: "",
   pendingFile: null,
@@ -153,7 +155,13 @@ function UserFormPanel({
   const inputCls =
     "w-full rounded-lg border border-[#313036] bg-[#17161c] px-3 py-2 text-sm text-[#ececef] placeholder-[#4a4950] outline-none focus:border-[var(--color-accent)] transition-colors";
 
-  const canSave = form.name.trim() && form.email.trim() && (isEdit || form.password.length >= 8);
+  const newPasswordTooShort = !isEdit && form.password.length > 0 && form.password.length < 8;
+  const adminPasswordRequired = isEdit && form.password.length > 0 && form.adminPassword.length === 0;
+  const canSave =
+    form.name.trim() &&
+    form.email.trim() &&
+    (isEdit || form.password.length >= 8) &&
+    !adminPasswordRequired;
 
   return (
     <>
@@ -236,8 +244,32 @@ function UserFormPanel({
             />,
           )}
 
-          {!isEdit && form.password.length > 0 && form.password.length < 8 && (
+          {isEdit && (
+            <>
+              {field(
+                "Your admin password",
+                <input
+                  type="password"
+                  value={form.adminPassword}
+                  onChange={(e) => onChange({ ...form, adminPassword: e.target.value })}
+                  placeholder="Required to change this user's password"
+                  className={inputCls}
+                  autoComplete="current-password"
+                />,
+              )}
+              <p className="text-[11px] text-[#6b6875]">
+                Required only when setting a new password for this user.
+              </p>
+            </>
+          )}
+
+          {newPasswordTooShort && (
             <p className="text-[11px] text-[#f87171]">Password must be at least 8 characters.</p>
+          )}
+          {adminPasswordRequired && (
+            <p className="text-[11px] text-[#f87171]">
+              Your admin password is required to change another user&apos;s password.
+            </p>
           )}
         </div>
 
@@ -333,6 +365,7 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
       name: user.name,
       email: user.email,
       password: "",
+      adminPassword: "",
       role: (user.role as UserRole) ?? "construction_manager",
       image: user.image ?? "",
       pendingFile: null,
@@ -368,7 +401,11 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
           image: imageUrl,
         });
         if (form.password) {
-          await changePassword({ userId: form.id, newPassword: form.password });
+          await resetUserPassword({
+            userId: form.id,
+            newPassword: form.password,
+            adminPassword: form.adminPassword,
+          });
         }
       } else {
         await createUser({

@@ -912,6 +912,18 @@ export function BoardClient({
               Sites
             </Link>
             <div className="mx-1 h-4 w-px bg-[#3a3940]" />
+            <Link
+              href="/profile"
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-[#6b6875] transition-colors hover:bg-[#28272d] hover:text-[#a09fa6]"
+              title="Account settings"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+              </svg>
+              Account
+            </Link>
+            <div className="mx-1 h-4 w-px bg-[#3a3940]" />
             <button
               type="button"
               onClick={handleLogout}

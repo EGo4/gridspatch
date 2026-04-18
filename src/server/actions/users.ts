@@ -146,10 +146,43 @@ export async function updateUser(input: {
   return { success: true };
 }
 
-export async function changePassword(input: { userId: string; newPassword: string }) {
+export async function resetUserPassword(input: {
+  userId: string;
+  newPassword: string;
+  adminPassword: string;
+}) {
   const h = await headers();
+  const session = await auth.api.getSession({ headers: h });
+  if (!session?.user?.id) throw new Error("Not authenticated");
+
+  const adminUser = session.user as { role?: string };
+  if (adminUser.role !== "admin") throw new Error("Admin access required");
+
+  await auth.api.verifyPassword({
+    body: { password: input.adminPassword },
+    headers: h,
+  });
+
   await auth.api.setUserPassword({
     body: { userId: input.userId, newPassword: input.newPassword },
+    headers: h,
+  });
+  return { success: true };
+}
+
+export async function changeCurrentUserPassword(input: {
+  currentPassword: string;
+  newPassword: string;
+}) {
+  const h = await headers();
+  const session = await auth.api.getSession({ headers: h });
+  if (!session?.user?.id) throw new Error("Not authenticated");
+
+  await auth.api.changePassword({
+    body: {
+      currentPassword: input.currentPassword,
+      newPassword: input.newPassword,
+    },
     headers: h,
   });
   return { success: true };
@@ -160,6 +193,46 @@ export async function deleteUser(userId: string) {
   await auth.api.removeUser({
     body: { userId },
     headers: h,
+  });
+  return { success: true };
+}
+
+export async function getCurrentUser() {
+  const h = await headers();
+  const session = await auth.api.getSession({ headers: h });
+  if (!session?.user?.id) return null;
+  const u = session.user as {
+    id: string;
+    name: string;
+    email: string;
+    image?: string | null;
+    role?: string;
+  };
+  return {
+    id: u.id,
+    name: u.name,
+    email: u.email,
+    image: u.image ?? null,
+    role: u.role ?? "construction_manager",
+  };
+}
+
+export async function updateCurrentUser(input: {
+  name: string;
+  email: string;
+  image?: string | null;
+}) {
+  const h = await headers();
+  const session = await auth.api.getSession({ headers: h });
+  if (!session?.user?.id) throw new Error("Not authenticated");
+
+  await userDb.user.update({
+    where: { id: session.user.id },
+    data: {
+      name: input.name.trim(),
+      email: input.email.trim().toLowerCase(),
+      image: input.image ?? null,
+    },
   });
   return { success: true };
 }

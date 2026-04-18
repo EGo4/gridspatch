@@ -3,63 +3,6 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## Construction Manager Per Building Site
-
-Priority: mid
-
-Why:
-This adds responsibility structure directly to planning and supports permissions and statistics later.
-
-Goal:
-Assign a construction manager to each building site.
-
-Ideas to realize it:
-- Add a nullable `constructionManagerId` on the building site.
-- Restrict selectable managers to users with the `construction_manager` role.
-- Show the responsible manager in the swimlane header or site details.
-- Later use this relation for filtering, permissions, and reporting.
-
-## Filter Board By Building Site Manager
-
-Priority: mid
-
-Why:
-Once construction managers are assigned to sites, a manager opening the board sees every site regardless of who is responsible. A filter lets each manager focus on only their own sites and reduces visual noise on busy boards.
-
-Goal:
-Let users filter the planning board so only the swimlanes belonging to a selected building site manager are shown.
-
-Ideas to realize it:
-- Add a filter control in the board header (e.g. a dropdown or button group) listing all construction managers.
-- Selecting a manager hides swimlanes not assigned to them; selecting "All" restores the full board.
-- The active filter should persist for the session (local storage) so a page refresh keeps the view focused.
-- A visual indicator (e.g. a badge or highlighted label) should make it obvious when a filter is active.
-- Later, a logged-in manager could have their own sites pre-filtered by default based on their account.
-
-Dependency:
-Requires the construction manager relation on building sites to be in place first.
-
-## Account Management For Personal Account
-
-Priority: mid
-
-Why:
-Only makes sense once real accounts exist.
-
-Goal:
-Let logged-in managers maintain their own account information.
-
-Requested fields:
-- Image
-- Name
-- Role
-
-Ideas to realize it:
-- Add a profile/settings page for authenticated managers.
-- Let users update display name and avatar.
-- Keep role editable only by admins, not by the user themselves.
-- Reuse the same image upload/display approach as in user management.
-
 ## Copy Previous Week As Template
 
 Priority: mid
@@ -80,6 +23,63 @@ Open choice for implementation:
 - First version can copy only assignments.
 - Later versions can include availability, collapsed swimlanes, and manager-specific view settings.
 
+## Update the handling of construction side status
+
+Why:
+- current handling is not scalable for multi year use because sites are active on a week individual basis
+
+Goal:
+- Make the side status more realistic to how it will be used
+
+Ideas:
+- use these status:
+  - planned
+  - active
+  - on hold
+  - done
+  - inactive
+- use these super status (only for handling in the background):
+  - preparation
+    - planned
+  - ongoing
+    - active
+    - on hold
+  - completed
+    - done
+    - inactive
+- modify the database so it stores the status per week
+- in the construction site menu add a calender view (week based not day based) that shows the status
+- let user read and set the status for one or multiple weeks on that site
+- every side can only go 
+  - preperation -> ongoing or inactive 
+  - ongoing -> completed
+  - change within ongoing
+- transitioning from completed to ongoing is possible but with a BIG warning
+- setting something from completed -> ongoing leads to all weeks that are marked completed to be marked as `on hold` indepeded of the state chosen for the ongoing transition
+
+## dont show completed or preparation sites on board
+
+## Add option to set side status on main page
+
+Quickly correct the status of a construction site via the grid view
+
+Ideas:
+- add a button(or dropdown) to each swimlane change the status of a site for that week quickly.
+- only allow `active`, `on hold` and `done`
+- for the `done` transition ask with a warning that the site then will disappear from the current board
+- update the board after the transition
+
+## Add sorting to employee and contruction site table
+
+Add sorting for each column by clicking it
+Cycle trough acending, decending and not-sorted
+disable one sorting if other column is clicked
+
+## Secure data of older weeks
+
+- Past weeks stay editable, but editing them should show a warning.
+- Historical-change warnings can be muted for 5 minutes.
+
 ## Side Navigation Menu
 
 Priority: mid
@@ -96,46 +96,6 @@ Ideas to realize it:
 - Initial tabs: Planning (current board view) and Statistics.
 - The menu should visually connect to the accent-color lip introduced in the appearance refactor — e.g. the lip continues along the menu edge or the menu shares the same border treatment.
 - Keep the menu out of the way when collapsed so it does not reduce board space on smaller screens.
-
-## Statistics On Worked Weeks
-
-Priority: mid
-
-Why:
-Depends heavily on week-based historical data and stable domain relationships.
-
-Goal:
-Provide statistics by employee, building site, and construction manager.
-
-Requested breakdowns:
-- Employee-wise
-- Construction-site-wise
-- Construction-manager-wise
-
-Ideas to realize it:
-- Build statistics from saved week snapshots and assignment history.
-- Start with simple counts:
-  - assignments per week
-  - days worked per employee
-  - staffing load per site
-  - managed site load per construction manager
-- Add filters for week range, manager, employee, and site status.
-- Consider a dedicated reporting page instead of mixing it into the planning UI.
-
-Possible metrics:
-- Total assigned days
-- Unavailable days
-- Site staffing coverage
-- Per-manager active sites over time
-
-Decision:
-- Past weeks should remain editable, not immutable.
-- Editing an older week should trigger a warning before changes are saved.
-- Users should be able to mute those warnings for 5 minutes.
-
-Implementation idea for warnings:
-- Track a local "suppress historical-change warning until timestamp" in session or local storage.
-- Show the warning again automatically after 5 minutes.
 
 ## Preference Menu
 
@@ -205,28 +165,42 @@ If Caddy is used with DuckDNS:
 - Ensure `BETTER_AUTH_URL` or future auth base URL settings use the final DuckDNS HTTPS URL.
 - If the app stays local-only without public exposure, skip DuckDNS and use a local hostname or IP.
 
-## Suggested Order
+## Statistics On Worked Weeks
 
-- Building site CRUD and status fields
-- Construction manager relation on building sites
-- Filter board by building site manager
-- User/resource management split
-- Authentication and route protection
-- Personal account management
-- Side navigation menu (planning + statistics tabs, integrates with lip)
-- Copy previous week as template
-- Statistics and reporting
-- Preference menu (colors, scaling factor)
-- Light mode
-- Docker deployment and production documentation
+Priority: mid
 
-## Confirmed Product Decisions
+Why:
+Depends heavily on week-based historical data and stable domain relationships.
 
-- Vacation and sick are stored per day.
-- On-hold sites stay visible on the board by default, but appear greyed out and minimized.
-- Expanding an on-hold site should ask whether it should be set back to active.
-- There is a separate invisible admin role with full control.
-- The admin can also be a construction manager, but does not have to be.
-- Copying the previous week should be a separate manual feature triggered by a button.
-- Past weeks stay editable, but editing them should show a warning.
-- Historical-change warnings can be muted for 5 minutes.
+Goal:
+Provide statistics by employee, building site, and construction manager.
+
+Requested breakdowns:
+- Employee-wise
+- Construction-site-wise
+- Construction-manager-wise
+
+Ideas to realize it:
+- Build statistics from saved week snapshots and assignment history.
+- Start with simple counts:
+  - assignments per week
+  - days worked per employee
+  - staffing load per site
+  - managed site load per construction manager
+- Add filters for week range, manager, employee, and site status.
+- Consider a dedicated reporting page instead of mixing it into the planning UI.
+
+Possible metrics:
+- Total assigned days
+- Unavailable days
+- Site staffing coverage
+- Per-manager active sites over time
+
+Decision:
+- Past weeks should remain editable, not immutable.
+- Editing an older week should trigger a warning before changes are saved.
+- Users should be able to mute those warnings for 5 minutes.
+
+Implementation idea for warnings:
+- Track a local "suppress historical-change warning until timestamp" in session or local storage.
+- Show the warning again automatically after 5 minutes.
