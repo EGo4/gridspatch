@@ -17,7 +17,7 @@ import {
   getPreviousWeekParam,
   getWeekDateMap,
 } from "~/lib/week";
-import type { Assignment, Availability, BoardWeek, DayPart, Employee, Project } from "~/types";
+import type { Assignment, Availability, BoardWeek, DayPart, Employee, Project, ProjectStatus } from "~/types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -33,6 +33,7 @@ interface BoardClientProps {
   dbEmployees: Employee[];
   dbAssignments: Assignment[];
   dbAvailability: Availability[];
+  weekStatusMap: Record<string, string>;
   selectedWeek: BoardWeek;
   weeks: BoardWeek[];
 }
@@ -97,6 +98,7 @@ export function BoardClient({
   dbEmployees,
   dbAssignments,
   dbAvailability,
+  weekStatusMap,
   selectedWeek,
   weeks,
 }: BoardClientProps) {
@@ -235,6 +237,10 @@ export function BoardClient({
     }
     return [...seen.entries()].map(([id, name]) => ({ id, name }));
   }, [dbProjects]);
+
+  // ── Effective per-week status ─────────────────────────────────────────────
+  const effectiveStatus = (project: Project): ProjectStatus =>
+    ((weekStatusMap[project.id] ?? project.status) as ProjectStatus);
 
   // ── Previous week (for copy-week feature) ────────────────────────────────
   const previousWeek = React.useMemo(() => {
@@ -1046,12 +1052,17 @@ export function BoardClient({
 
             {/* Project swimlanes */}
             {visibleProjects
-              .filter((p) => p.status !== "not_active")
+              .filter((p) => {
+                const s = effectiveStatus(p);
+                return s !== "done" && s !== "inactive";
+              })
               .map((project) => {
                 const isCollapsed = (collapsedRows ?? new Set()).has(project.id);
-                const isOnHold = project.status === "on_hold";
+                const es = effectiveStatus(project);
+                const isOnHold = es === "on_hold";
+                const isPlanned = es === "planned";
                 return (
-                  <div key={project.id} className={`flex flex-col gap-2 ${isOnHold ? "opacity-50" : ""}`}>
+                  <div key={project.id} className={`flex flex-col gap-2 ${(isOnHold || isPlanned) ? "opacity-50" : ""}`}>
                     <button
                       type="button"
                       onClick={() => toggleCollapsed(project.id)}
@@ -1067,6 +1078,11 @@ export function BoardClient({
                       {isOnHold && (
                         <span className="ml-1 rounded-full bg-[#2c2619] px-2 py-0.5 text-[10px] font-semibold text-[#fbbf24]">
                           On hold
+                        </span>
+                      )}
+                      {isPlanned && (
+                        <span className="ml-1 rounded-full bg-[#1a2535] px-2 py-0.5 text-[10px] font-semibold text-[#60a5fa]">
+                          Planned
                         </span>
                       )}
                       {project.constructionManagerName && (

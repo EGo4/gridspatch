@@ -8,7 +8,15 @@ export type Employee = {
   img: string | null;
 };
 
-export type ProjectStatus = "active" | "on_hold" | "not_active";
+export type ProjectStatus = "planned" | "active" | "on_hold" | "done" | "inactive";
+
+export type ProjectSuperStatus = "preparation" | "ongoing" | "completed";
+
+export const getSuperStatus = (status: ProjectStatus): ProjectSuperStatus => {
+  if (status === "planned") return "preparation";
+  if (status === "active" || status === "on_hold") return "ongoing";
+  return "completed"; // done | inactive
+};
 
 export type Project = {
   id: string;

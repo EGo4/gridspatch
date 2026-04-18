@@ -41,6 +41,12 @@ export type BoardDb = {
       constructionManager?: { id: string; name: string } | null;
     }>>;
   };
+  projectWeekStatus: {
+    findMany: (args: { where: { weekId: string } }) => Promise<Array<{
+      projectId: string;
+      status: string;
+    }>>;
+  };
   week: {
     findMany: (args: { orderBy: { startDate: "asc" | "desc" } }) => Promise<WeekRecord[]>;
     upsert: (args: {
@@ -85,7 +91,7 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
     },
   });
 
-  const [weeks, rawProjects, employees, assignments, availabilities] = await Promise.all([
+  const [weeks, rawProjects, employees, assignments, availabilities, rawWeekStatuses] = await Promise.all([
     database.week.findMany({ orderBy: { startDate: "desc" } }),
     database.project.findMany({
       orderBy: { name: "asc" },
@@ -94,7 +100,11 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
     database.employee.findMany(),
     database.assignment.findMany({ where: { weekId: selectedWeek.id } }),
     database.availability.findMany({ where: { weekId: selectedWeek.id } }),
+    database.projectWeekStatus.findMany({ where: { weekId: selectedWeek.id } }),
   ]);
+
+  const weekStatusMap: Record<string, string> = {};
+  rawWeekStatuses.forEach((ws) => { weekStatusMap[ws.projectId] = ws.status; });
 
   const projects: Project[] = rawProjects.map((p) => ({
     id: p.id,
@@ -112,6 +122,7 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
     dbAvailability: availabilities,
     dbEmployees: employees,
     dbProjects: projects,
+    weekStatusMap,
     selectedWeek: toBoardWeek(selectedWeek),
     weeks: weeks.map(toBoardWeek),
   };

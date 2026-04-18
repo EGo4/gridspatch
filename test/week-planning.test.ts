@@ -112,6 +112,9 @@ await run(
         availability: {
           findMany: async () => [],
         },
+        projectWeekStatus: {
+          findMany: async () => [],
+        },
         week: {
           findMany: async () => [selectedWeek],
           upsert: async (args) => {

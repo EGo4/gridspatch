@@ -3,21 +3,6 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## Copy Previous Week As Template
-
-Why:
-It is useful, but it should be an explicit user action and not an automatic side effect.
-
-Goal:
-Let users copy the previous week into the current or a new week as a starting point.
-
-Ideas to realize it:
-- Add a `Copy previous week` button in the lower right flyout menu (only in desktop view).
-- Copy assignments, site visibility/minimized state, and optionally employee availability.
-- Show a confirmation dialog before copying.
-- Prevent accidental overwriting copying by warning if the target week already has data were employees are assigned.
-- move sick/vacation to pool for the week it is copied into
-
 ## Update the handling of construction side status
 
 Why:
@@ -113,22 +98,6 @@ Ideas to realize it:
 - Apply the scaling factor via a CSS custom property on the root element (e.g. `--ui-scale`) so a single value drives spacing, font size, and element dimensions uniformly.
 - Accent color preference should override the central accent color CSS variable introduced in the appearance refactor.
 
-## Light Mode
-
-Priority: low
-
-Why:
-Some users prefer a light theme, especially when working in bright environments.
-
-Goal:
-Add a light mode and a toggle in the top bar to switch between dark and light themes.
-
-Ideas to realize it:
-- Use a `data-theme` attribute on the root element and define CSS variables for each theme.
-- Store the user's preference in local storage so it persists across sessions.
-- Place the toggle in the top right of the board header, using a simple sun/moon icon button.
-- Tailwind's `dark:` variant can drive most of the color switching with minimal extra classes.
-
 ## Docker Deployment For Local Network Hosting
 
 Priority: low
@@ -159,6 +128,22 @@ If Caddy is used with DuckDNS:
 - Configure Caddy to reverse proxy the DuckDNS host to the app container or local app port.
 - Ensure `BETTER_AUTH_URL` or future auth base URL settings use the final DuckDNS HTTPS URL.
 - If the app stays local-only without public exposure, skip DuckDNS and use a local hostname or IP.
+
+## Light Mode
+
+Priority: low
+
+Why:
+Some users prefer a light theme, especially when working in bright environments.
+
+Goal:
+Add a light mode and a toggle in the top bar to switch between dark and light themes.
+
+Ideas to realize it:
+- Use a `data-theme` attribute on the root element and define CSS variables for each theme.
+- Store the user's preference in local storage so it persists across sessions.
+- Place the toggle in the top right of the board header, using a simple sun/moon icon button.
+- Tailwind's `dark:` variant can drive most of the color switching with minimal extra classes.
 
 ## Statistics On Worked Weeks
 
