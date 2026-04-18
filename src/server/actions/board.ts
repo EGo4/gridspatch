@@ -10,6 +10,17 @@ type AssignmentRow = {
 };
 
 // Manual type shim until the generated Prisma client catches up after migration.
+type AvailabilityDb = {
+  availability: {
+    upsert: (args: {
+      where: { employeeId_date: { employeeId: string; date: Date } };
+      update: { status: string; weekId: string };
+      create: { employeeId: string; date: Date; weekId: string; status: string };
+    }) => Promise<unknown>;
+    deleteMany: (args: { where: { employeeId: string; date: Date } }) => Promise<unknown>;
+  };
+};
+
 type AssignmentDb = {
   assignment: {
     deleteMany: (args: { where: unknown }) => Promise<unknown>;
@@ -141,6 +152,29 @@ export async function mergeAssignment(
  * Overwrites any existing project assignments on the target date.
  * Pool state is not affected.
  */
+export async function setAvailability(
+  employeeId: string,
+  dateIso: string,
+  weekId: string,
+  status: "sick" | "vacation",
+) {
+  const date = new Date(dateIso);
+  const availDb = db as unknown as AvailabilityDb;
+  await availDb.availability.upsert({
+    where: { employeeId_date: { employeeId, date } },
+    update: { status, weekId },
+    create: { employeeId, date, weekId, status },
+  });
+  return { success: true };
+}
+
+export async function clearAvailability(employeeId: string, dateIso: string) {
+  const date = new Date(dateIso);
+  const availDb = db as unknown as AvailabilityDb;
+  await availDb.availability.deleteMany({ where: { employeeId, date } });
+  return { success: true };
+}
+
 export async function copyDayAssignments(
   sourceDateIso: string,
   targetDateIso: string,

@@ -75,15 +75,16 @@ model Verification {
 // ==========================================
 
 model Employee {
-  id          String       @id @default(cuid())
+  id          String         @id @default(cuid())
   name        String
   initials    String
-  img         String?      // Profile image URL
-  role        String?      // e.g., "Foreman", "Apprentice"
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  img         String?        // Profile image URL
+  role        String?        // e.g., "Foreman", "Apprentice"
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
-  assignments Assignment[]
+  assignments    Assignment[]
+  availabilities Availability[]
 }
 
 enum ProjectStatus {
@@ -109,14 +110,15 @@ model Project {
 }
 
 model Week {
-  id          String       @id @default(cuid())
-  startDate   DateTime     @unique @db.Date
-  endDate     DateTime     @db.Date
-  isCurrent   Boolean      @default(false)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id          String         @id @default(cuid())
+  startDate   DateTime       @unique @db.Date
+  endDate     DateTime       @db.Date
+  isCurrent   Boolean        @default(false)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
-  assignments Assignment[]
+  assignments    Assignment[]
+  availabilities Availability[]
 }
 
 enum DayPart {
@@ -140,4 +142,18 @@ model Assignment {
 
   @@unique([employeeId, date, dayPart])
   @@index([weekId, date])
+}
+
+model Availability {
+  id         String   @id @default(cuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  weekId     String
+  week       Week     @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  date       DateTime @db.Date
+  status     String   // "sick" | "vacation"
+  createdAt  DateTime @default(now())
+
+  @@unique([employeeId, date])
+  @@index([weekId])
 }

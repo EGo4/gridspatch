@@ -5,8 +5,6 @@ Order is based on practical relevance: core planning workflow first, security/ad
 
 ## Copy Previous Week As Template
 
-Priority: mid
-
 Why:
 It is useful, but it should be an explicit user action and not an automatic side effect.
 
@@ -14,14 +12,11 @@ Goal:
 Let users copy the previous week into the current or a new week as a starting point.
 
 Ideas to realize it:
-- Add a `Copy previous week` button near the week selector.
+- Add a `Copy previous week` button in the lower right flyout menu (only in desktop view).
 - Copy assignments, site visibility/minimized state, and optionally employee availability.
 - Show a confirmation dialog before copying.
-- Prevent accidental duplicate copying by warning if the target week already has data.
-
-Open choice for implementation:
-- First version can copy only assignments.
-- Later versions can include availability, collapsed swimlanes, and manager-specific view settings.
+- Prevent accidental overwriting copying by warning if the target week already has data were employees are assigned.
+- move sick/vacation to pool for the week it is copied into
 
 ## Update the handling of construction side status
 

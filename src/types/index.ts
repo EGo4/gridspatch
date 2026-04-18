@@ -29,6 +29,12 @@ export type Assignment = {
   dayPart: DayPart;
 };
 
+export type Availability = {
+  employeeId: string;
+  date: Date;
+  status: string;
+};
+
 export type BoardWeek = {
   id: string;
   startDateIso: string;

@@ -9,7 +9,7 @@ import type { DragStart, DropResult } from "@hello-pangea/dnd";
 import { EmployeeCard } from "./EmployeeCard";
 import { SyringeIcon, PalmTreeIcon, CopyIcon, AssignSiteIcon, FilterIcon } from "~/components/icons";
 import { authClient } from "~/server/better-auth/client";
-import { updateAssignment, splitAssignment, mergeAssignment, copyDayAssignments } from "~/server/actions/board";
+import { updateAssignment, splitAssignment, mergeAssignment, copyDayAssignments, setAvailability as persistAvailability, clearAvailability as unpersistAvailability } from "~/server/actions/board";
 import { DAYS } from "~/lib/constants";
 import {
   getDayNameFromDate,
@@ -17,7 +17,7 @@ import {
   getPreviousWeekParam,
   getWeekDateMap,
 } from "~/lib/week";
-import type { Assignment, BoardWeek, DayPart, Employee, Project } from "~/types";
+import type { Assignment, Availability, BoardWeek, DayPart, Employee, Project } from "~/types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -32,6 +32,7 @@ interface BoardClientProps {
   dbProjects: Project[];
   dbEmployees: Employee[];
   dbAssignments: Assignment[];
+  dbAvailability: Availability[];
   selectedWeek: BoardWeek;
   weeks: BoardWeek[];
 }
@@ -95,6 +96,7 @@ export function BoardClient({
   dbProjects,
   dbEmployees,
   dbAssignments,
+  dbAvailability,
   selectedWeek,
   weeks,
 }: BoardClientProps) {
@@ -317,13 +319,25 @@ export function BoardClient({
       }
     });
 
+    // Build availability map from DB and exclude those employees from the pool.
+    const initialAvailability: Record<string, AvailabilityStatus> = {};
+    const unavailableSet = new Set<string>(); // `${employeeId}-${day}`
+    dbAvailability.forEach((a) => {
+      const dayName = getDayNameFromDate(a.date, selectedWeek.startDateIso);
+      if (!dayName) return;
+      const key = `${a.employeeId}-${dayName}`;
+      initialAvailability[key] = a.status as AvailabilityStatus;
+      unavailableSet.add(key);
+    });
+    setAvailability(initialAvailability);
+
     // Unassigned full-day employees go to the pool.
     // Split employees are fully represented by their project-cell halves;
-    // they don't appear in the pool.
+    // they don't appear in the pool. Sick/vacation employees are excluded too.
     dbEmployees.forEach((employee) => {
       DAYS.forEach((day) => {
         const key = `${employee.id}-${day}`;
-        if (!splitSet.has(key) && !fullDayProjectAssigned.has(key)) {
+        if (!splitSet.has(key) && !fullDayProjectAssigned.has(key) && !unavailableSet.has(key)) {
           state[poolFullDayId(day)] = [
             ...(state[poolFullDayId(day)] ?? []),
             { employee, dayPart: "full_day" },
@@ -347,7 +361,7 @@ export function BoardClient({
       dbProjects.forEach((p) => { if (p.status === "on_hold") defaults.add(p.id); });
       return defaults;
     });
-  }, [dbProjects, dbEmployees, dbAssignments, selectedWeek.startDateIso]);
+  }, [dbProjects, dbEmployees, dbAssignments, dbAvailability, selectedWeek.startDateIso]);
 
   // ── Card toggle ───────────────────────────────────────────────────────────
 
@@ -368,6 +382,10 @@ export function BoardClient({
       return next;
     });
     setOpenCardId(null);
+    const dateIso = weekDates[day as keyof typeof weekDates];
+    if (dateIso) {
+      void persistAvailability(employeeId, dateIso, selectedWeek.id, status);
+    }
   };
 
   const clearAvailability = (employeeId: string, day: string) => {
@@ -382,6 +400,10 @@ export function BoardClient({
         ...prev,
         [poolFullDayId(day)]: [...(prev[poolFullDayId(day)] ?? []), { employee, dayPart: "full_day" }],
       }));
+    }
+    const dateIso = weekDates[day as keyof typeof weekDates];
+    if (dateIso) {
+      void unpersistAvailability(employeeId, dateIso);
     }
   };
 

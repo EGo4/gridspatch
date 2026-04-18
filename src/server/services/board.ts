@@ -7,7 +7,7 @@ import {
   toDateIso,
   toDateParam,
 } from "../../lib/week.ts";
-import type { Assignment, Employee, Project, ProjectStatus } from "../../types/index.ts";
+import type { Assignment, Availability, Employee, Project, ProjectStatus } from "../../types/index.ts";
 
 type WeekRecord = {
   id: string;
@@ -19,6 +19,9 @@ type WeekRecord = {
 export type BoardDb = {
   assignment: {
     findMany: (args: { where: { weekId: string } }) => Promise<Assignment[]>;
+  };
+  availability: {
+    findMany: (args: { where: { weekId: string } }) => Promise<Availability[]>;
   };
   employee: {
     findMany: () => Promise<Employee[]>;
@@ -82,7 +85,7 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
     },
   });
 
-  const [weeks, rawProjects, employees, assignments] = await Promise.all([
+  const [weeks, rawProjects, employees, assignments, availabilities] = await Promise.all([
     database.week.findMany({ orderBy: { startDate: "desc" } }),
     database.project.findMany({
       orderBy: { name: "asc" },
@@ -90,6 +93,7 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
     }),
     database.employee.findMany(),
     database.assignment.findMany({ where: { weekId: selectedWeek.id } }),
+    database.availability.findMany({ where: { weekId: selectedWeek.id } }),
   ]);
 
   const projects: Project[] = rawProjects.map((p) => ({
@@ -105,6 +109,7 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
 
   return {
     dbAssignments: assignments,
+    dbAvailability: availabilities,
     dbEmployees: employees,
     dbProjects: projects,
     selectedWeek: toBoardWeek(selectedWeek),
