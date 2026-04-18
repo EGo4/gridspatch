@@ -6,6 +6,7 @@ import type { DayPart } from "~/types";
 type AssignmentRow = {
   employeeId: string;
   projectId: string | null;
+  date: Date;
   dayPart: string;
 };
 
@@ -160,6 +161,11 @@ export async function setAvailability(
 ) {
   const date = new Date(dateIso);
   const availDb = db as unknown as AvailabilityDb;
+  const assignmentDb = db as unknown as AssignmentDb;
+
+  // Remove any assignments for this day — the employee is unavailable.
+  await assignmentDb.assignment.deleteMany({ where: { employeeId, date } });
+
   await availDb.availability.upsert({
     where: { employeeId_date: { employeeId, date } },
     update: { status, weekId },
@@ -172,6 +178,47 @@ export async function clearAvailability(employeeId: string, dateIso: string) {
   const date = new Date(dateIso);
   const availDb = db as unknown as AvailabilityDb;
   await availDb.availability.deleteMany({ where: { employeeId, date } });
+  return { success: true };
+}
+
+/**
+ * Copy all project assignments from one week into another.
+ * Dates are remapped by day-of-week (source Monday → target Monday, etc.).
+ * Existing project assignments in the target week are deleted first.
+ * Availability (sick/vacation) is intentionally not copied.
+ */
+export async function copyWeekAssignments(
+  sourceWeekId: string,
+  targetWeekId: string,
+  sourceWeekStartIso: string,
+  targetWeekStartIso: string,
+) {
+  const offsetMs =
+    new Date(targetWeekStartIso).getTime() - new Date(sourceWeekStartIso).getTime();
+
+  const assignmentDb = db as unknown as AssignmentDb;
+
+  const sourceAssignments = await assignmentDb.assignment.findMany({
+    where: { weekId: sourceWeekId, NOT: { projectId: null } },
+  });
+
+  await assignmentDb.assignment.deleteMany({
+    where: { weekId: targetWeekId, NOT: { projectId: null } },
+  });
+
+  if (sourceAssignments.length > 0) {
+    await assignmentDb.assignment.createMany({
+      data: sourceAssignments.map((a) => ({
+        employeeId: a.employeeId,
+        projectId: a.projectId,
+        date: new Date(a.date.getTime() + offsetMs),
+        weekId: targetWeekId,
+        dayPart: a.dayPart,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
   return { success: true };
 }
 

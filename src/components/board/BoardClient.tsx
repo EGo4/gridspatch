@@ -9,7 +9,7 @@ import type { DragStart, DropResult } from "@hello-pangea/dnd";
 import { EmployeeCard } from "./EmployeeCard";
 import { SyringeIcon, PalmTreeIcon, CopyIcon, AssignSiteIcon, FilterIcon } from "~/components/icons";
 import { authClient } from "~/server/better-auth/client";
-import { updateAssignment, splitAssignment, mergeAssignment, copyDayAssignments, setAvailability as persistAvailability, clearAvailability as unpersistAvailability } from "~/server/actions/board";
+import { updateAssignment, splitAssignment, mergeAssignment, copyDayAssignments, copyWeekAssignments, setAvailability as persistAvailability, clearAvailability as unpersistAvailability } from "~/server/actions/board";
 import { DAYS } from "~/lib/constants";
 import {
   getDayNameFromDate,
@@ -129,6 +129,7 @@ export function BoardClient({
   const [sideMenuOpen, setSideMenuOpen] = useState(false);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [pendingManagerId, setPendingManagerId] = useState<string | null>(null);
+  const [copyWeekModalOpen, setCopyWeekModalOpen] = useState(false);
 
   const weekDates = getWeekDateMap(selectedWeek.startDateIso);
 
@@ -235,6 +236,14 @@ export function BoardClient({
     return [...seen.entries()].map(([id, name]) => ({ id, name }));
   }, [dbProjects]);
 
+  // ── Previous week (for copy-week feature) ────────────────────────────────
+  const previousWeek = React.useMemo(() => {
+    const selectedStart = new Date(selectedWeek.startDateIso).getTime();
+    return weeks.find((w) => new Date(w.startDateIso).getTime() < selectedStart) ?? null;
+  }, [weeks, selectedWeek.startDateIso]);
+
+  const targetWeekHasAssignments = dbAssignments.some((a) => a.projectId !== null);
+
   // ── Active filter label ───────────────────────────────────────────────────
   const activeManagerName = filterManagerId
     ? (managersWithSites.find((m) => m.id === filterManagerId)?.name ?? null)
@@ -286,6 +295,18 @@ export function BoardClient({
       state[poolFullDayId(day)] = [];
     });
 
+    // Build availability map first so unavailable employees are excluded from cells below.
+    const initialAvailability: Record<string, AvailabilityStatus> = {};
+    const unavailableSet = new Set<string>(); // `${employeeId}-${day}`
+    dbAvailability.forEach((a) => {
+      const dayName = getDayNameFromDate(a.date, selectedWeek.startDateIso);
+      if (!dayName) return;
+      const key = `${a.employeeId}-${dayName}`;
+      initialAvailability[key] = a.status as AvailabilityStatus;
+      unavailableSet.add(key);
+    });
+    setAvailability(initialAvailability);
+
     // Track which employees are split (have any half-day assignment) per day.
     const splitSet = new Set<string>(); // `${employeeId}-${day}`
     const fullDayProjectAssigned = new Set<string>(); // `${employeeId}-${day}`
@@ -297,6 +318,8 @@ export function BoardClient({
       if (!employee) return;
 
       const key = `${assignment.employeeId}-${dayName}`;
+      // Skip assignments for days where the employee is sick/on vacation.
+      if (unavailableSet.has(key)) return;
 
       if (assignment.dayPart === "full_day") {
         if (assignment.projectId) {
@@ -318,18 +341,6 @@ export function BoardClient({
         }
       }
     });
-
-    // Build availability map from DB and exclude those employees from the pool.
-    const initialAvailability: Record<string, AvailabilityStatus> = {};
-    const unavailableSet = new Set<string>(); // `${employeeId}-${day}`
-    dbAvailability.forEach((a) => {
-      const dayName = getDayNameFromDate(a.date, selectedWeek.startDateIso);
-      if (!dayName) return;
-      const key = `${a.employeeId}-${dayName}`;
-      initialAvailability[key] = a.status as AvailabilityStatus;
-      unavailableSet.add(key);
-    });
-    setAvailability(initialAvailability);
 
     // Unassigned full-day employees go to the pool.
     // Split employees are fully represented by their project-cell halves;
@@ -460,6 +471,21 @@ export function BoardClient({
     if (sourceDateIso && targetDateIso) {
       void copyDayAssignments(sourceDateIso, targetDateIso, selectedWeek.id);
     }
+  };
+
+  // ── Copy previous week ───────────────────────────────────────────────────
+
+  const copyPreviousWeek = async () => {
+    if (!previousWeek) return;
+    setCopyWeekModalOpen(false);
+    setSideMenuOpen(false);
+    await copyWeekAssignments(
+      previousWeek.id,
+      selectedWeek.id,
+      previousWeek.startDateIso,
+      selectedWeek.startDateIso,
+    );
+    router.refresh();
   };
 
   // ── Split day ─────────────────────────────────────────────────────────────
@@ -1151,6 +1177,22 @@ export function BoardClient({
               {/* Expanded panel — flies out to the left */}
               {sideMenuOpen && (
                 <div className="flex items-center gap-1 mr-1">
+                  {/* Copy previous week button — desktop only */}
+                  {previousWeek && (
+                    <button
+                      type="button"
+                      onClick={() => { setSideMenuOpen(false); setCopyWeekModalOpen(true); }}
+                      className="hidden lg:flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium bg-[#28272d] text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]"
+                      title={`Copy assignments from ${previousWeek.label}`}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
+                      Copy prev. week
+                    </button>
+                  )}
+
                   {/* Filter button */}
                   <button
                     type="button"
@@ -1304,6 +1346,77 @@ export function BoardClient({
       </div>
     )}
 
+
+    {/* Copy previous week confirmation modal */}
+    {copyWeekModalOpen && previousWeek && (
+      <>
+        <div
+          className="fixed inset-0 z-40 bg-black/60"
+          onClick={() => setCopyWeekModalOpen(false)}
+        />
+        <div
+          className="fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[#313036] bg-[#1f1e24] shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between border-b border-[#313036] px-5 py-4">
+            <h3 className="text-sm font-semibold text-[#ececef]">Copy previous week</h3>
+            <button
+              type="button"
+              onClick={() => setCopyWeekModalOpen(false)}
+              title="Close"
+              className="flex items-center rounded p-1 text-[#6b6875] transition-colors hover:text-[#ececef]"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Body */}
+          <div className="px-5 py-4 flex flex-col gap-3">
+            <p className="text-sm text-[#a09fa6]">
+              Copy all assignments from{" "}
+              <span className="font-semibold text-[#ececef]">{previousWeek.label}</span>{" "}
+              into{" "}
+              <span className="font-semibold text-[#ececef]">{selectedWeek.label}</span>?
+            </p>
+
+            {targetWeekHasAssignments && (
+              <div className="flex items-start gap-2 rounded-lg border border-[#4a3b1a] bg-[#2c2619] px-3 py-2.5 text-xs text-[#fbbf24]">
+                <svg className="mt-0.5 flex-shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                This week already has assignments. They will be overwritten.
+              </div>
+            )}
+
+            <p className="text-xs text-[#6b6875]">
+              Sick and vacation days are not copied — affected employees will appear in the pool.
+            </p>
+          </div>
+
+          {/* Footer */}
+          <div className="flex items-center justify-end gap-2 border-t border-[#313036] px-5 py-4">
+            <button
+              type="button"
+              onClick={() => setCopyWeekModalOpen(false)}
+              className="rounded-lg px-4 py-2 text-xs font-semibold text-[#a09fa6] transition-colors hover:text-[#ececef]"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void copyPreviousWeek()}
+              className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white transition-colors hover:opacity-90"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+      </>
+    )}
 
     {/* Filter modal */}
     {filterModalOpen && (
