@@ -8,6 +8,8 @@ import { createSite, updateSite, deleteSite } from "~/server/actions/sites";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+type Manager = { id: string; name: string };
+
 type Site = {
   id: string;
   name: string;
@@ -15,6 +17,8 @@ type Site = {
   startDate: Date | null;
   endDate: Date | null;
   status: ProjectStatus;
+  constructionManagerId: string | null;
+  constructionManagerName: string | null;
 };
 
 type FormState = {
@@ -24,6 +28,7 @@ type FormState = {
   startDate: string;
   endDate: string;
   status: ProjectStatus;
+  constructionManagerId: string;
 };
 
 const EMPTY_FORM: FormState = {
@@ -32,6 +37,7 @@ const EMPTY_FORM: FormState = {
   startDate: "",
   endDate: "",
   status: "active",
+  constructionManagerId: "",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -68,12 +74,14 @@ function StatusBadge({ status }: { status: ProjectStatus }) {
 
 function SiteFormPanel({
   form,
+  managers,
   saving,
   onClose,
   onChange,
   onSave,
 }: {
   form: FormState;
+  managers: Manager[];
   saving: boolean;
   onClose: () => void;
   onChange: (f: FormState) => void;
@@ -157,6 +165,21 @@ function SiteFormPanel({
               <option value="active">Active</option>
               <option value="on_hold">On hold</option>
               <option value="not_active">Inactive</option>
+            </select>,
+          )}
+
+          {field(
+            "Construction manager",
+            <select
+              value={form.constructionManagerId}
+              title="Construction manager"
+              onChange={(e) => onChange({ ...form, constructionManagerId: e.target.value })}
+              className={inputCls}
+            >
+              <option value="">— None —</option>
+              {managers.map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
             </select>,
           )}
 
@@ -251,7 +274,7 @@ function DeleteConfirmPanel({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function SitesClient({ sites: initialSites }: { sites: Site[] }) {
+export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; managers: Manager[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
@@ -274,6 +297,7 @@ export function SitesClient({ sites: initialSites }: { sites: Site[] }) {
       startDate: toInputDate(site.startDate),
       endDate: toInputDate(site.endDate),
       status: site.status,
+      constructionManagerId: site.constructionManagerId ?? "",
     });
     setFormOpen(true);
   };
@@ -292,6 +316,7 @@ export function SitesClient({ sites: initialSites }: { sites: Site[] }) {
           startDate: form.startDate || null,
           endDate: form.endDate || null,
           status: form.status,
+          constructionManagerId: form.constructionManagerId || null,
         });
       } else {
         await createSite({
@@ -300,6 +325,7 @@ export function SitesClient({ sites: initialSites }: { sites: Site[] }) {
           startDate: form.startDate || null,
           endDate: form.endDate || null,
           status: form.status,
+          constructionManagerId: form.constructionManagerId || null,
         });
       }
       setFormOpen(false);
@@ -384,9 +410,14 @@ export function SitesClient({ sites: initialSites }: { sites: Site[] }) {
                     End date
                   </th>
                   <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
+                    Manager
+                  </th>
+                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
                     Description
                   </th>
-                  <th className="w-20 px-4 py-3" aria-label="Actions" />
+                  <th className="w-20 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]" aria-label="Actions">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -403,6 +434,9 @@ export function SitesClient({ sites: initialSites }: { sites: Site[] }) {
                     </td>
                     <td className="px-4 py-3 text-[#a09fa6]">{formatDate(site.startDate)}</td>
                     <td className="px-4 py-3 text-[#a09fa6]">{formatDate(site.endDate)}</td>
+                    <td className="px-4 py-3 text-[#a09fa6]">
+                      {site.constructionManagerName ?? <span className="text-[#4a4950]">—</span>}
+                    </td>
                     <td className="max-w-xs px-4 py-3 text-[#a09fa6]">
                       <span className="line-clamp-1">{site.description ?? "—"}</span>
                     </td>
@@ -447,6 +481,7 @@ export function SitesClient({ sites: initialSites }: { sites: Site[] }) {
       {formOpen && (
         <SiteFormPanel
           form={form}
+          managers={managers}
           saving={saving}
           onClose={closeForm}
           onChange={setForm}

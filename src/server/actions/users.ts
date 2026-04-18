@@ -64,6 +64,23 @@ export async function listUsers() {
   });
 }
 
+export async function listConstructionManagers(): Promise<Array<{ id: string; name: string }>> {
+  const users = await userDb.user.findMany({
+    orderBy: { name: "asc" },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      image: true,
+      role: true,
+      createdAt: true,
+    },
+  });
+  return users
+    .filter((u) => u.role === "construction_manager" || u.role === "admin")
+    .map((u) => ({ id: u.id, name: u.name }));
+}
+
 export async function createUser(input: {
   name: string;
   email: string;

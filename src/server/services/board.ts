@@ -7,7 +7,7 @@ import {
   toDateIso,
   toDateParam,
 } from "../../lib/week.ts";
-import type { Assignment, Employee, Project } from "../../types/index.ts";
+import type { Assignment, Employee, Project, ProjectStatus } from "../../types/index.ts";
 
 type WeekRecord = {
   id: string;
@@ -24,7 +24,19 @@ export type BoardDb = {
     findMany: () => Promise<Employee[]>;
   };
   project: {
-    findMany: (args?: { orderBy?: { name: "asc" | "desc" } }) => Promise<Project[]>;
+    findMany: (args?: {
+      orderBy?: { name: "asc" | "desc" };
+      include?: { constructionManager?: { select?: { id?: boolean; name?: boolean } } };
+    }) => Promise<Array<{
+      id: string;
+      name: string;
+      description: string | null;
+      startDate: Date | null;
+      endDate: Date | null;
+      status: string;
+      constructionManagerId: string | null;
+      constructionManager?: { id: string; name: string } | null;
+    }>>;
   };
   week: {
     findMany: (args: { orderBy: { startDate: "asc" | "desc" } }) => Promise<WeekRecord[]>;
@@ -70,12 +82,26 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
     },
   });
 
-  const [weeks, projects, employees, assignments] = await Promise.all([
+  const [weeks, rawProjects, employees, assignments] = await Promise.all([
     database.week.findMany({ orderBy: { startDate: "desc" } }),
-    database.project.findMany({ orderBy: { name: "asc" } }),
+    database.project.findMany({
+      orderBy: { name: "asc" },
+      include: { constructionManager: { select: { id: true, name: true } } },
+    }),
     database.employee.findMany(),
     database.assignment.findMany({ where: { weekId: selectedWeek.id } }),
   ]);
+
+  const projects: Project[] = rawProjects.map((p) => ({
+    id: p.id,
+    name: p.name,
+    description: p.description,
+    startDate: p.startDate,
+    endDate: p.endDate,
+    status: p.status as ProjectStatus,
+    constructionManagerId: p.constructionManagerId,
+    constructionManagerName: p.constructionManager?.name ?? null,
+  }));
 
   return {
     dbAssignments: assignments,

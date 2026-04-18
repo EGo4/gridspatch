@@ -96,7 +96,18 @@ await run(
           ],
         },
         project: {
-          findMany: async () => [{ id: "project-1", name: "Site A" }],
+          findMany: async () => [
+            {
+              id: "project-1",
+              name: "Site A",
+              description: null,
+              startDate: null,
+              endDate: null,
+              status: "active",
+              constructionManagerId: null,
+              constructionManager: null,
+            },
+          ],
         },
         week: {
           findMany: async () => [selectedWeek],
