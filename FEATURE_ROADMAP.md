@@ -3,19 +3,7 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## dont show completed or preparation sites on board
-
-## Add option to set side status on main page
-
-Quickly correct the status of a construction site via the grid view
-
-Ideas:
-- add a button(or dropdown) to each swimlane change the status of a site for that week quickly.
-- only allow `active`, `on hold` and `done`
-- for the `done` transition ask with a warning that the site then will disappear from the current board
-- update the board after the transition
-
-## Add sorting to employee and contruction site table
+## Add sorting to employee and construction site table
 
 Add sorting for each column by clicking it
 Cycle trough acending, decending and not-sorted
@@ -46,7 +34,7 @@ Ideas to realize it:
 ## Preference Menu
 
 Priority: low (very late feature)
-
+þ
 Why:
 Nice-to-have personalization once the core product is stable and the visual design is locked in.
 

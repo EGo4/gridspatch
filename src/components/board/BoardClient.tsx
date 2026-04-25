@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DragDropContext, Droppable } from "@hello-pangea/dnd";
@@ -18,6 +18,8 @@ import {
   getWeekDateMap,
 } from "~/lib/week";
 import type { Assignment, Availability, BoardWeek, DayPart, Employee, Project, ProjectStatus } from "~/types";
+import { ALLOWED_TRANSITIONS, getSuperStatus } from "~/types";
+import { setSiteTransition } from "~/server/actions/sites";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -91,6 +93,18 @@ const poolFullDayId = (day: string) => `pool-${day}`;
 const COLLAPSED_LS_KEY  = "gridspatch:collapsed-rows";
 const FILTER_MANAGER_KEY = "gridspatch:filter-manager";
 
+const STATUS_LABELS: Record<ProjectStatus, string> = {
+  planned: "Planned", active: "Active", on_hold: "On hold", done: "Done", inactive: "Inactive",
+};
+
+const STATUS_CHIP: Record<ProjectStatus, string> = {
+  planned:  "bg-[#1a2535] text-[#60a5fa]",
+  active:   "bg-[#0f2e1e] text-[#4ade80]",
+  on_hold:  "bg-[#2c2619] text-[#fbbf24]",
+  done:     "bg-[#0f2020] text-[#34d399]",
+  inactive: "bg-[#252429] text-[#6b6875]",
+};
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export function BoardClient({
@@ -132,6 +146,12 @@ export function BoardClient({
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [pendingManagerId, setPendingManagerId] = useState<string | null>(null);
   const [copyWeekModalOpen, setCopyWeekModalOpen] = useState(false);
+  const sitePickerRef = useRef<HTMLDivElement>(null);
+  const [statusPopoverProjectId, setStatusPopoverProjectId] = useState<string | null>(null);
+  const [completingTransition, setCompletingTransition] = useState<{
+    projectId: string; status: ProjectStatus; assignmentCount: number;
+  } | null>(null);
+  const [applyingStatusChange, setApplyingStatusChange] = useState(false);
 
   const weekDates = getWeekDateMap(selectedWeek.startDateIso);
 
@@ -226,6 +246,27 @@ export function BoardClient({
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
   }, [filterModalOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Position site picker via CSS custom properties ───────────────────────
+  useLayoutEffect(() => {
+    if (!sitePickerRef.current || !sitePickerFor) return;
+    const el = sitePickerRef.current;
+    el.style.setProperty("--picker-left", `${Math.min(sitePickerFor.left, window.innerWidth - 196)}px`);
+    el.style.setProperty("--picker-bottom", `${window.innerHeight - sitePickerFor.top + 8}px`);
+  }, [sitePickerFor]);
+
+  // ── Close status popover on outside click or Escape ─────────────────────
+  useEffect(() => {
+    if (!statusPopoverProjectId) return;
+    const handleClick = () => setStatusPopoverProjectId(null);
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") setStatusPopoverProjectId(null); };
+    document.addEventListener("click", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("click", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [statusPopoverProjectId]);
 
   // ── Managers that have at least one project ───────────────────────────────
   const managersWithSites = React.useMemo(() => {
@@ -609,6 +650,42 @@ export function BoardClient({
         await updateAssignment(employeeId, null, targetDateIso, selectedWeek.id, sourceDayPart);
       }
       await updateAssignment(employeeId, targetProjectId, targetDateIso, selectedWeek.id, destDayPart);
+    }
+  };
+
+  // ── Quick status change ───────────────────────────────────────────────────
+
+  const countProjectAssignments = (projectId: string) => {
+    let n = 0;
+    for (const day of DAYS) {
+      n += (assignmentsState[fullDayDroppableId(projectId, day)] ?? []).length;
+      n += (assignmentsState[preLunchDroppableId(projectId, day)] ?? []).length;
+      n += (assignmentsState[afterLunchDroppableId(projectId, day)] ?? []).length;
+    }
+    return n;
+  };
+
+  const handleStatusTransition = (projectId: string, toStatus: ProjectStatus) => {
+    setStatusPopoverProjectId(null);
+    if (getSuperStatus(toStatus) === "completed") {
+      setCompletingTransition({ projectId, status: toStatus, assignmentCount: countProjectAssignments(projectId) });
+      return;
+    }
+    setApplyingStatusChange(true);
+    void setSiteTransition(projectId, selectedWeek.param, toStatus).then(() => {
+      router.refresh();
+    }).finally(() => setApplyingStatusChange(false));
+  };
+
+  const handleConfirmComplete = async () => {
+    if (!completingTransition) return;
+    setApplyingStatusChange(true);
+    try {
+      await setSiteTransition(completingTransition.projectId, selectedWeek.param, completingTransition.status, true);
+      setCompletingTransition(null);
+      router.refresh();
+    } finally {
+      setApplyingStatusChange(false);
     }
   };
 
@@ -1063,38 +1140,73 @@ export function BoardClient({
                 const isPlanned = es === "planned";
                 return (
                   <div key={project.id} className={`flex flex-col gap-2 ${(isOnHold || isPlanned) ? "opacity-50" : ""}`}>
-                    <button
-                      type="button"
-                      onClick={() => toggleCollapsed(project.id)}
-                      className="flex items-center gap-2 py-1 text-left text-sm font-semibold text-[#ececef] transition-colors hover:text-white"
-                    >
-                      <svg
-                        className={`h-3 w-3 flex-shrink-0 transition-transform duration-200 ${isCollapsed ? "-rotate-90" : ""}`}
-                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                    <div className="flex items-center gap-2 py-1">
+                      <button
+                        type="button"
+                        onClick={() => toggleCollapsed(project.id)}
+                        title={isCollapsed ? "Expand" : "Collapse"}
+                        className="flex-shrink-0 text-[#6b6875] transition-colors hover:text-white"
                       >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-                      </svg>
-                      {project.name}
-                      {isOnHold && (
-                        <span className="ml-1 rounded-full bg-[#2c2619] px-2 py-0.5 text-[10px] font-semibold text-[#fbbf24]">
-                          On hold
-                        </span>
-                      )}
-                      {isPlanned && (
-                        <span className="ml-1 rounded-full bg-[#1a2535] px-2 py-0.5 text-[10px] font-semibold text-[#60a5fa]">
-                          Planned
-                        </span>
-                      )}
-                      {project.constructionManagerName && (
-                        <span className="ml-1 flex items-center gap-1 text-[11px] font-normal text-[#6b6875]">
-                          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="12" cy="8" r="4" />
-                            <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-                          </svg>
-                          {project.constructionManagerName}
-                        </span>
-                      )}
-                    </button>
+                        <svg
+                          className={`h-3 w-3 transition-transform duration-200 ${isCollapsed ? "-rotate-90" : ""}`}
+                          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleCollapsed(project.id)}
+                        className="flex min-w-0 items-center gap-1 text-left text-sm font-semibold text-[#ececef] transition-colors hover:text-white"
+                      >
+                        <span className="truncate">{project.name}</span>
+                        {project.constructionManagerName && (
+                          <span className="flex flex-shrink-0 items-center gap-1 text-[11px] font-normal text-[#6b6875]">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="8" r="4" />
+                              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                            </svg>
+                            {project.constructionManagerName}
+                          </span>
+                        )}
+                      </button>
+                      {/* Quick status button + popover */}
+                      <div className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          disabled={applyingStatusChange}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setStatusPopoverProjectId(statusPopoverProjectId === project.id ? null : project.id);
+                          }}
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-opacity hover:opacity-80 disabled:opacity-40 ${STATUS_CHIP[es]}`}
+                        >
+                          {STATUS_LABELS[es]}
+                        </button>
+                        {statusPopoverProjectId === project.id && (
+                          <div className="absolute left-0 top-full z-30 mt-1 min-w-[130px] overflow-hidden rounded-lg border border-[#313036] bg-[#1f1e24] py-1 shadow-xl">
+                            <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#6b6875]">
+                              Transition to
+                            </div>
+                            {ALLOWED_TRANSITIONS[es].map((toStatus) => {
+                              const isCompleting = getSuperStatus(toStatus) === "completed";
+                              return (
+                                <button
+                                  key={toStatus}
+                                  type="button"
+                                  onClick={() => handleStatusTransition(project.id, toStatus)}
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-[#a09fa6] transition-colors hover:bg-[#333238] hover:text-[#ececef]"
+                                >
+                                  <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${STATUS_CHIP[toStatus].split(" ")[1] ?? ""}`} />
+                                  {STATUS_LABELS[toStatus]}
+                                  {isCompleting && <span className="ml-auto text-[#fbbf24]">⚠</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                     {!isCollapsed && (
                       <div className="flex gap-4 items-stretch">
                         {DAYS.map((day) => renderCell(project.id, day))}
@@ -1335,12 +1447,9 @@ export function BoardClient({
     {/* Site picker — fixed overlay, pops up above the "assign to site" button */}
     {sitePickerFor && (
       <div
+        ref={sitePickerRef}
         onClick={(e) => e.stopPropagation()}
         className="site-picker z-[100] min-w-[180px] overflow-hidden rounded-xl border border-[#313036] bg-[#1f1e24] py-1 shadow-2xl"
-        style={{
-          "--picker-left": `${Math.min(sitePickerFor.left, window.innerWidth - 196)}px`,
-          "--picker-bottom": `${window.innerHeight - sitePickerFor.top + 8}px`,
-        } as React.CSSProperties}
       >
         <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#6b6875]">
           Assign to site
@@ -1524,6 +1633,57 @@ export function BoardClient({
         </div>
       </>
     )}
+
+    {/* Complete site confirmation modal */}
+    {completingTransition && (() => {
+      const project = dbProjects.find((p) => p.id === completingTransition.projectId);
+      return (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/60" onClick={() => setCompletingTransition(null)} />
+          <div
+            className="fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[#313036] bg-[#1f1e24] shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-[#313036] px-5 py-4">
+              <h3 className="text-sm font-semibold text-[#ececef]">
+                Mark as {STATUS_LABELS[completingTransition.status]}?
+              </h3>
+              <button type="button" title="Close" onClick={() => setCompletingTransition(null)}
+                className="flex items-center rounded p-1 text-[#6b6875] transition-colors hover:text-[#ececef]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-5 py-4 flex flex-col gap-3">
+              <p className="text-sm text-[#a09fa6]">
+                <span className="font-semibold text-[#ececef]">{project?.name}</span> will be removed
+                from the board starting this week.
+              </p>
+              {completingTransition.assignmentCount > 0 && (
+                <div className="flex items-start gap-2 rounded-lg border border-[#4a3b1a] bg-[#2c2619] px-3 py-2.5 text-xs text-[#fbbf24]">
+                  <svg className="mt-0.5 flex-shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                  </svg>
+                  {completingTransition.assignmentCount} assignment{completingTransition.assignmentCount !== 1 ? "s" : ""} this week will be removed.
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-[#313036] px-5 py-4">
+              <button type="button" onClick={() => setCompletingTransition(null)}
+                className="rounded-lg px-4 py-2 text-xs font-semibold text-[#a09fa6] transition-colors hover:text-[#ececef]">
+                Cancel
+              </button>
+              <button type="button" onClick={() => void handleConfirmComplete()} disabled={applyingStatusChange}
+                className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
+                {applyingStatusChange ? "Applying…" : "Apply"}
+              </button>
+            </div>
+          </div>
+        </>
+      );
+    })()}
 
   </DragDropContext>
   );
