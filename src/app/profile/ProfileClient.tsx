@@ -178,10 +178,22 @@ export function ProfileClient({ user }: { user: CurrentUser }) {
   return (
     <div className="flex h-dvh bg-[#17161c] text-[#ececef]">
       <Sidebar mobileOpen={navSidebarOpen} onMobileClose={() => setNavSidebarOpen(false)} />
-      <div className="flex flex-1 flex-col min-h-0 min-w-0">
+      <div className="flex flex-1 flex-col min-h-0 min-w-0 lg:pl-14">
 
       {/* Top bar */}
       <header className="flex flex-shrink-0 items-center gap-4 border-b border-[#313036] bg-[#1f1e24] px-6 py-4">
+        <button
+          type="button"
+          onClick={() => setNavSidebarOpen(true)}
+          title="Open menu"
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef] lg:hidden"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
         <h1 className="text-sm font-semibold text-[#ececef]">Account</h1>
       </header>
 
@@ -323,16 +335,6 @@ export function ProfileClient({ user }: { user: CurrentUser }) {
       </div>
       </main>
       </div>
-      <button
-        type="button"
-        onClick={() => setNavSidebarOpen(true)}
-        title="Open menu"
-        className="fixed bottom-4 left-4 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-[#28272d] text-[#a09fa6] shadow-lg transition-colors hover:bg-[#313036] hover:text-[#ececef] lg:hidden"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
-        </svg>
-      </button>
     </div>
   );
 }

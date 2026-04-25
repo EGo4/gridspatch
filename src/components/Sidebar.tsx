@@ -123,8 +123,8 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
   return (
     <>
-      {/* Desktop sidebar — icon-only by default, expands on hover */}
-      <aside className="group hidden w-14 flex-shrink-0 flex-col overflow-hidden border-r border-[#313036] bg-[#18171d] transition-[width] duration-200 ease-in-out hover:w-52 lg:flex">
+      {/* Desktop sidebar — fixed overlay, icon-only by default, expands on hover */}
+      <aside className="group fixed left-0 top-0 z-40 hidden h-full w-14 flex-col overflow-hidden border-r border-[#313036] bg-[#18171d] transition-[width] duration-200 ease-in-out hover:w-52 lg:flex">
         {/* Logo */}
         <div className="flex h-14 flex-shrink-0 items-center overflow-hidden border-b border-[#313036] px-3">
           <span className="flex-shrink-0"><Logo size={26} /></span>

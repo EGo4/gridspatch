@@ -442,10 +442,22 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
   return (
     <div className="flex h-dvh bg-[#17161c] text-[#ececef]">
       <Sidebar mobileOpen={navSidebarOpen} onMobileClose={() => setNavSidebarOpen(false)} />
-      <div className="flex flex-1 flex-col min-h-0 min-w-0">
+      <div className="flex flex-1 flex-col min-h-0 min-w-0 lg:pl-14">
 
       {/* Top bar */}
       <header className="flex flex-shrink-0 items-center gap-4 border-b border-[#313036] bg-[#1f1e24] px-6 py-4">
+        <button
+          type="button"
+          onClick={() => setNavSidebarOpen(true)}
+          title="Open menu"
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef] lg:hidden"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
         <h1 className="text-sm font-semibold text-[#ececef]">Users</h1>
 
         <button
@@ -469,7 +481,7 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
       )}
 
       {/* Table */}
-      <main className="flex-1 overflow-auto p-6">
+      <main className="flex-1 overflow-y-auto overflow-x-clip p-6">
         {initialUsers.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[#313036] py-20 text-center">
             <p className="text-sm text-[#6b6875]">No users yet</p>
@@ -483,8 +495,8 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
             </button>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-[#313036]">
-            <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto rounded-xl border border-[#313036]">
+            <table className="w-full min-w-[480px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[#313036] bg-[#1f1e24]">
                   <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">Name</th>
@@ -585,16 +597,6 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
         />
       )}
       </div>
-      <button
-        type="button"
-        onClick={() => setNavSidebarOpen(true)}
-        title="Open menu"
-        className="fixed bottom-4 left-4 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-[#28272d] text-[#a09fa6] shadow-lg transition-colors hover:bg-[#313036] hover:text-[#ececef] lg:hidden"
-      >
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
-        </svg>
-      </button>
     </div>
   );
 }

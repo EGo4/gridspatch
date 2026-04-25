@@ -882,10 +882,24 @@ export function BoardClient({
   <DragDropContext onDragEnd={onDragEnd} onDragStart={onDragStart}>
     <div className="h-dvh bg-[#1f1e24] font-sans text-[#ececef] flex flex-col lg:flex-row">
       <Sidebar mobileOpen={navSidebarOpen} onMobileClose={() => setNavSidebarOpen(false)} />
-      <div className="flex-1 flex flex-col min-h-0 min-w-0">
+      <div className="flex-1 flex flex-col min-h-0 min-w-0 lg:pl-14">
 
         {/* Mobile header — outside scroll area so content never scrolls behind it */}
-        <div className="lg:hidden flex items-center justify-between bg-[#1f1e24] px-4 pt-4 pb-2 shadow-[0_6px_0_6px_#1f1e24]">
+        <div className="lg:hidden flex items-center gap-2 bg-[#1f1e24] px-4 pt-4 pb-2 shadow-[0_6px_0_6px_#1f1e24]">
+
+          {/* Hamburger button — top-left */}
+          <button
+            type="button"
+            onClick={() => setNavSidebarOpen(true)}
+            title="Open menu"
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#28272d] text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
 
           {/* Day selector pill */}
           <div className="relative inline-flex items-center rounded-full bg-[#28272d] text-sm font-medium text-[#a09fa6]">
@@ -920,7 +934,7 @@ export function BoardClient({
           </div>
 
           {/* Week selector pill */}
-          <div className="relative inline-flex items-center rounded-full bg-[#28272d] text-sm font-medium text-[#a09fa6]">
+          <div className="ml-auto relative inline-flex items-center rounded-full bg-[#28272d] text-sm font-medium text-[#a09fa6]">
             <Link
               href={`/board?week=${getPreviousWeekParam(selectedWeek.startDateIso)}`}
               className="px-3 py-2 transition hover:text-[#ececef]"
@@ -1631,21 +1645,7 @@ export function BoardClient({
       );
     })()}
 
-    {/* Mobile hamburger — fixed bottom-left */}
-    <button
-      type="button"
-      onClick={() => setNavSidebarOpen(true)}
-      title="Open menu"
-      className="fixed bottom-4 left-4 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-[#28272d] text-[#a09fa6] shadow-lg transition-colors hover:bg-[#313036] hover:text-[#ececef] lg:hidden"
-    >
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <line x1="3" y1="6" x2="21" y2="6" />
-        <line x1="3" y1="12" x2="21" y2="12" />
-        <line x1="3" y1="18" x2="21" y2="18" />
-      </svg>
-    </button>
-
-    {showPastWeekModal && (
+{showPastWeekModal && (
       <>
         <div className="fixed inset-0 z-40 bg-black/50" onClick={() => { setShowPastWeekModal(false); setPendingAction(null); }} />
         <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[#5c3a0f] bg-[#1f1e24] p-6 shadow-2xl">
