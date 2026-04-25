@@ -263,6 +263,29 @@ function DeleteConfirmPanel({
   );
 }
 
+// ── Sorting ───────────────────────────────────────────────────────────────────
+
+type EmpSortKey = "name" | "initials" | "role";
+type SortDir = "asc" | "desc" | null;
+
+function SortIcon({ dir }: { dir: SortDir }) {
+  if (dir === "asc") return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block ml-1">
+      <polyline points="18 15 12 9 6 15" />
+    </svg>
+  );
+  if (dir === "desc") return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block ml-1">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block ml-1 opacity-30">
+      <polyline points="18 15 12 9 6 15" /><polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function EmployeesClient({ employees: initialEmployees }: { employees: Employee[] }) {
@@ -274,6 +297,22 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Employee | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const [sortKey, setSortKey] = useState<EmpSortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>(null);
+
+  const handleSort = (key: EmpSortKey) => {
+    if (sortKey !== key) { setSortKey(key); setSortDir("asc"); }
+    else if (sortDir === "asc") setSortDir("desc");
+    else { setSortKey(null); setSortDir(null); }
+  };
+
+  const sortedEmployees = [...initialEmployees].sort((a, b) => {
+    if (!sortKey || !sortDir) return 0;
+    const va = (a[sortKey] ?? "").toLowerCase();
+    const vb = (b[sortKey] ?? "").toLowerCase();
+    return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+  });
 
   const openAdd = () => {
     setForm(EMPTY_FORM);
@@ -379,24 +418,22 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#313036] bg-[#1f1e24]">
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
-                    Name
-                  </th>
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
-                    Initials
-                  </th>
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
-                    Role
-                  </th>
+                  {([ ["name", "Name"], ["initials", "Initials"], ["role", "Role"] ] as [EmpSortKey, string][]).map(([key, label]) => (
+                    <th key={key} className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
+                      <button type="button" onClick={() => handleSort(key)} className="flex items-center gap-0.5 transition-colors hover:text-[#ececef]">
+                        {label}<SortIcon dir={sortKey === key ? sortDir : null} />
+                      </button>
+                    </th>
+                  ))}
                   <th scope="col" className="w-20 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-transparent" aria-label="Actions">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {initialEmployees.map((employee, i) => (
+                {sortedEmployees.map((employee, i) => (
                   <tr
                     key={employee.id}
                     className={`border-b border-[#252429] transition-colors hover:bg-[#252429] ${
-                      i === initialEmployees.length - 1 ? "border-b-0" : ""
+                      i === sortedEmployees.length - 1 ? "border-b-0" : ""
                     }`}
                   >
                     <td className="px-4 py-3">

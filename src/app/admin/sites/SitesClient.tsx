@@ -12,6 +12,27 @@ import { addUtcDays, normalizeWeekStart, toDateParam, formatWeekLabel } from "~/
 
 type Manager = { id: string; name: string };
 
+type SiteSortKey = "name" | "status" | "startDate" | "endDate" | "manager" | "description";
+type SiteSortDir = "asc" | "desc" | null;
+
+function SortIcon({ dir }: { dir: SiteSortDir }) {
+  if (dir === "asc") return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block ml-1 flex-shrink-0">
+      <polyline points="18 15 12 9 6 15" />
+    </svg>
+  );
+  if (dir === "desc") return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="inline-block ml-1 flex-shrink-0">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="inline-block ml-1 flex-shrink-0 opacity-30">
+      <polyline points="18 15 12 9 6 15" /><polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
 type Site = {
   id: string;
   name: string;
@@ -659,6 +680,32 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
   const [isPending, startTransition] = useTransition();
 
   const [sites, setSites] = useState(initialSites);
+
+  const [sortKey, setSortKey] = useState<SiteSortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SiteSortDir>(null);
+
+  const handleSort = (key: SiteSortKey) => {
+    if (sortKey !== key) { setSortKey(key); setSortDir("asc"); }
+    else if (sortDir === "asc") setSortDir("desc");
+    else { setSortKey(null); setSortDir(null); }
+  };
+
+  const sortedSites = useMemo(() => {
+    if (!sortKey || !sortDir) return sites;
+    return [...sites].sort((a, b) => {
+      let va: string | number = "";
+      let vb: string | number = "";
+      if (sortKey === "startDate" || sortKey === "endDate") {
+        va = a[sortKey] ? a[sortKey]!.getTime() : sortDir === "asc" ? Infinity : -Infinity;
+        vb = b[sortKey] ? b[sortKey]!.getTime() : sortDir === "asc" ? Infinity : -Infinity;
+        return sortDir === "asc" ? (va as number) - (vb as number) : (vb as number) - (va as number);
+      }
+      va = (sortKey === "manager" ? (a.constructionManagerName ?? "") : (a[sortKey as keyof Site] as string | null) ?? "").toLowerCase();
+      vb = (sortKey === "manager" ? (b.constructionManagerName ?? "") : (b[sortKey as keyof Site] as string | null) ?? "").toLowerCase();
+      return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+    });
+  }, [sites, sortKey, sortDir]);
+
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
@@ -766,16 +813,20 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-[#313036] bg-[#1f1e24]">
-                  {["Name", "Status", "Start date", "End date", "Manager", "Description"].map((h) => (
-                    <th key={h} className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">{h}</th>
+                  {([ ["name","Name"], ["status","Status"], ["startDate","Start date"], ["endDate","End date"], ["manager","Manager"], ["description","Description"] ] as [SiteSortKey, string][]).map(([key, label]) => (
+                    <th key={key} className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
+                      <button type="button" onClick={() => handleSort(key)} className="flex items-center gap-0.5 transition-colors hover:text-[#ececef]">
+                        {label}<SortIcon dir={sortKey === key ? sortDir : null} />
+                      </button>
+                    </th>
                   ))}
                   <th className="w-24 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {sites.map((site, i) => (
+                {sortedSites.map((site, i) => (
                   <tr key={site.id}
-                    className={`border-b border-[#252429] transition-colors hover:bg-[#252429] ${i === sites.length - 1 ? "border-b-0" : ""}`}>
+                    className={`border-b border-[#252429] transition-colors hover:bg-[#252429] ${i === sortedSites.length - 1 ? "border-b-0" : ""}`}>
                     <td className="px-4 py-3 font-medium text-[#ececef]">{site.name}</td>
                     <td className="px-4 py-3"><StatusBadge status={site.status} /></td>
                     <td className="px-4 py-3 text-[#a09fa6]">{formatDate(site.startDate)}</td>
