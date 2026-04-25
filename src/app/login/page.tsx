@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { authClient } from "~/server/better-auth/client";
 import { findEmailByUsername } from "~/server/actions/users";
+import { Logo } from "~/components/Logo";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -44,9 +45,10 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[#1f1e24] flex items-center justify-center">
       <div className="w-full max-w-sm">
-        <h1 className="text-center text-xl font-semibold text-[#ececef] mb-8">
-          Gridspatch
-        </h1>
+        <div className="flex flex-col items-center gap-3 mb-8">
+          <Logo size={48} />
+          <span className="text-lg font-semibold text-[#ececef]">Gridspatch</span>
+        </div>
 
         <form
           onSubmit={handleSubmit}

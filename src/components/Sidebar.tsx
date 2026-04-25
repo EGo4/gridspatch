@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { authClient } from "~/server/better-auth/client";
+import { Logo } from "~/components/Logo";
 
 interface SidebarProps {
   mobileOpen: boolean;
@@ -125,9 +126,9 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       {/* Desktop sidebar — icon-only by default, expands on hover */}
       <aside className="group hidden w-14 flex-shrink-0 flex-col overflow-hidden border-r border-[#313036] bg-[#18171d] transition-[width] duration-200 ease-in-out hover:w-52 lg:flex">
         {/* Logo */}
-        <div className="flex h-14 flex-shrink-0 items-center overflow-hidden border-b border-[#313036] px-4">
-          <span className="flex-shrink-0 text-sm font-bold text-accent">GS</span>
-          <span className="ml-3 whitespace-nowrap text-sm font-bold text-[#ececef] opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+        <div className="flex h-14 flex-shrink-0 items-center overflow-hidden border-b border-[#313036] px-3">
+          <span className="flex-shrink-0"><Logo size={26} /></span>
+          <span className="ml-2.5 whitespace-nowrap text-sm font-bold text-[#ececef] opacity-0 transition-opacity duration-150 group-hover:opacity-100">
             Gridspatch
           </span>
         </div>
@@ -184,7 +185,10 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
       >
         {/* Mobile header */}
         <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-[#313036] px-4">
-          <span className="text-sm font-bold text-accent">Gridspatch</span>
+          <div className="flex items-center gap-2.5">
+            <Logo size={26} />
+            <span className="text-sm font-bold text-[#ececef]">Gridspatch</span>
+          </div>
           <button
             type="button"
             onClick={onMobileClose}

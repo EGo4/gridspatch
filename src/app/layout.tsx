@@ -6,7 +6,9 @@ import { Geist } from "next/font/google";
 export const metadata: Metadata = {
   title: "Gridspatch",
   description: "Weekly construction staffing board",
-  icons: [{ rel: "icon", url: "/favicon.ico" }],
+  icons: [
+    { rel: "icon", url: "/logo.svg", type: "image/svg+xml" },
+  ],
 };
 
 const geist = Geist({
