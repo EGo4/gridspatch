@@ -3,28 +3,12 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## Side Navigation Menu
-
-Why:
-As the app grows to include statistics and potentially other views, a persistent navigation structure is needed. Integrating it with the accent-color lip keeps the visual language consistent.
-
-Goal:
-Add a collapsible side menu that gives access to the main sections of the app.
-
-Ideas to realize it:
-- Menu is hidden by default, showing only icons.
-- On hover it expands to reveal labels alongside the icons.
-- Initial tabs: Planning (current board view) and Statistics.
-- The menu should visually connect to the accent-color lip introduced in the appearance refactor — e.g. the lip continues along the menu edge or the menu shares the same border treatment.
-- Keep the menu out of the way when collapsed so it does not reduce board space on smaller screens.
+add a padding on the outside of the whole page, round the corners and use an accent color in the padding area
 
 ## Preference Menu
 
-Why:
-Nice-to-have personalization once the core product is stable and the visual design is locked in.
-
 Goal:
-Let users customize the look and feel of the app and persist those preferences.
+Let users customize the look and feel of the app and persist those preferences. Add it to the account page
 
 Requested settings:
 - AM and PM color overrides
@@ -32,10 +16,10 @@ Requested settings:
 - A simple global scaling factor for text and element sizes
 
 Ideas to realize it:
-- Add a settings/preferences page or modal accessible from the side menu or header.
-- Store all preferences in local storage initially; tie them to a user account later.
+- Add a settings/preferences page or modal accessible to the account page
+- Store all preferences in the user account database.
 - Apply the scaling factor via a CSS custom property on the root element (e.g. `--ui-scale`) so a single value drives spacing, font size, and element dimensions uniformly.
-- Accent color preference should override the central accent color CSS variable introduced in the appearance refactor.
+- Accent color preference should override the central accent color
 
 ## Docker Deployment For Local Network Hosting
 

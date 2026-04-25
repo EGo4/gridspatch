@@ -8,7 +8,7 @@ import type { DragStart, DropResult } from "@hello-pangea/dnd";
 
 import { EmployeeCard } from "./EmployeeCard";
 import { SyringeIcon, PalmTreeIcon, CopyIcon, AssignSiteIcon, FilterIcon } from "~/components/icons";
-import { authClient } from "~/server/better-auth/client";
+import { Sidebar } from "~/components/Sidebar";
 import { updateAssignment, splitAssignment, mergeAssignment, copyDayAssignments, copyWeekAssignments, setAvailability as persistAvailability, clearAvailability as unpersistAvailability } from "~/server/actions/board";
 import { DAYS } from "~/lib/constants";
 import {
@@ -120,13 +120,7 @@ export function BoardClient({
   weeks,
 }: BoardClientProps) {
   const router = useRouter();
-  const { data: session } = authClient.useSession();
-  const isAdmin = session?.user?.role === "admin";
-
-  async function handleLogout() {
-    await authClient.signOut();
-    router.push("/login");
-  }
+  const [navSidebarOpen, setNavSidebarOpen] = useState(false);
   const [assignmentsState, setAssignmentsState] = useState<Record<string, EmployeeEntry[]>>({});
   const [activeDay, setActiveDay] = useState("Monday");
   const [isLoaded, setIsLoaded] = useState(false);
@@ -887,7 +881,8 @@ export function BoardClient({
   return (
   <DragDropContext onDragEnd={onDragEnd} onDragStart={onDragStart}>
     <div className="h-dvh bg-[#1f1e24] font-sans text-[#ececef] flex flex-col lg:flex-row">
-      <div className="flex-1 flex flex-col min-h-0">
+      <Sidebar mobileOpen={navSidebarOpen} onMobileClose={() => setNavSidebarOpen(false)} />
+      <div className="flex-1 flex flex-col min-h-0 min-w-0">
 
         {/* Mobile header — outside scroll area so content never scrolls behind it */}
         <div className="lg:hidden flex items-center justify-between bg-[#1f1e24] px-4 pt-4 pb-2 shadow-[0_6px_0_6px_#1f1e24]">
@@ -1020,74 +1015,6 @@ export function BoardClient({
             )}
           </div>
 
-          {/* Filter + admin links + logout — top-right corner of the desktop header row */}
-          <div className="absolute right-0 flex items-center gap-1">
-
-
-            {isAdmin && (
-              <Link
-                href="/admin/users"
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-[#6b6875] transition-colors hover:bg-[#28272d] hover:text-[#a09fa6]"
-                title="Manage users"
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="12" cy="8" r="4" />
-                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-                </svg>
-                Users
-              </Link>
-            )}
-            <Link
-              href="/admin/employees"
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-[#6b6875] transition-colors hover:bg-[#28272d] hover:text-[#a09fa6]"
-              title="Manage employees"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <circle cx="9" cy="7" r="4" />
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-              </svg>
-              Employees
-            </Link>
-            <Link
-              href="/admin/sites"
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-[#6b6875] transition-colors hover:bg-[#28272d] hover:text-[#a09fa6]"
-              title="Manage building sites"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                <polyline points="9 22 9 12 15 12 15 22" />
-              </svg>
-              Sites
-            </Link>
-            <div className="mx-1 h-4 w-px bg-[#3a3940]" />
-            <Link
-              href="/profile"
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-[#6b6875] transition-colors hover:bg-[#28272d] hover:text-[#a09fa6]"
-              title="Account settings"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="8" r="4" />
-                <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-              </svg>
-              Account
-            </Link>
-            <div className="mx-1 h-4 w-px bg-[#3a3940]" />
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs text-[#6b6875] transition-colors hover:bg-[#28272d] hover:text-[#a09fa6]"
-              title="Sign out"
-            >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </svg>
-              Sign out
-            </button>
-          </div>
         </div>
 
           <div className="w-full lg:min-w-max flex flex-col gap-4">
@@ -1703,6 +1630,20 @@ export function BoardClient({
         </>
       );
     })()}
+
+    {/* Mobile hamburger — fixed bottom-left */}
+    <button
+      type="button"
+      onClick={() => setNavSidebarOpen(true)}
+      title="Open menu"
+      className="fixed bottom-4 left-4 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-[#28272d] text-[#a09fa6] shadow-lg transition-colors hover:bg-[#313036] hover:text-[#ececef] lg:hidden"
+    >
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="3" y1="6" x2="21" y2="6" />
+        <line x1="3" y1="12" x2="21" y2="12" />
+        <line x1="3" y1="18" x2="21" y2="18" />
+      </svg>
+    </button>
 
     {showPastWeekModal && (
       <>

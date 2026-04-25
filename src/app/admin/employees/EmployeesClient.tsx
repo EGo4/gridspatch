@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useRef, useState, useTransition } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createEmployee, updateEmployee, deleteEmployee } from "~/server/actions/employees";
 import { UserIcon } from "~/components/icons";
+import { Sidebar } from "~/components/Sidebar";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -292,6 +292,7 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
   const router = useRouter();
   const [, startTransition] = useTransition();
 
+  const [navSidebarOpen, setNavSidebarOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
@@ -372,19 +373,12 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
   };
 
   return (
-    <div className="min-h-screen bg-[#17161c] text-[#ececef]">
+    <div className="flex h-dvh bg-[#17161c] text-[#ececef]">
+      <Sidebar mobileOpen={navSidebarOpen} onMobileClose={() => setNavSidebarOpen(false)} />
+      <div className="flex flex-1 flex-col min-h-0 min-w-0">
+
       {/* Top bar */}
-      <header className="flex items-center gap-4 border-b border-[#313036] bg-[#1f1e24] px-6 py-4">
-        <Link
-          href="/board"
-          className="flex items-center gap-1.5 text-xs text-[#6b6875] transition-colors hover:text-[#a09fa6]"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          Board
-        </Link>
-        <span className="text-[#313036]">/</span>
+      <header className="flex flex-shrink-0 items-center gap-4 border-b border-[#313036] bg-[#1f1e24] px-6 py-4">
         <h1 className="text-sm font-semibold text-[#ececef]">Employees</h1>
 
         <button
@@ -401,7 +395,7 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
       </header>
 
       {/* Table */}
-      <main className="p-6">
+      <main className="flex-1 overflow-auto p-6">
         {initialEmployees.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[#313036] py-20 text-center">
             <p className="text-sm text-[#6b6875]">No employees yet</p>
@@ -514,6 +508,17 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
           onConfirm={handleDelete}
         />
       )}
+      </div>
+      <button
+        type="button"
+        onClick={() => setNavSidebarOpen(true)}
+        title="Open menu"
+        className="fixed bottom-4 left-4 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-[#28272d] text-[#a09fa6] shadow-lg transition-colors hover:bg-[#313036] hover:text-[#ececef] lg:hidden"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </button>
     </div>
   );
 }

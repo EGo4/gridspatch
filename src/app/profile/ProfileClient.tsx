@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useRef, useState, useTransition } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Sidebar } from "~/components/Sidebar";
 import { updateCurrentUser, changeCurrentUserPassword } from "~/server/actions/users";
 import { UserIcon } from "~/components/icons";
 
@@ -97,6 +97,8 @@ export function ProfileClient({ user }: { user: CurrentUser }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
+  const [navSidebarOpen, setNavSidebarOpen] = useState(false);
+
   // Profile fields
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
@@ -174,24 +176,18 @@ export function ProfileClient({ user }: { user: CurrentUser }) {
   );
 
   return (
-    <div className="min-h-screen bg-[#17161c] text-[#ececef]">
+    <div className="flex h-dvh bg-[#17161c] text-[#ececef]">
+      <Sidebar mobileOpen={navSidebarOpen} onMobileClose={() => setNavSidebarOpen(false)} />
+      <div className="flex flex-1 flex-col min-h-0 min-w-0">
+
       {/* Top bar */}
-      <header className="flex items-center gap-4 border-b border-[#313036] bg-[#1f1e24] px-6 py-4">
-        <Link
-          href="/board"
-          className="flex items-center gap-1.5 text-xs text-[#6b6875] transition-colors hover:text-[#a09fa6]"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-          Board
-        </Link>
-        <span className="text-[#313036]">/</span>
+      <header className="flex flex-shrink-0 items-center gap-4 border-b border-[#313036] bg-[#1f1e24] px-6 py-4">
         <h1 className="text-sm font-semibold text-[#ececef]">Account</h1>
       </header>
 
       {/* Content */}
-      <main className="mx-auto max-w-lg px-6 py-8">
+      <main className="flex-1 overflow-auto">
+      <div className="mx-auto max-w-lg px-6 py-8">
 
         {/* Error / success banners */}
         {error && (
@@ -324,7 +320,19 @@ export function ProfileClient({ user }: { user: CurrentUser }) {
             </button>
           </div>
         </div>
+      </div>
       </main>
+      </div>
+      <button
+        type="button"
+        onClick={() => setNavSidebarOpen(true)}
+        title="Open menu"
+        className="fixed bottom-4 left-4 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-[#28272d] text-[#a09fa6] shadow-lg transition-colors hover:bg-[#313036] hover:text-[#ececef] lg:hidden"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      </button>
     </div>
   );
 }
