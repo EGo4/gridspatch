@@ -3,20 +3,7 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## Add sorting to employee and construction site table
-
-Add sorting for each column by clicking it
-Cycle trough acending, decending and not-sorted
-disable one sorting if other column is clicked
-
-## Secure data of older weeks
-
-- Past weeks stay editable, but editing them should show a warning.
-- Historical-change warnings can be muted for 5 minutes.
-
 ## Side Navigation Menu
-
-Priority: mid
 
 Why:
 As the app grows to include statistics and potentially other views, a persistent navigation structure is needed. Integrating it with the accent-color lip keeps the visual language consistent.
@@ -33,8 +20,6 @@ Ideas to realize it:
 
 ## Preference Menu
 
-Priority: low (very late feature)
-þ
 Why:
 Nice-to-have personalization once the core product is stable and the visual design is locked in.
 
@@ -53,8 +38,6 @@ Ideas to realize it:
 - Accent color preference should override the central accent color CSS variable introduced in the appearance refactor.
 
 ## Docker Deployment For Local Network Hosting
-
-Priority: low
 
 Why:
 Deployment should be reproducible and simple, especially for a small Ubuntu server in a local network.
@@ -85,8 +68,6 @@ If Caddy is used with DuckDNS:
 
 ## Light Mode
 
-Priority: low
-
 Why:
 Some users prefer a light theme, especially when working in bright environments.
 
@@ -100,8 +81,6 @@ Ideas to realize it:
 - Tailwind's `dark:` variant can drive most of the color switching with minimal extra classes.
 
 ## Statistics On Worked Weeks
-
-Priority: mid
 
 Why:
 Depends heavily on week-based historical data and stable domain relationships.

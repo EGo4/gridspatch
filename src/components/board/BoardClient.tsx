@@ -12,10 +12,12 @@ import { authClient } from "~/server/better-auth/client";
 import { updateAssignment, splitAssignment, mergeAssignment, copyDayAssignments, copyWeekAssignments, setAvailability as persistAvailability, clearAvailability as unpersistAvailability } from "~/server/actions/board";
 import { DAYS } from "~/lib/constants";
 import {
+  getCurrentWeekStart,
   getDayNameFromDate,
   getNextWeekParam,
   getPreviousWeekParam,
   getWeekDateMap,
+  toDateParam,
 } from "~/lib/week";
 import type { Assignment, Availability, BoardWeek, DayPart, Employee, Project, ProjectStatus } from "~/types";
 import { ALLOWED_TRANSITIONS, getSuperStatus } from "~/types";
@@ -92,6 +94,7 @@ const poolFullDayId = (day: string) => `pool-${day}`;
 
 const COLLAPSED_LS_KEY  = "gridspatch:collapsed-rows";
 const FILTER_MANAGER_KEY = "gridspatch:filter-manager";
+const PAST_WEEK_MUTE_KEY = "gridspatch:past-week-mute-until";
 
 const STATUS_LABELS: Record<ProjectStatus, string> = {
   planned: "Planned", active: "Active", on_hold: "On hold", done: "Done", inactive: "Inactive",
@@ -152,6 +155,39 @@ export function BoardClient({
     projectId: string; status: ProjectStatus; assignmentCount: number;
   } | null>(null);
   const [applyingStatusChange, setApplyingStatusChange] = useState(false);
+
+  const isPastWeek = selectedWeek.startDateIso < toDateParam(getCurrentWeekStart());
+  const [mutedUntil, setMutedUntil] = useState<number>(() =>
+    typeof window !== "undefined" ? Number(localStorage.getItem(PAST_WEEK_MUTE_KEY) ?? 0) : 0,
+  );
+  const isMuted = mutedUntil > Date.now();
+  const muteWarning = () => {
+    const until = Date.now() + 5 * 60 * 1000;
+    localStorage.setItem(PAST_WEEK_MUTE_KEY, String(until));
+    setMutedUntil(until);
+  };
+
+  useEffect(() => {
+    if (!isMuted) return;
+    const t = setTimeout(() => setMutedUntil(0), mutedUntil - Date.now());
+    return () => clearTimeout(t);
+  }, [isMuted, mutedUntil]);
+
+  const [pendingAction, setPendingAction] = useState<(() => void | Promise<void>) | null>(null);
+  const [showPastWeekModal, setShowPastWeekModal] = useState(false);
+
+  const confirmPastEdit = (action: () => void | Promise<void>) => {
+    if (!isPastWeek || isMuted) { void action(); return; }
+    setPendingAction(() => action);
+    setShowPastWeekModal(true);
+  };
+
+  const executePending = (andMute = false) => {
+    if (andMute) muteWarning();
+    setShowPastWeekModal(false);
+    if (pendingAction) void pendingAction();
+    setPendingAction(null);
+  };
 
   const weekDates = getWeekDateMap(selectedWeek.startDateIso);
 
@@ -305,24 +341,20 @@ export function BoardClient({
   const assignToSite = (employeeId: string, day: string, projectId: string) => {
     const employee = dbEmployees.find((e) => e.id === employeeId);
     if (!employee) return;
-
-    const poolId   = poolFullDayId(day);
-    const targetId = fullDayDroppableId(projectId, day);
-
-    setAssignmentsState((prev) => {
-      const next = { ...prev };
-      next[poolId]   = (next[poolId]   ?? []).filter((e) => e.employee.id !== employeeId);
-      next[targetId] = [...(next[targetId] ?? []), { employee, dayPart: "full_day" }];
-      return next;
+    confirmPastEdit(() => {
+      const poolId   = poolFullDayId(day);
+      const targetId = fullDayDroppableId(projectId, day);
+      setAssignmentsState((prev) => {
+        const next = { ...prev };
+        next[poolId]   = (next[poolId]   ?? []).filter((e) => e.employee.id !== employeeId);
+        next[targetId] = [...(next[targetId] ?? []), { employee, dayPart: "full_day" }];
+        return next;
+      });
+      setSitePickerFor(null);
+      setOpenCardId(null);
+      const dateIso = weekDates[day as keyof typeof weekDates];
+      if (dateIso) void updateAssignment(employeeId, projectId, dateIso, selectedWeek.id, "full_day");
     });
-
-    setSitePickerFor(null);
-    setOpenCardId(null);
-
-    const dateIso = weekDates[day as keyof typeof weekDates];
-    if (dateIso) {
-      void updateAssignment(employeeId, projectId, dateIso, selectedWeek.id, "full_day");
-    }
   };
 
   // ── Initialise state from DB ───────────────────────────────────────────────
@@ -429,45 +461,42 @@ export function BoardClient({
   // ── Availability (sick / vacation) ───────────────────────────────────────
 
   const markAvailability = (employeeId: string, day: string, status: AvailabilityStatus) => {
-    setAvailability((prev) => ({ ...prev, [`${employeeId}-${day}`]: status }));
-    setAssignmentsState((prev) => {
-      const next = { ...prev };
-      for (const key of Object.keys(next)) {
-        if (getDayFromDroppableId(key) === day) {
-          next[key] = (next[key] ?? []).filter((e) => e.employee.id !== employeeId);
+    confirmPastEdit(() => {
+      setAvailability((prev) => ({ ...prev, [`${employeeId}-${day}`]: status }));
+      setAssignmentsState((prev) => {
+        const next = { ...prev };
+        for (const key of Object.keys(next)) {
+          if (getDayFromDroppableId(key) === day) {
+            next[key] = (next[key] ?? []).filter((e) => e.employee.id !== employeeId);
+          }
         }
-      }
-      return next;
+        return next;
+      });
+      setOpenCardId(null);
+      const dateIso = weekDates[day as keyof typeof weekDates];
+      if (dateIso) void persistAvailability(employeeId, dateIso, selectedWeek.id, status);
     });
-    setOpenCardId(null);
-    const dateIso = weekDates[day as keyof typeof weekDates];
-    if (dateIso) {
-      void persistAvailability(employeeId, dateIso, selectedWeek.id, status);
-    }
   };
 
   const clearAvailability = (employeeId: string, day: string) => {
-    setAvailability((prev) => {
-      const next = { ...prev };
-      delete next[`${employeeId}-${day}`];
-      return next;
-    });
     const employee = dbEmployees.find((e) => e.id === employeeId);
-    if (employee) {
-      setAssignmentsState((prev) => ({
-        ...prev,
-        [poolFullDayId(day)]: [...(prev[poolFullDayId(day)] ?? []), { employee, dayPart: "full_day" }],
-      }));
-    }
-    const dateIso = weekDates[day as keyof typeof weekDates];
-    if (dateIso) {
-      void unpersistAvailability(employeeId, dateIso);
-    }
+    confirmPastEdit(() => {
+      setAvailability((prev) => { const next = { ...prev }; delete next[`${employeeId}-${day}`]; return next; });
+      if (employee) {
+        setAssignmentsState((prev) => ({
+          ...prev,
+          [poolFullDayId(day)]: [...(prev[poolFullDayId(day)] ?? []), { employee, dayPart: "full_day" }],
+        }));
+      }
+      const dateIso = weekDates[day as keyof typeof weekDates];
+      if (dateIso) void unpersistAvailability(employeeId, dateIso);
+    });
   };
 
   // ── Copy day ──────────────────────────────────────────────────────────────
 
   const copyDay = (sourceDay: string, targetDay: string) => {
+    confirmPastEdit(() => {
     setAssignmentsState((prev) => {
       const next = { ...prev };
 
@@ -511,28 +540,30 @@ export function BoardClient({
       return next;
     });
 
-    setCopyPopoverDay(null);
-
-    const sourceDateIso = weekDates[sourceDay as keyof typeof weekDates];
-    const targetDateIso = weekDates[targetDay as keyof typeof weekDates];
-    if (sourceDateIso && targetDateIso) {
-      void copyDayAssignments(sourceDateIso, targetDateIso, selectedWeek.id);
-    }
+      setCopyPopoverDay(null);
+      const sourceDateIso = weekDates[sourceDay as keyof typeof weekDates];
+      const targetDateIso = weekDates[targetDay as keyof typeof weekDates];
+      if (sourceDateIso && targetDateIso) {
+        void copyDayAssignments(sourceDateIso, targetDateIso, selectedWeek.id);
+      }
+    });
   };
 
   // ── Copy previous week ───────────────────────────────────────────────────
 
-  const copyPreviousWeek = async () => {
+  const copyPreviousWeek = () => {
     if (!previousWeek) return;
-    setCopyWeekModalOpen(false);
-    setSideMenuOpen(false);
-    await copyWeekAssignments(
-      previousWeek.id,
-      selectedWeek.id,
-      previousWeek.startDateIso,
-      selectedWeek.startDateIso,
-    );
-    router.refresh();
+    confirmPastEdit(async () => {
+      setCopyWeekModalOpen(false);
+      setSideMenuOpen(false);
+      await copyWeekAssignments(
+        previousWeek.id,
+        selectedWeek.id,
+        previousWeek.startDateIso,
+        selectedWeek.startDateIso,
+      );
+      router.refresh();
+    });
   };
 
   // ── Split day ─────────────────────────────────────────────────────────────
@@ -541,29 +572,24 @@ export function BoardClient({
   const splitDay = (employeeId: string, day: string, sourceCellId: string) => {
     const employee = dbEmployees.find((e) => e.id === employeeId);
     if (!employee) return;
-
     const projectId = getProjectIdFromDroppableId(sourceCellId);
     if (!projectId) return;
-
-    const preId  = preLunchDroppableId(projectId, day);
-    const postId = afterLunchDroppableId(projectId, day);
-
-    setAssignmentsState((prev) => {
-      const next = { ...prev };
-      next[sourceCellId] = (next[sourceCellId] ?? []).filter(
-        (e) => !(e.employee.id === employeeId && e.dayPart === "full_day"),
-      );
-      next[preId]  = [...(next[preId]  ?? []), { employee, dayPart: "pre_lunch" }];
-      next[postId] = [...(next[postId] ?? []), { employee, dayPart: "after_lunch" }];
-      return next;
+    confirmPastEdit(() => {
+      const preId  = preLunchDroppableId(projectId, day);
+      const postId = afterLunchDroppableId(projectId, day);
+      setAssignmentsState((prev) => {
+        const next = { ...prev };
+        next[sourceCellId] = (next[sourceCellId] ?? []).filter(
+          (e) => !(e.employee.id === employeeId && e.dayPart === "full_day"),
+        );
+        next[preId]  = [...(next[preId]  ?? []), { employee, dayPart: "pre_lunch" }];
+        next[postId] = [...(next[postId] ?? []), { employee, dayPart: "after_lunch" }];
+        return next;
+      });
+      setOpenCardId(null);
+      const dateIso = weekDates[day as keyof typeof weekDates];
+      if (dateIso) void splitAssignment(employeeId, projectId, dateIso, selectedWeek.id);
     });
-
-    setOpenCardId(null);
-
-    const dateIso = weekDates[day as keyof typeof weekDates];
-    if (dateIso) {
-      void splitAssignment(employeeId, projectId, dateIso, selectedWeek.id);
-    }
   };
 
   // ── Merge day ─────────────────────────────────────────────────────────────
@@ -571,31 +597,23 @@ export function BoardClient({
   const mergeDay = (employeeId: string, day: string, sourceCellId: string) => {
     const employee = dbEmployees.find((e) => e.id === employeeId);
     if (!employee) return;
-
     const projectId = getProjectIdFromDroppableId(sourceCellId);
-    const fdId = projectId
-      ? fullDayDroppableId(projectId, day)
-      : poolFullDayId(day);
-
-    setAssignmentsState((prev) => {
-      const next = { ...prev };
-      // Remove all halves for this employee across the whole day.
-      for (const key of Object.keys(next)) {
-        if (getDayFromDroppableId(key) === day) {
-          next[key] = (next[key] ?? []).filter((e) => e.employee.id !== employeeId);
+    const fdId = projectId ? fullDayDroppableId(projectId, day) : poolFullDayId(day);
+    confirmPastEdit(() => {
+      setAssignmentsState((prev) => {
+        const next = { ...prev };
+        for (const key of Object.keys(next)) {
+          if (getDayFromDroppableId(key) === day) {
+            next[key] = (next[key] ?? []).filter((e) => e.employee.id !== employeeId);
+          }
         }
-      }
-      // Re-add as full_day in the project cell (or pool).
-      next[fdId] = [...(next[fdId] ?? []), { employee, dayPart: "full_day" }];
-      return next;
+        next[fdId] = [...(next[fdId] ?? []), { employee, dayPart: "full_day" }];
+        return next;
+      });
+      setOpenCardId(null);
+      const dateIso = weekDates[day as keyof typeof weekDates];
+      if (dateIso) void mergeAssignment(employeeId, projectId, dateIso, selectedWeek.id);
     });
-
-    setOpenCardId(null);
-
-    const dateIso = weekDates[day as keyof typeof weekDates];
-    if (dateIso) {
-      void mergeAssignment(employeeId, projectId, dateIso, selectedWeek.id);
-    }
   };
 
   // ── Drag and drop ─────────────────────────────────────────────────────────
@@ -607,7 +625,7 @@ export function BoardClient({
     setCopyPopoverDay(null);
   };
 
-  const onDragEnd = async (result: DropResult) => {
+  const onDragEnd = (result: DropResult) => {
     setDraggingDay(null);
     setDraggingDayPart(null);
     const { source, destination, draggableId } = result;
@@ -622,35 +640,36 @@ export function BoardClient({
     if (!removed) return;
 
     if (source.droppableId === destination.droppableId) {
-      sourceList.splice(destination.index, 0, removed);
-      setAssignmentsState({ ...assignmentsState, [source.droppableId]: sourceList });
+      const reordered = [...sourceList];
+      reordered.splice(destination.index, 0, removed);
+      confirmPastEdit(() => {
+        setAssignmentsState({ ...assignmentsState, [source.droppableId]: reordered });
+      });
       return;
     }
 
     const destList = [...(assignmentsState[destination.droppableId] ?? [])];
-
-    // When a half-day card moves between AM/PM columns, update its dayPart.
     const destDayPart = getDayPartFromDroppableId(destination.droppableId);
     const updatedEntry: EmployeeEntry = { ...removed, dayPart: destDayPart };
-
     destList.splice(destination.index, 0, updatedEntry);
-    setAssignmentsState({
-      ...assignmentsState,
-      [source.droppableId]: sourceList,
-      [destination.droppableId]: destList,
-    });
 
     const { employeeId, dayPart: sourceDayPart } = parseFromDraggableId(draggableId);
     const targetProjectId = getProjectIdFromDroppableId(destination.droppableId);
     const targetDateIso = weekDates[destinationDay as keyof typeof weekDates];
 
-    if (targetDateIso) {
-      // If the card switched AM↔PM columns, delete the old assignment first.
-      if (sourceDayPart !== destDayPart && sourceDayPart !== "full_day") {
-        await updateAssignment(employeeId, null, targetDateIso, selectedWeek.id, sourceDayPart);
+    confirmPastEdit(async () => {
+      setAssignmentsState({
+        ...assignmentsState,
+        [source.droppableId]: sourceList,
+        [destination.droppableId]: destList,
+      });
+      if (targetDateIso) {
+        if (sourceDayPart !== destDayPart && sourceDayPart !== "full_day") {
+          await updateAssignment(employeeId, null, targetDateIso, selectedWeek.id, sourceDayPart);
+        }
+        await updateAssignment(employeeId, targetProjectId, targetDateIso, selectedWeek.id, destDayPart);
       }
-      await updateAssignment(employeeId, targetProjectId, targetDateIso, selectedWeek.id, destDayPart);
-    }
+    });
   };
 
   // ── Quick status change ───────────────────────────────────────────────────
@@ -1684,6 +1703,38 @@ export function BoardClient({
         </>
       );
     })()}
+
+    {showPastWeekModal && (
+      <>
+        <div className="fixed inset-0 z-40 bg-black/50" onClick={() => { setShowPastWeekModal(false); setPendingAction(null); }} />
+        <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[#5c3a0f] bg-[#1f1e24] p-6 shadow-2xl">
+          <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-[#fbbf24]">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            Editing a past week
+          </div>
+          <p className="mb-5 text-xs text-[#a09fa6]">
+            You are about to modify historical data. This change will be recorded in a past week.
+          </p>
+          <div className="flex flex-col gap-2">
+            <button type="button" onClick={() => executePending(false)}
+              className="w-full rounded-lg bg-[#fbbf24] px-4 py-2 text-xs font-semibold text-[#1a1400] transition-opacity hover:opacity-90">
+              Yes, change assignment
+            </button>
+            <button type="button" onClick={() => executePending(true)}
+              className="w-full rounded-lg border border-[#5c3a0f] bg-[#2c1e0a] px-4 py-2 text-xs font-medium text-[#fbbf24] transition-colors hover:bg-[#3d2910]">
+              Yes, and mute this message for 5 minutes
+            </button>
+            <button type="button" onClick={() => { setShowPastWeekModal(false); setPendingAction(null); }}
+              className="w-full rounded-lg px-4 py-2 text-xs text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+              Cancel
+            </button>
+          </div>
+        </div>
+      </>
+    )}
 
   </DragDropContext>
   );
