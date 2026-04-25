@@ -3,24 +3,6 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-add a padding on the outside of the whole page, round the corners and use an accent color in the padding area
-
-## Preference Menu
-
-Goal:
-Let users customize the look and feel of the app and persist those preferences. Add it to the account page
-
-Requested settings:
-- AM and PM color overrides
-- Accent color override
-- A simple global scaling factor for text and element sizes
-
-Ideas to realize it:
-- Add a settings/preferences page or modal accessible to the account page
-- Store all preferences in the user account database.
-- Apply the scaling factor via a CSS custom property on the root element (e.g. `--ui-scale`) so a single value drives spacing, font size, and element dimensions uniformly.
-- Accent color preference should override the central accent color
-
 ## Docker Deployment For Local Network Hosting
 
 Why:

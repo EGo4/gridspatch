@@ -42,6 +42,10 @@ body {
   --color-accent: #4f7cf0;
 }
 
+html {
+  font-size: calc(16px * var(--ui-scale, 1));
+}
+
 /* ── Pool overlay constants ──────────────────────────────────────────────────── */
 /*
  * The pool is a fixed overlay pinned to the bottom of the viewport.
@@ -51,6 +55,7 @@ body {
  */
 :root {
   --pool-max-height: 25vh;
+  --ui-scale: 1;
 }
 
 /*
@@ -65,24 +70,25 @@ body {
 }
 
 /* ── AM / PM colour tokens ─────────────────────────────────────────────────── */
+/*
+ * --am-hue / --pm-hue are the user-configurable hue colours (mid-brightness,
+ * saturated). All four zone variants are derived from them via color-mix().
+ * Override --am-hue / --pm-hue (e.g. from user preferences) to retheme both
+ * zones at once. Default hues are reverse-engineered to reproduce the original
+ * hand-picked dark colours.
+ */
 :root {
-  --am-zone: #2c2619;
-  /* warm dark amber — AM background */
-  --am-zone-active: #38301e;
-  /* AM background when dragging over */
-  --am-card: #302818;
-  /* AM employee card background */
-  --am-border: #4a3c1e;
-  /* AM card border */
+  --am-hue: #dcbe7d;
+  --am-zone:        color-mix(in srgb, var(--am-hue) 20%, black);
+  --am-zone-active: color-mix(in srgb, var(--am-hue) 26%, black);
+  --am-card:        color-mix(in srgb, var(--am-hue) 22%, black);
+  --am-border:      color-mix(in srgb, var(--am-hue) 30%, black);
 
-  --pm-zone: #1a2232;
-  /* cool dark blue — PM background */
-  --pm-zone-active: #1f2b3e;
-  /* PM background when dragging over */
-  --pm-card: #1c263e;
-  /* PM employee card background */
-  --pm-border: #253350;
-  /* PM card border */
+  --pm-hue: #82aafa;
+  --pm-zone:        color-mix(in srgb, var(--pm-hue) 20%, black);
+  --pm-zone-active: color-mix(in srgb, var(--pm-hue) 26%, black);
+  --pm-card:        color-mix(in srgb, var(--pm-hue) 22%, black);
+  --pm-border:      color-mix(in srgb, var(--pm-hue) 30%, black);
 }
 
 /* ── Employee card fly-out buttons ─────────────────────────────────────────── */

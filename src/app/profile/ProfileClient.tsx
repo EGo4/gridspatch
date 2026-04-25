@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useRef, useState, useTransition } from "react";
+import React, { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "~/components/Sidebar";
 import { updateCurrentUser, changeCurrentUserPassword } from "~/server/actions/users";
+import { saveUserPreferences, type UserPrefs } from "~/server/actions/preferences";
 import { UserIcon } from "~/components/icons";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -30,6 +31,12 @@ const ROLE_STYLES: Record<string, string> = {
 
 const inputCls =
   "w-full rounded-lg border border-[#313036] bg-[#17161c] px-3 py-2 text-sm text-[#ececef] placeholder-[#4a4950] outline-none focus:border-[var(--color-accent)] transition-colors";
+
+// Defaults match the globals.css hue values
+const DEFAULT_ACCENT = "#4f7cf0";
+const DEFAULT_AM_HUE = "#dcbe7d";
+const DEFAULT_PM_HUE = "#82aafa";
+const DEFAULT_SCALE = 1;
 
 // ── Photo picker ──────────────────────────────────────────────────────────────
 
@@ -91,9 +98,74 @@ function PhotoPicker({
   );
 }
 
+// ── Color swatch picker ───────────────────────────────────────────────────────
+
+function ColorField({
+  label,
+  hint,
+  value,
+  onChange,
+  onReset,
+  previewStyle,
+}: {
+  label: string;
+  hint: string;
+  value: string;
+  onChange: (v: string) => void;
+  onReset: () => void;
+  previewStyle?: React.CSSProperties;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
+        {label}
+      </label>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="h-9 w-9 flex-shrink-0 cursor-pointer rounded-lg border-2 border-[#313036] transition-colors hover:border-[#4a4950]"
+          style={{ backgroundColor: value }}
+          title="Click to pick colour"
+        />
+        {previewStyle && (
+          <div
+            className="h-9 w-9 flex-shrink-0 rounded-lg border border-[#313036]"
+            style={previewStyle}
+            title="Resulting zone colour"
+          />
+        )}
+        <span className="font-mono text-xs text-[#6b6875]">{value.toUpperCase()}</span>
+        <button
+          type="button"
+          onClick={onReset}
+          className="ml-auto text-[11px] text-[#4a4950] transition-colors hover:text-[#a09fa6]"
+        >
+          Reset
+        </button>
+      </div>
+      <p className="text-[11px] text-[#4a4950]">{hint}</p>
+      <input
+        ref={inputRef}
+        type="color"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="sr-only"
+      />
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function ProfileClient({ user }: { user: CurrentUser }) {
+export function ProfileClient({
+  user,
+  initialPrefs,
+}: {
+  user: CurrentUser;
+  initialPrefs: UserPrefs | null;
+}) {
   const router = useRouter();
   const [, startTransition] = useTransition();
 
@@ -110,9 +182,24 @@ export function ProfileClient({ user }: { user: CurrentUser }) {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  // Appearance preferences
+  const [accentColor, setAccentColor] = useState(initialPrefs?.accentColor ?? DEFAULT_ACCENT);
+  const [amColor, setAmColor] = useState(initialPrefs?.amColor ?? DEFAULT_AM_HUE);
+  const [pmColor, setPmColor] = useState(initialPrefs?.pmColor ?? DEFAULT_PM_HUE);
+  const [uiScale, setUiScale] = useState(initialPrefs?.uiScale ?? DEFAULT_SCALE);
+
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Live-preview appearance changes immediately
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty("--color-accent", accentColor);
+    root.style.setProperty("--am-hue", amColor);
+    root.style.setProperty("--pm-hue", pmColor);
+    root.style.setProperty("--ui-scale", String(uiScale));
+  }, [accentColor, amColor, pmColor, uiScale]);
 
   const uploadPhoto = async (file: File): Promise<string> => {
     const fd = new FormData();
@@ -157,6 +244,13 @@ export function ProfileClient({ user }: { user: CurrentUser }) {
         setPendingFile(null);
       }
 
+      await saveUserPreferences({
+        accentColor: accentColor !== DEFAULT_ACCENT ? accentColor : null,
+        amColor: amColor !== DEFAULT_AM_HUE ? amColor : null,
+        pmColor: pmColor !== DEFAULT_PM_HUE ? pmColor : null,
+        uiScale: uiScale !== DEFAULT_SCALE ? uiScale : null,
+      });
+
       setSuccessMsg("Changes saved.");
       startTransition(() => router.refresh());
     } catch (e) {
@@ -174,6 +268,8 @@ export function ProfileClient({ user }: { user: CurrentUser }) {
       {node}
     </div>
   );
+
+  const scalePercent = Math.round(uiScale * 100);
 
   return (
     <div className="flex h-dvh bg-[#17161c] text-[#ececef]">
@@ -332,6 +428,77 @@ export function ProfileClient({ user }: { user: CurrentUser }) {
             </button>
           </div>
         </div>
+
+        {/* Appearance card */}
+        <div className="mt-6 rounded-xl border border-[#313036] bg-[#1f1e24]">
+          <div className="flex flex-col gap-5 px-6 py-6">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">Appearance</p>
+
+            <ColorField
+              label="Accent colour"
+              hint="Used for active states, buttons, and highlights across the app."
+              value={accentColor}
+              onChange={setAccentColor}
+              onReset={() => setAccentColor(DEFAULT_ACCENT)}
+            />
+
+            <ColorField
+              label="AM zone hue"
+              hint="Pick a hue — the board renders a very dark tint of it for AM (pre-lunch) zones."
+              value={amColor}
+              onChange={setAmColor}
+              onReset={() => setAmColor(DEFAULT_AM_HUE)}
+              previewStyle={{ backgroundColor: `color-mix(in srgb, ${amColor} 20%, black)` }}
+            />
+
+            <ColorField
+              label="PM zone hue"
+              hint="Pick a hue — the board renders a very dark tint of it for PM (after-lunch) zones."
+              value={pmColor}
+              onChange={setPmColor}
+              onReset={() => setPmColor(DEFAULT_PM_HUE)}
+              previewStyle={{ backgroundColor: `color-mix(in srgb, ${pmColor} 20%, black)` }}
+            />
+
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
+                Text &amp; element size
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={0.8}
+                  max={1.2}
+                  step={0.05}
+                  value={uiScale}
+                  onChange={(e) => setUiScale(parseFloat(e.target.value))}
+                  className="flex-1 accent-[var(--color-accent)]"
+                />
+                <span className="w-10 text-right font-mono text-xs text-[#a09fa6]">{scalePercent}%</span>
+                <button
+                  type="button"
+                  onClick={() => setUiScale(DEFAULT_SCALE)}
+                  className="text-[11px] text-[#4a4950] transition-colors hover:text-[#a09fa6]"
+                >
+                  Reset
+                </button>
+              </div>
+              <p className="text-[11px] text-[#4a4950]">Scales text and element sizes globally. Range: 80% – 120%.</p>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-end gap-2 border-t border-[#313036] px-6 py-4">
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={!canSave || saving}
+              className="rounded-lg bg-[var(--color-accent)] px-5 py-2 text-sm font-medium text-white transition-opacity disabled:opacity-40 hover:opacity-90"
+            >
+              {saving ? "Saving…" : "Save changes"}
+            </button>
+          </div>
+        </div>
+
       </div>
       </main>
       </div>

@@ -30,6 +30,7 @@ model User {
   accounts      Account[]
 
   managedProjects Project[]
+  preferences     UserPreference?
 }
 
 model Session {
@@ -163,4 +164,14 @@ model Availability {
 
   @@unique([employeeId, date])
   @@index([weekId])
+}
+
+model UserPreference {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accentColor String? // hex, e.g. "#4f7cf0"
+  amColor     String? // AM hue, e.g. "#dcbe7d"
+  pmColor     String? // PM hue, e.g. "#82aafa"
+  uiScale     Float?  // e.g. 1.0
 }
