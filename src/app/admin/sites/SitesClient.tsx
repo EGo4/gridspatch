@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useEffect, useRef, useState, useTransition } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ProjectStatus } from "~/types";
-import { getSuperStatus } from "~/types";
-import { createSite, updateSite, deleteSite, getSiteWeekStatuses, setSiteWeekStatuses } from "~/server/actions/sites";
+import { getSuperStatus, ALLOWED_TRANSITIONS } from "~/types";
+import { createSite, updateSite, deleteSite, getSiteTransitions, setSiteTransition, deleteSiteTransition } from "~/server/actions/sites";
 import { addUtcDays, normalizeWeekStart, toDateParam, formatWeekLabel } from "~/lib/week";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -29,7 +29,6 @@ type FormState = {
   description: string;
   startDate: string;
   endDate: string;
-  status: ProjectStatus;
   constructionManagerId: string;
 };
 
@@ -38,7 +37,6 @@ const EMPTY_FORM: FormState = {
   description: "",
   startDate: "",
   endDate: "",
-  status: "planned",
   constructionManagerId: "",
 };
 
@@ -60,7 +58,6 @@ const STATUS_BADGE: Record<ProjectStatus, string> = {
   inactive: "bg-[#252429] text-[#6b6875] border border-[#313036]",
 };
 
-// Colors for the week calendar chips
 const STATUS_CHIP_BG: Record<ProjectStatus, string> = {
   planned:  "bg-[#1a2535]",
   active:   "bg-[#0f2e1e]",
@@ -84,23 +81,8 @@ const toInputDate = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
 const formatDate = (d: Date | null) =>
   d ? d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
-const chipLabel = (weekStartIso: string) => {
-  const d = new Date(`${weekStartIso}T00:00:00.000Z`);
-  const day = d.getUTCDate();
-  const month = new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" }).format(d);
-  return `${day} ${month}`;
-};
-
-const chipYear = (weekStartIso: string) =>
-  new Date(`${weekStartIso}T00:00:00.000Z`).getUTCFullYear().toString().slice(-2);
-
-// Generate 53 week start ISO strings: 26 before current + current + 26 after
-const generateWeeks = (): string[] => {
-  const currentStart = normalizeWeekStart(new Date());
-  return Array.from({ length: 53 }, (_, i) =>
-    toDateParam(addUtcDays(currentStart, (i - 26) * 7)),
-  );
-};
+const LOAD_STEP = 4;
+const INIT_RANGE = 4;
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -112,30 +94,25 @@ function StatusBadge({ status }: { status: ProjectStatus }) {
   );
 }
 
+const CloseIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+  </svg>
+);
+
 // ── Site form panel ───────────────────────────────────────────────────────────
 
 function SiteFormPanel({
-  form,
-  managers,
-  saving,
-  onClose,
-  onChange,
-  onSave,
+  form, managers, saving, onClose, onChange, onSave,
 }: {
-  form: FormState;
-  managers: Manager[];
-  saving: boolean;
-  onClose: () => void;
-  onChange: (f: FormState) => void;
-  onSave: () => void;
+  form: FormState; managers: Manager[]; saving: boolean;
+  onClose: () => void; onChange: (f: FormState) => void; onSave: () => void;
 }) {
   const isEdit = Boolean(form.id);
 
   const field = (label: string, node: React.ReactNode) => (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
-        {label}
-      </label>
+      <label className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">{label}</label>
       {node}
     </div>
   );
@@ -153,12 +130,9 @@ function SiteFormPanel({
           </h2>
           <button type="button" onClick={onClose} title="Close"
             className="rounded-md p-1 text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+            <CloseIcon />
           </button>
         </div>
-
         <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-6">
           {field("Name *",
             <input type="text" value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })}
@@ -167,17 +141,6 @@ function SiteFormPanel({
           {field("Description",
             <textarea value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })}
               placeholder="Optional notes about this site" rows={3} className={`${inputCls} resize-none`} />,
-          )}
-          {field("Default status",
-            <select value={form.status} title="Status"
-              onChange={(e) => onChange({ ...form, status: e.target.value as ProjectStatus })}
-              className={inputCls}>
-              <option value="planned">Planned</option>
-              <option value="active">Active</option>
-              <option value="on_hold">On hold</option>
-              <option value="done">Done</option>
-              <option value="inactive">Inactive</option>
-            </select>,
           )}
           {field("Construction manager",
             <select value={form.constructionManagerId} title="Construction manager"
@@ -198,7 +161,6 @@ function SiteFormPanel({
             )}
           </div>
         </div>
-
         <div className="flex items-center justify-end gap-2 border-t border-[#313036] px-5 py-4">
           <button type="button" onClick={onClose}
             className="rounded-lg px-4 py-2 text-sm text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
@@ -245,281 +207,447 @@ function DeleteConfirmPanel({
   );
 }
 
-// ── Status calendar panel ─────────────────────────────────────────────────────
+// ── Status transition panel ───────────────────────────────────────────────────
 
-const ALL_STATUSES: ProjectStatus[] = ["planned", "active", "on_hold", "done", "inactive"];
+type TransitionEntry = { weekStartIso: string; status: ProjectStatus };
 
-function SiteStatusCalendar({ site, onClose }: { site: Site; onClose: () => void }) {
-  const [statuses, setStatuses] = useState<Record<string, string>>({});
+type DropdownPos = { top: number; left: number; width: number; maxH: number };
+
+function computeEffectiveToday(rows: TransitionEntry[]): ProjectStatus {
+  const todayIso = toDateParam(normalizeWeekStart(new Date()));
+  const applicable = rows.filter((t) => t.weekStartIso <= todayIso);
+  return applicable.length > 0 ? applicable[applicable.length - 1]!.status : "planned";
+}
+
+function SiteStatusPanel({
+  site,
+  onClose,
+  onStatusChange,
+}: {
+  site: Site;
+  onClose: () => void;
+  onStatusChange: (id: string, status: ProjectStatus) => void;
+}) {
+  const [transitions, setTransitions] = useState<TransitionEntry[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [pickedStatus, setPickedStatus] = useState<ProjectStatus>("active");
+  const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
+  const [pickedStatus, setPickedStatus] = useState<ProjectStatus | null>(null);
+  const [weekPickerOpen, setWeekPickerOpen] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState<DropdownPos | null>(null);
   const [applying, setApplying] = useState(false);
+  const [deletingWeek, setDeletingWeek] = useState<string | null>(null);
   const [warnOngoing, setWarnOngoing] = useState(false);
+  const [warnOngoingAfter, setWarnOngoingAfter] = useState(false);
   const [blockMsg, setBlockMsg] = useState<string | null>(null);
-  const lastClicked = useRef<string | null>(null);
-  const currentWeekRef = useRef<HTMLButtonElement | null>(null);
-  const weeks = React.useMemo(generateWeeks, []);
+
+  const [weeksBefore, setWeeksBefore] = useState(INIT_RANGE);
+  const [weeksAfter, setWeeksAfter] = useState(INIT_RANGE);
+
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   const currentWeekIso = toDateParam(normalizeWeekStart(new Date()));
 
+  const weeks = useMemo(() => {
+    const currentStart = normalizeWeekStart(new Date());
+    return Array.from({ length: weeksBefore + 1 + weeksAfter }, (_, i) =>
+      toDateParam(addUtcDays(currentStart, (i - weeksBefore) * 7)),
+    );
+  }, [weeksBefore, weeksAfter]);
+
   useEffect(() => {
-    getSiteWeekStatuses(site.id)
-      .then((rows) => {
-        const map: Record<string, string> = {};
-        rows.forEach((r) => { map[r.weekStartIso] = r.status; });
-        setStatuses(map);
-      })
+    getSiteTransitions(site.id)
+      .then(setTransitions)
       .finally(() => setLoading(false));
   }, [site.id]);
 
-  // Scroll to current week after load
+  // Close dropdown on outside click
   useEffect(() => {
-    if (!loading) {
-      currentWeekRef.current?.scrollIntoView({ behavior: "instant", inline: "center", block: "nearest" });
-    }
-  }, [loading]);
-
-  const handleWeekClick = (weekIso: string, e: React.MouseEvent) => {
-    setBlockMsg(null);
-    setWarnOngoing(false);
-    if (e.shiftKey && lastClicked.current) {
-      const fromIdx = weeks.indexOf(lastClicked.current);
-      const toIdx   = weeks.indexOf(weekIso);
-      if (fromIdx !== -1 && toIdx !== -1) {
-        const [lo, hi] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
-        setSelected((prev) => {
-          const next = new Set(prev);
-          for (let i = lo; i <= hi; i++) next.add(weeks[i]!);
-          return next;
-        });
-        return;
+    if (!weekPickerOpen) return;
+    const handler = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (
+        (!triggerRef.current || !triggerRef.current.contains(t)) &&
+        (!dropdownRef.current || !dropdownRef.current.contains(t))
+      ) {
+        setWeekPickerOpen(false);
       }
-    }
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(weekIso)) next.delete(weekIso);
-      else next.add(weekIso);
-      return next;
-    });
-    lastClicked.current = weekIso;
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [weekPickerOpen]);
+
+  const effectiveStatusAt = (weekIso: string): ProjectStatus => {
+    const applicable = transitions.filter((t) => t.weekStartIso <= weekIso);
+    return applicable.length > 0 ? applicable[applicable.length - 1]!.status : "planned";
   };
 
-  const applyStatus = async (force = false) => {
-    if (selected.size === 0) return;
+  const currentEffective = selectedWeek ? effectiveStatusAt(selectedWeek) : null;
+  const allowed = currentEffective ? ALLOWED_TRANSITIONS[currentEffective] : [];
+  const isCompletedToOngoing =
+    currentEffective != null &&
+    pickedStatus != null &&
+    getSuperStatus(currentEffective) === "completed" &&
+    getSuperStatus(pickedStatus) === "ongoing";
+
+  // Set dropdown position imperatively to avoid inline style prop lint warning
+  useLayoutEffect(() => {
+    if (!dropdownRef.current || !dropdownPos) return;
+    const el = dropdownRef.current;
+    el.style.top = `${dropdownPos.top}px`;
+    el.style.left = `${dropdownPos.left}px`;
+    el.style.width = `${dropdownPos.width}px`;
+    el.style.maxHeight = `${dropdownPos.maxH}px`;
+  }, [dropdownPos, weekPickerOpen]);
+
+  const openPicker = () => {
+    if (weekPickerOpen) {
+      setWeekPickerOpen(false);
+      return;
+    }
+    if (triggerRef.current) {
+      const r = triggerRef.current.getBoundingClientRect();
+      const maxH = Math.min(480, window.innerHeight - r.bottom - 16);
+      setDropdownPos({ top: r.bottom + 4, left: r.left, width: r.width, maxH });
+    }
+    setWeekPickerOpen(true);
+  };
+
+  const laterOngoingAffected = useMemo(() => {
+    if (!selectedWeek || !pickedStatus) return 0;
+    if (getSuperStatus(pickedStatus) !== "completed") return 0;
+    return transitions.filter(
+      (t) => t.weekStartIso > selectedWeek && getSuperStatus(t.status) === "ongoing",
+    ).length;
+  }, [selectedWeek, pickedStatus, transitions]);
+
+  const handleWeekSelect = (weekIso: string) => {
+    setSelectedWeek(weekIso);
+    setPickedStatus(null);
+    setWeekPickerOpen(false);
+    setWarnOngoing(false);
+    setWarnOngoingAfter(false);
+    setBlockMsg(null);
+  };
+
+  const handleApply = async (force = false) => {
+    if (!selectedWeek || !pickedStatus) return;
     setApplying(true);
     setBlockMsg(null);
     try {
-      const result = await setSiteWeekStatuses(site.id, [...selected], pickedStatus, force);
+      const result = await setSiteTransition(site.id, selectedWeek, pickedStatus, force);
       if ("blocked" in result) {
-        setBlockMsg(`Cannot set "${STATUS_LABELS[pickedStatus]}" — the site has already moved past the planning phase.`);
+        setBlockMsg(`"${STATUS_LABELS[pickedStatus]}" is not a valid transition from the current status.`);
         setWarnOngoing(false);
+        setWarnOngoingAfter(false);
       } else if ("warn" in result) {
-        setWarnOngoing(true);
+        if (result.warn === "ongoing_after_completed") {
+          setWarnOngoingAfter(true);
+        } else {
+          setWarnOngoing(true);
+        }
       } else {
-        // Refresh statuses from server
-        const rows = await getSiteWeekStatuses(site.id);
-        const map: Record<string, string> = {};
-        rows.forEach((r) => { map[r.weekStartIso] = r.status; });
-        setStatuses(map);
-        setSelected(new Set());
+        const rows = await getSiteTransitions(site.id);
+        setTransitions(rows);
+        onStatusChange(site.id, computeEffectiveToday(rows));
+        setSelectedWeek(null);
+        setPickedStatus(null);
         setWarnOngoing(false);
+        setWarnOngoingAfter(false);
       }
     } finally {
       setApplying(false);
     }
   };
 
-  // Group weeks by year for header labels
-  const yearBreaks = React.useMemo(() => {
-    const breaks: Record<number, string> = {};
-    weeks.forEach((iso, i) => {
-      const y = new Date(`${iso}T00:00:00.000Z`).getUTCFullYear();
-      if (i === 0 || new Date(`${weeks[i - 1]!}T00:00:00.000Z`).getUTCFullYear() !== y) {
-        breaks[i] = String(y);
+  const handleDelete = async (weekIso: string) => {
+    setDeletingWeek(weekIso);
+    try {
+      await deleteSiteTransition(site.id, weekIso);
+      const rows = await getSiteTransitions(site.id);
+      setTransitions(rows);
+      onStatusChange(site.id, computeEffectiveToday(rows));
+      if (selectedWeek === weekIso) {
+        setSelectedWeek(null);
+        setPickedStatus(null);
       }
-    });
-    return breaks;
-  }, [weeks]);
+    } finally {
+      setDeletingWeek(null);
+    }
+  };
 
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} />
       <div
-        className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(96vw,860px)] max-h-[min(90vh,560px)] flex flex-col rounded-2xl border border-[#313036] bg-[#1f1e24] shadow-2xl overflow-hidden"
+        className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(96vw,520px)] max-h-[min(90vh,640px)] flex flex-col rounded-2xl border border-[#313036] bg-[#1f1e24] shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#313036] px-5 py-4 flex-shrink-0">
           <div>
-            <h2 className="text-sm font-semibold text-[#ececef]">Status calendar</h2>
+            <h2 className="text-sm font-semibold text-[#ececef]">Status transitions</h2>
             <p className="text-xs text-[#6b6875] mt-0.5">{site.name}</p>
           </div>
           <button type="button" onClick={onClose} title="Close"
             className="rounded-md p-1 text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+            <CloseIcon />
           </button>
         </div>
 
-        {/* Legend */}
-        <div className="flex items-center gap-3 px-5 pt-3 pb-1 flex-shrink-0 flex-wrap">
-          {ALL_STATUSES.map((s) => (
-            <span key={s} className="flex items-center gap-1.5 text-[11px] text-[#6b6875]">
-              <span className={`inline-block h-2.5 w-2.5 rounded-sm ${STATUS_CHIP_BG[s]}`} />
-              {STATUS_LABELS[s]}
-            </span>
-          ))}
-          <span className="flex items-center gap-1.5 text-[11px] text-[#6b6875]">
-            <span className="inline-block h-2.5 w-2.5 rounded-sm bg-[#28272d]" />
-            No status
-          </span>
-          <span className="ml-auto text-[11px] text-[#4a4950]">
-            Click to select · Shift+click for range
-          </span>
-        </div>
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-5 min-h-0">
 
-        {/* Week timeline */}
-        {loading ? (
-          <div className="flex-1 flex items-center justify-center text-sm text-[#6b6875]">Loading…</div>
-        ) : (
-          <div className="flex-1 overflow-x-auto overflow-y-hidden px-5 py-3 min-h-0">
-            <div className="flex gap-1 items-end h-full">
-              {weeks.map((iso, i) => {
-                const status = statuses[iso] as ProjectStatus | undefined;
-                const isSelected = selected.has(iso);
-                const isCurrent = iso === currentWeekIso;
-                const yearLabel = yearBreaks[i];
-
-                return (
-                  <div key={iso} className="flex flex-col items-center gap-1 flex-shrink-0">
-                    {/* Year label */}
-                    <span className="text-[9px] font-semibold text-[#4a4950] h-3">
-                      {yearLabel ?? ""}
+          {/* Existing transitions */}
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875] mb-2">
+              Recorded transitions
+            </p>
+            {loading ? (
+              <p className="text-sm text-[#6b6875]">Loading…</p>
+            ) : transitions.length === 0 ? (
+              <p className="text-xs text-[#4a4950]">
+                No transitions set — defaults to <span className={`font-semibold ${STATUS_CHIP_TEXT.planned}`}>Planned</span>
+              </p>
+            ) : (
+              <div className="flex flex-col gap-1">
+                {transitions.map((t) => (
+                  <div key={t.weekStartIso}
+                    className="flex items-center gap-3 rounded-lg bg-[#28272d] px-3 py-2">
+                    <span className="flex-1 text-xs text-[#a09fa6]">
+                      From {formatWeekLabel(t.weekStartIso)}
                     </span>
+                    <StatusBadge status={t.status} />
                     <button
-                      ref={isCurrent ? currentWeekRef : null}
                       type="button"
-                      title={`${formatWeekLabel(iso)}${status ? ` — ${STATUS_LABELS[status]}` : ""}`}
-                      onClick={(e) => handleWeekClick(iso, e)}
-                      className={`
-                        relative flex flex-col items-center justify-center rounded-md w-[62px] h-[52px] text-[10px] font-medium
-                        transition-all select-none
-                        ${status ? `${STATUS_CHIP_BG[status]} ${STATUS_CHIP_TEXT[status]}` : "bg-[#28272d] text-[#4a4950]"}
-                        ${isSelected ? "ring-2 ring-white/80 ring-offset-1 ring-offset-[#1f1e24]" : "hover:brightness-125"}
-                        ${isCurrent ? "ring-2 ring-accent/70 ring-offset-1 ring-offset-[#1f1e24]" : ""}
-                      `}
+                      title="Remove transition"
+                      disabled={deletingWeek === t.weekStartIso}
+                      onClick={() => void handleDelete(t.weekStartIso)}
+                      className="rounded p-1 text-[#6b6875] transition-colors hover:text-[#f87171] disabled:opacity-40"
                     >
-                      <span className="leading-none">{chipLabel(iso)}</span>
-                      <span className="leading-none opacity-60 text-[9px]">{chipYear(iso)}</span>
-                      {isCurrent && (
-                        <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full bg-accent" />
-                      )}
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
                     </button>
                   </div>
-                );
-              })}
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-[#313036]" />
+
+          {/* Set transition */}
+          <div className="flex flex-col gap-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
+              Set transition
+            </p>
+
+            {/* Week picker trigger */}
+            <button
+              ref={triggerRef}
+              type="button"
+              onClick={openPicker}
+              className="w-full flex items-center justify-between rounded-lg border border-[#313036] bg-[#17161c] px-3 py-2 text-sm text-left transition-colors hover:border-[var(--color-accent)] focus:outline-none focus:border-[var(--color-accent)]"
+            >
+              <span className={selectedWeek ? "text-[#ececef]" : "text-[#4a4950]"}>
+                {selectedWeek ? formatWeekLabel(selectedWeek) : "Select a week…"}
+              </span>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                className={`text-[#6b6875] transition-transform ${weekPickerOpen ? "rotate-180" : ""}`}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+
+            {/* Available transitions */}
+            {currentEffective && (
+              <div className="flex flex-col gap-2">
+                <p className="text-[11px] text-[#6b6875]">
+                  Effective status: <StatusBadge status={currentEffective} />
+                  <span className="ml-1.5">→ transition to:</span>
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {allowed.map((s) => {
+                    const wouldAffectLater =
+                      getSuperStatus(s) === "completed" &&
+                      transitions.some(
+                        (t) => selectedWeek && t.weekStartIso > selectedWeek && getSuperStatus(t.status) === "ongoing",
+                      );
+                    return (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => { setPickedStatus(s); setWarnOngoing(false); setWarnOngoingAfter(false); setBlockMsg(null); }}
+                        className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                          pickedStatus === s
+                            ? `${STATUS_CHIP_BG[s]} ${STATUS_CHIP_TEXT[s]} ring-1 ring-white/30`
+                            : "bg-[#28272d] text-[#6b6875] hover:text-[#a09fa6]"
+                        }`}
+                      >
+                        {STATUS_LABELS[s]}
+                        {(getSuperStatus(currentEffective!) === "completed" && getSuperStatus(s) === "ongoing") || wouldAffectLater ? (
+                          <span className="ml-1 text-[#fbbf24]">⚠</span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Block message */}
+            {blockMsg && (
+              <div className="flex items-start gap-2 rounded-lg border border-[#4a1e1e] bg-[#2c1212] px-3 py-2 text-xs text-[#f87171]">
+                <svg className="mt-0.5 flex-shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
+                </svg>
+                {blockMsg}
+              </div>
+            )}
+
+            {/* Warning: completed → ongoing */}
+            {warnOngoing && isCompletedToOngoing && (
+              <div className="flex items-start gap-3 rounded-lg border border-[#4a3b1a] bg-[#2c2210] px-3 py-3">
+                <svg className="mt-0.5 flex-shrink-0 text-[#fbbf24]" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-[#fbbf24]">Reverting a completed site to ongoing</p>
+                  <p className="mt-1 text-[11px] text-[#a09fa6]">
+                    All transitions currently marked <strong>Done</strong> or <strong>Inactive</strong> will be reset to <strong>On hold</strong>.
+                    This cannot be undone automatically.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-1.5 flex-shrink-0">
+                  <button type="button" onClick={() => void handleApply(true)} disabled={applying}
+                    className="rounded-lg bg-[#fbbf24] px-3 py-1.5 text-xs font-semibold text-[#1a1500] transition-opacity hover:opacity-90 disabled:opacity-50">
+                    {applying ? "Applying…" : "Apply anyway"}
+                  </button>
+                  <button type="button" onClick={() => setWarnOngoing(false)}
+                    className="rounded-lg px-3 py-1.5 text-xs text-[#6b6875] hover:text-[#a09fa6] text-center">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Warning: ongoing_after_completed */}
+            {warnOngoingAfter && pickedStatus && (
+              <div className="flex items-start gap-3 rounded-lg border border-[#4a3b1a] bg-[#2c2210] px-3 py-3">
+                <svg className="mt-0.5 flex-shrink-0 text-[#fbbf24]" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-xs font-semibold text-[#fbbf24]">
+                    Later ongoing transitions will be removed
+                  </p>
+                  <p className="mt-1 text-[11px] text-[#a09fa6]">
+                    {laterOngoingAffected} transition{laterOngoingAffected !== 1 ? "s" : ""} after this week{" "}
+                    {laterOngoingAffected !== 1 ? "are" : "is"} <strong>Active</strong> or <strong>On hold</strong> and would
+                    contradict the <strong>{STATUS_LABELS[pickedStatus]}</strong> state set here. They will be permanently deleted.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-1.5 flex-shrink-0">
+                  <button type="button" onClick={() => void handleApply(true)} disabled={applying}
+                    className="rounded-lg bg-[#fbbf24] px-3 py-1.5 text-xs font-semibold text-[#1a1500] transition-opacity hover:opacity-90 disabled:opacity-50">
+                    {applying ? "Applying…" : "Apply anyway"}
+                  </button>
+                  <button type="button" onClick={() => setWarnOngoingAfter(false)}
+                    className="rounded-lg px-3 py-1.5 text-xs text-[#6b6875] hover:text-[#a09fa6] text-center">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        {!warnOngoing && !warnOngoingAfter && (
+          <div className="border-t border-[#313036] px-5 py-4 flex-shrink-0 flex items-center justify-between">
+            <p className="text-[11px] text-[#4a4950]">
+              {transitions.length === 0
+                ? "No transitions — project is Planned by default"
+                : `${transitions.length} transition${transitions.length !== 1 ? "s" : ""} recorded`}
+            </p>
+            <div className="flex gap-2">
+              <button type="button" onClick={onClose}
+                className="rounded-lg px-4 py-2 text-xs text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleApply(false)}
+                disabled={!selectedWeek || !pickedStatus || applying}
+                className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-xs font-semibold text-white transition-opacity disabled:opacity-40 hover:opacity-90"
+              >
+                {applying ? "Applying…" : "Apply transition"}
+              </button>
             </div>
           </div>
         )}
-
-        {/* Bottom action area */}
-        <div className="border-t border-[#313036] px-5 py-4 flex-shrink-0 flex flex-col gap-3">
-
-          {/* Status picker */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875] mr-1">
-              Set to:
-            </span>
-            {ALL_STATUSES.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => { setPickedStatus(s); setBlockMsg(null); setWarnOngoing(false); }}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                  pickedStatus === s
-                    ? `${STATUS_CHIP_BG[s]} ${STATUS_CHIP_TEXT[s]} ring-1 ring-white/30`
-                    : "bg-[#28272d] text-[#6b6875] hover:text-[#a09fa6]"
-                }`}
-              >
-                {STATUS_LABELS[s]}
-              </button>
-            ))}
-            <span className="ml-auto text-xs text-[#4a4950]">
-              {selected.size > 0 ? `${selected.size} week${selected.size > 1 ? "s" : ""} selected` : "No weeks selected"}
-            </span>
-          </div>
-
-          {/* Transition info */}
-          <div className="text-[10px] text-[#4a4950] flex gap-4">
-            <span>Preparation: <span className="text-[#6b6875]">Planned</span></span>
-            <span>→</span>
-            <span>Ongoing: <span className="text-[#6b6875]">Active, On hold</span></span>
-            <span>→</span>
-            <span>Completed: <span className="text-[#6b6875]">Done, Inactive</span></span>
-          </div>
-
-          {/* Block message */}
-          {blockMsg && (
-            <div className="flex items-start gap-2 rounded-lg border border-[#4a1e1e] bg-[#2c1212] px-3 py-2 text-xs text-[#f87171]">
-              <svg className="mt-0.5 flex-shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
-              </svg>
-              {blockMsg}
-            </div>
-          )}
-
-          {/* Warning: completed → ongoing */}
-          {warnOngoing && (
-            <div className="flex items-start gap-3 rounded-lg border border-[#4a3b1a] bg-[#2c2210] px-3 py-3">
-              <svg className="mt-0.5 flex-shrink-0 text-[#fbbf24]" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
-              <div className="flex-1">
-                <p className="text-xs font-semibold text-[#fbbf24]">Reverting a completed site to ongoing</p>
-                <p className="mt-1 text-[11px] text-[#a09fa6]">
-                  All weeks currently marked <strong>Done</strong> or <strong>Inactive</strong> will be reset to <strong>On hold</strong>.
-                  This cannot be undone automatically.
-                </p>
-              </div>
-              <div className="flex flex-col gap-1.5 flex-shrink-0">
-                <button type="button" onClick={() => void applyStatus(true)} disabled={applying}
-                  className="rounded-lg bg-[#fbbf24] px-3 py-1.5 text-xs font-semibold text-[#1a1500] transition-opacity hover:opacity-90 disabled:opacity-50">
-                  {applying ? "Applying…" : "Apply anyway"}
-                </button>
-                <button type="button" onClick={() => setWarnOngoing(false)}
-                  className="rounded-lg px-3 py-1.5 text-xs text-[#6b6875] hover:text-[#a09fa6] text-center">
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Apply button row */}
-          {!warnOngoing && (
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] text-[#4a4950]">
-                Super-status: <span className="text-[#6b6875] font-medium capitalize">{getSuperStatus(pickedStatus)}</span>
-              </p>
-              <div className="flex gap-2">
-                <button type="button" onClick={onClose}
-                  className="rounded-lg px-4 py-2 text-xs text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
-                  Close
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void applyStatus(false)}
-                  disabled={selected.size === 0 || applying}
-                  className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-xs font-semibold text-white transition-opacity disabled:opacity-40 hover:opacity-90"
-                >
-                  {applying ? "Applying…" : `Apply to ${selected.size} week${selected.size !== 1 ? "s" : ""}`}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
       </div>
+
+      {/* Week picker dropdown — fixed overlay, outside modal stacking context */}
+      {weekPickerOpen && dropdownPos && (
+        <div
+          ref={dropdownRef}
+          className="fixed z-[9999] flex flex-col rounded-lg border border-[#313036] bg-[#1f1e24] shadow-2xl overflow-hidden"
+        >
+          {/* Load more above */}
+          <button
+            type="button"
+            onClick={() => setWeeksBefore((n) => n + LOAD_STEP)}
+            className="flex items-center justify-center gap-1.5 py-2 text-[11px] text-[#6b6875] hover:text-[#a09fa6] hover:bg-[#28272d] transition-colors flex-shrink-0 border-b border-[#252429]"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="18 15 12 9 6 15" />
+            </svg>
+            Load {LOAD_STEP} more weeks
+          </button>
+
+          {/* Week list */}
+          <div className="overflow-y-auto flex-1">
+            {weeks.map((weekIso) => {
+              const eff = effectiveStatusAt(weekIso);
+              const isCurrent = weekIso === currentWeekIso;
+              const hasTransition = transitions.some((t) => t.weekStartIso === weekIso);
+              const isSelected = selectedWeek === weekIso;
+              return (
+                <button
+                  key={weekIso}
+                  type="button"
+                  onClick={() => handleWeekSelect(weekIso)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-left transition-colors hover:bg-[#28272d] ${isSelected ? "bg-[#28272d]" : ""}`}
+                >
+                  <span className={`flex-1 ${isCurrent ? "font-semibold text-[#ececef]" : "text-[#a09fa6]"}`}>
+                    {formatWeekLabel(weekIso)}
+                    {isCurrent && <span className="ml-1.5 text-[#4a4950]">(current)</span>}
+                  </span>
+                  {hasTransition && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] flex-shrink-0" />
+                  )}
+                  <StatusBadge status={eff} />
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Load more below */}
+          <button
+            type="button"
+            onClick={() => setWeeksAfter((n) => n + LOAD_STEP)}
+            className="flex items-center justify-center gap-1.5 py-2 text-[11px] text-[#6b6875] hover:text-[#a09fa6] hover:bg-[#28272d] transition-colors flex-shrink-0 border-t border-[#252429]"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+            Load {LOAD_STEP} more weeks
+          </button>
+        </div>
+      )}
     </>
   );
 }
@@ -530,12 +658,15 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
+  const [sites, setSites] = useState(initialSites);
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Site | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [calendarSite, setCalendarSite] = useState<Site | null>(null);
+  const [statusSite, setStatusSite] = useState<Site | null>(null);
+
+  useEffect(() => { setSites(initialSites); }, [initialSites]);
 
   const openAdd = () => { setForm(EMPTY_FORM); setFormOpen(true); };
 
@@ -546,7 +677,6 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
       description: site.description ?? "",
       startDate: toInputDate(site.startDate),
       endDate: toInputDate(site.endDate),
-      status: site.status,
       constructionManagerId: site.constructionManagerId ?? "",
     });
     setFormOpen(true);
@@ -563,7 +693,6 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
           description: form.description || null,
           startDate: form.startDate || null,
           endDate: form.endDate || null,
-          status: form.status,
           constructionManagerId: form.constructionManagerId || null,
         });
       } else {
@@ -572,7 +701,6 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
           description: form.description || null,
           startDate: form.startDate || null,
           endDate: form.endDate || null,
-          status: form.status,
           constructionManagerId: form.constructionManagerId || null,
         });
       }
@@ -593,6 +721,10 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
     } finally {
       setDeleting(false);
     }
+  };
+
+  const handleSiteStatusChange = (id: string, status: ProjectStatus) => {
+    setSites((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s)));
   };
 
   void isPending;
@@ -621,7 +753,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
 
       {/* Table */}
       <main className="p-6">
-        {initialSites.length === 0 ? (
+        {sites.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[#313036] py-20 text-center">
             <p className="text-sm text-[#6b6875]">No building sites yet</p>
             <button type="button" onClick={openAdd}
@@ -641,9 +773,9 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
                 </tr>
               </thead>
               <tbody>
-                {initialSites.map((site, i) => (
+                {sites.map((site, i) => (
                   <tr key={site.id}
-                    className={`border-b border-[#252429] transition-colors hover:bg-[#252429] ${i === initialSites.length - 1 ? "border-b-0" : ""}`}>
+                    className={`border-b border-[#252429] transition-colors hover:bg-[#252429] ${i === sites.length - 1 ? "border-b-0" : ""}`}>
                     <td className="px-4 py-3 font-medium text-[#ececef]">{site.name}</td>
                     <td className="px-4 py-3"><StatusBadge status={site.status} /></td>
                     <td className="px-4 py-3 text-[#a09fa6]">{formatDate(site.startDate)}</td>
@@ -656,8 +788,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        {/* Calendar / week statuses */}
-                        <button type="button" onClick={() => setCalendarSite(site)} title="Week status calendar"
+                        <button type="button" onClick={() => setStatusSite(site)} title="Status transitions"
                           className="rounded-md p-1.5 text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -665,7 +796,6 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
                             <line x1="3" y1="10" x2="21" y2="10" />
                           </svg>
                         </button>
-                        {/* Edit */}
                         <button type="button" onClick={() => openEdit(site)} title="Edit"
                           className="rounded-md p-1.5 text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -673,7 +803,6 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                           </svg>
                         </button>
-                        {/* Delete */}
                         <button type="button" onClick={() => setDeleteTarget(site)} title="Delete"
                           className="rounded-md p-1.5 text-[#6b6875] transition-colors hover:bg-[#3a1e1e] hover:text-[#f87171]">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -702,8 +831,12 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
         <DeleteConfirmPanel site={deleteTarget} deleting={deleting}
           onClose={() => setDeleteTarget(null)} onConfirm={() => void handleDelete()} />
       )}
-      {calendarSite && (
-        <SiteStatusCalendar site={calendarSite} onClose={() => setCalendarSite(null)} />
+      {statusSite && (
+        <SiteStatusPanel
+          site={statusSite}
+          onClose={() => setStatusSite(null)}
+          onStatusChange={handleSiteStatusChange}
+        />
       )}
     </div>
   );

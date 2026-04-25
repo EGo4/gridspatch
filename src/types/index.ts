@@ -18,6 +18,15 @@ export const getSuperStatus = (status: ProjectStatus): ProjectSuperStatus => {
   return "completed"; // done | inactive
 };
 
+// Valid transitions per status (encodes all lifecycle rules)
+export const ALLOWED_TRANSITIONS: Record<ProjectStatus, ProjectStatus[]> = {
+  planned:  ["active", "on_hold", "inactive"],
+  active:   ["on_hold", "done", "inactive"],
+  on_hold:  ["active", "done", "inactive"],
+  done:     ["active", "on_hold"],
+  inactive: ["active", "on_hold"],
+};
+
 export type Project = {
   id: string;
   name: string;

@@ -2,8 +2,8 @@
 
 import { db } from "~/server/db";
 import type { ProjectStatus } from "~/types";
-import { getSuperStatus } from "~/types";
-import { normalizeWeekStart, getWeekEnd, toDateParam } from "~/lib/week";
+import { getSuperStatus, ALLOWED_TRANSITIONS } from "~/types";
+import { normalizeWeekStart, toDateParam } from "~/lib/week";
 
 type SiteDb = {
   project: {
@@ -30,7 +30,6 @@ type SiteDb = {
         description?: string | null;
         startDate?: Date | null;
         endDate?: Date | null;
-        status: string;
         constructionManagerId?: string | null;
       };
     }) => Promise<{ id: string }>;
@@ -41,7 +40,6 @@ type SiteDb = {
         description?: string | null;
         startDate?: Date | null;
         endDate?: Date | null;
-        status?: string;
         constructionManagerId?: string | null;
       };
     }) => Promise<{ id: string }>;
@@ -51,44 +49,54 @@ type SiteDb = {
 
 const siteDb = db as unknown as SiteDb;
 
-// ── Week-status DB type ────────────────────────────────────────────────────────
+// ── Transition DB type ─────────────────────────────────────────────────────────
 
-type WeekStatusRow = { weekId: string; status: string };
-type WeekStatusRowWithWeek = { weekId: string; status: string; week: { startDate: Date } };
+type TransitionRow = { projectId: string; weekStartDate: Date; status: string };
 
-type WeekStatusDb = {
-  projectWeekStatus: {
-    findMany: {
-      (args: { where: { projectId: string }; include: { week: { select: { startDate: boolean } } } }): Promise<WeekStatusRowWithWeek[]>;
-      (args: { where: { projectId: string } }): Promise<WeekStatusRow[]>;
-    };
+type TransitionDb = {
+  projectStatusTransition: {
+    findMany: (args: {
+      where: { projectId: string };
+      orderBy: { weekStartDate: "asc" };
+    }) => Promise<TransitionRow[]>;
     upsert: (args: {
-      where: { projectId_weekId: { projectId: string; weekId: string } };
+      where: { projectId_weekStartDate: { projectId: string; weekStartDate: Date } };
       update: { status: string };
-      create: { projectId: string; weekId: string; status: string };
+      create: { projectId: string; weekStartDate: Date; status: string };
     }) => Promise<unknown>;
     updateMany: (args: {
       where: { projectId: string; status: { in: string[] } };
       data: { status: string };
     }) => Promise<unknown>;
-  };
-  week: {
-    upsert: (args: {
-      where: { startDate: Date };
-      update: { endDate: Date };
-      create: { startDate: Date; endDate: Date; isCurrent: boolean };
-    }) => Promise<{ id: string }>;
+    deleteMany: (args: {
+      where: { projectId: string; weekStartDate: Date };
+    }) => Promise<unknown>;
   };
 };
 
-const weekStatusDb = db as unknown as WeekStatusDb;
+const transitionDb = db as unknown as TransitionDb;
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+function getEffectiveStatus(
+  transitions: TransitionRow[],
+  weekStartIso: string,
+): ProjectStatus {
+  const applicable = transitions.filter(
+    (t) => toDateParam(t.weekStartDate) <= weekStartIso,
+  );
+  return applicable.length > 0
+    ? (applicable[applicable.length - 1]!.status as ProjectStatus)
+    : "planned";
+}
+
+// ── Site CRUD ──────────────────────────────────────────────────────────────────
 
 export async function createSite(input: {
   name: string;
   description?: string | null;
   startDate?: string | null;
   endDate?: string | null;
-  status: ProjectStatus;
   constructionManagerId?: string | null;
 }) {
   const site = await siteDb.project.create({
@@ -97,7 +105,6 @@ export async function createSite(input: {
       description: input.description?.trim() ?? null,
       startDate: input.startDate ? new Date(input.startDate) : null,
       endDate: input.endDate ? new Date(input.endDate) : null,
-      status: input.status,
       constructionManagerId: input.constructionManagerId ?? null,
     },
   });
@@ -110,14 +117,12 @@ export async function updateSite(input: {
   description?: string | null;
   startDate?: string | null;
   endDate?: string | null;
-  status: ProjectStatus;
   constructionManagerId?: string | null;
 }) {
   await siteDb.project.update({
     where: { id: input.id },
     data: {
       name: input.name.trim(),
-      status: input.status,
       constructionManagerId: input.constructionManagerId ?? null,
       ...("description" in input && { description: input.description?.trim() ?? null }),
       ...("startDate" in input && { startDate: input.startDate ? new Date(input.startDate) : null }),
@@ -132,74 +137,113 @@ export async function deleteSite(id: string) {
   return { success: true };
 }
 
-// ── Week-status actions ────────────────────────────────────────────────────────
+// ── Transition actions ─────────────────────────────────────────────────────────
 
-export async function getSiteWeekStatuses(
+export async function getSiteTransitions(
   projectId: string,
-): Promise<{ weekStartIso: string; status: string }[]> {
-  const rows = await weekStatusDb.projectWeekStatus.findMany({
+): Promise<{ weekStartIso: string; status: ProjectStatus }[]> {
+  const rows = await transitionDb.projectStatusTransition.findMany({
     where: { projectId },
-    include: { week: { select: { startDate: true } } },
+    orderBy: { weekStartDate: "asc" },
   });
   return rows.map((r) => ({
-    weekStartIso: toDateParam(r.week.startDate),
-    status: r.status,
+    weekStartIso: toDateParam(r.weekStartDate),
+    status: r.status as ProjectStatus,
   }));
 }
 
-type SetWeekStatusesResult =
+type SetTransitionResult =
   | { success: true }
   | { warn: "completed_to_ongoing" }
+  | { warn: "ongoing_after_completed" }
   | { blocked: true };
 
-export async function setSiteWeekStatuses(
+export async function setSiteTransition(
   projectId: string,
-  weekStartDates: string[],
+  weekStartIso: string,
   status: ProjectStatus,
   force = false,
-): Promise<SetWeekStatusesResult> {
-  // Determine the site's current overall phase from all existing week statuses.
-  const existing = await weekStatusDb.projectWeekStatus.findMany({ where: { projectId } });
-  const statuses = existing.map((r) => r.status as ProjectStatus);
-  const hasCompleted = statuses.some((s) => getSuperStatus(s) === "completed");
-  const hasOngoing = statuses.some((s) => getSuperStatus(s) === "ongoing");
-  const currentPhase = hasCompleted ? "completed" : hasOngoing ? "ongoing" : "preparation";
+): Promise<SetTransitionResult> {
+  const existing = await transitionDb.projectStatusTransition.findMany({
+    where: { projectId },
+    orderBy: { weekStartDate: "asc" },
+  });
 
-  const newSuper = getSuperStatus(status);
+  const effectiveStatus = getEffectiveStatus(existing, weekStartIso);
+  const allowed = ALLOWED_TRANSITIONS[effectiveStatus];
 
-  // Blocked: can never revert back to preparation once past it.
-  if (currentPhase !== "preparation" && newSuper === "preparation") {
+  if (!allowed.includes(status)) {
     return { blocked: true };
   }
 
-  // Warning: completed → ongoing requires confirmation.
-  if (currentPhase === "completed" && newSuper === "ongoing" && !force) {
+  const isCompletedToOngoing =
+    getSuperStatus(effectiveStatus) === "completed" &&
+    getSuperStatus(status) === "ongoing";
+
+  if (isCompletedToOngoing && !force) {
     return { warn: "completed_to_ongoing" };
   }
 
-  // Forced completed → ongoing: reset all completed weeks to on_hold first.
-  if (force && currentPhase === "completed" && newSuper === "ongoing") {
-    await weekStatusDb.projectWeekStatus.updateMany({
+  if (isCompletedToOngoing && force) {
+    await transitionDb.projectStatusTransition.updateMany({
       where: { projectId, status: { in: ["done", "inactive"] } },
       data: { status: "on_hold" },
     });
   }
 
-  // Apply the new status to each selected week (upsert week record as needed).
-  for (const weekStartIso of weekStartDates) {
-    const weekStart = normalizeWeekStart(weekStartIso);
-    const weekEnd = getWeekEnd(weekStart);
-    const week = await weekStatusDb.week.upsert({
-      where: { startDate: weekStart },
-      update: { endDate: weekEnd },
-      create: { startDate: weekStart, endDate: weekEnd, isCurrent: false },
-    });
-    await weekStatusDb.projectWeekStatus.upsert({
-      where: { projectId_weekId: { projectId, weekId: week.id } },
-      update: { status },
-      create: { projectId, weekId: week.id, status },
-    });
+  // When setting a completed status, later ongoing transitions become inconsistent.
+  const isSettingCompleted = getSuperStatus(status) === "completed";
+  if (isSettingCompleted) {
+    const laterOngoing = existing.filter(
+      (t) =>
+        toDateParam(t.weekStartDate) > weekStartIso &&
+        getSuperStatus(t.status as ProjectStatus) === "ongoing",
+    );
+    if (laterOngoing.length > 0 && !force) {
+      return { warn: "ongoing_after_completed" };
+    }
+    if (laterOngoing.length > 0 && force) {
+      for (const t of laterOngoing) {
+        await transitionDb.projectStatusTransition.deleteMany({
+          where: { projectId, weekStartDate: t.weekStartDate },
+        });
+      }
+    }
   }
 
+  const weekStart = normalizeWeekStart(weekStartIso);
+  await transitionDb.projectStatusTransition.upsert({
+    where: { projectId_weekStartDate: { projectId, weekStartDate: weekStart } },
+    update: { status },
+    create: { projectId, weekStartDate: weekStart, status },
+  });
+
+  // Prune transitions that are redundant (same status as the one before them).
+  const allAfter = await transitionDb.projectStatusTransition.findMany({
+    where: { projectId },
+    orderBy: { weekStartDate: "asc" },
+  });
+  let prev: ProjectStatus = "planned";
+  for (const t of allAfter) {
+    if (t.status === prev) {
+      await transitionDb.projectStatusTransition.deleteMany({
+        where: { projectId, weekStartDate: t.weekStartDate },
+      });
+    } else {
+      prev = t.status as ProjectStatus;
+    }
+  }
+
+  return { success: true };
+}
+
+export async function deleteSiteTransition(
+  projectId: string,
+  weekStartIso: string,
+): Promise<{ success: true }> {
+  const weekStart = normalizeWeekStart(weekStartIso);
+  await transitionDb.projectStatusTransition.deleteMany({
+    where: { projectId, weekStartDate: weekStart },
+  });
   return { success: true };
 }

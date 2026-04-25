@@ -3,40 +3,6 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## Update the handling of construction side status
-
-Why:
-- current handling is not scalable for multi year use because sites are active on a week individual basis
-
-Goal:
-- Make the side status more realistic to how it will be used
-
-Ideas:
-- use these status:
-  - planned
-  - active
-  - on hold
-  - done
-  - inactive
-- use these super status (only for handling in the background):
-  - preparation
-    - planned
-  - ongoing
-    - active
-    - on hold
-  - completed
-    - done
-    - inactive
-- modify the database so it stores the status per week
-- in the construction site menu add a calender view (week based not day based) that shows the status
-- let user read and set the status for one or multiple weeks on that site
-- every side can only go 
-  - preperation -> ongoing or inactive 
-  - ongoing -> completed
-  - change within ongoing
-- transitioning from completed to ongoing is possible but with a BIG warning
-- setting something from completed -> ongoing leads to all weeks that are marked completed to be marked as `on hold` indepeded of the state chosen for the ongoing transition
-
 ## dont show completed or preparation sites on board
 
 ## Add option to set side status on main page

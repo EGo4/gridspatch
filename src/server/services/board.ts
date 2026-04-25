@@ -41,9 +41,10 @@ export type BoardDb = {
       constructionManager?: { id: string; name: string } | null;
     }>>;
   };
-  projectWeekStatus: {
-    findMany: (args: { where: { weekId: string } }) => Promise<Array<{
+  projectStatusTransition: {
+    findMany: (args: { orderBy: { weekStartDate: "asc" } }) => Promise<Array<{
       projectId: string;
+      weekStartDate: Date;
       status: string;
     }>>;
   };
@@ -91,7 +92,7 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
     },
   });
 
-  const [weeks, rawProjects, employees, assignments, availabilities, rawWeekStatuses] = await Promise.all([
+  const [weeks, rawProjects, employees, assignments, availabilities, allTransitions] = await Promise.all([
     database.week.findMany({ orderBy: { startDate: "desc" } }),
     database.project.findMany({
       orderBy: { name: "asc" },
@@ -100,11 +101,23 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
     database.employee.findMany(),
     database.assignment.findMany({ where: { weekId: selectedWeek.id } }),
     database.availability.findMany({ where: { weekId: selectedWeek.id } }),
-    database.projectWeekStatus.findMany({ where: { weekId: selectedWeek.id } }),
+    database.projectStatusTransition.findMany({ orderBy: { weekStartDate: "asc" } }),
   ]);
 
+  const selectedWeekIso = toDateParam(selectedWeek.startDate);
   const weekStatusMap: Record<string, string> = {};
-  rawWeekStatuses.forEach((ws) => { weekStatusMap[ws.projectId] = ws.status; });
+  const transitionsByProject = new Map<string, Array<{ weekStartDate: Date; status: string }>>();
+  for (const t of allTransitions) {
+    let arr = transitionsByProject.get(t.projectId);
+    if (!arr) { arr = []; transitionsByProject.set(t.projectId, arr); }
+    arr.push(t);
+  }
+  for (const [projectId, transitions] of transitionsByProject.entries()) {
+    const applicable = transitions.filter((t) => toDateParam(t.weekStartDate) <= selectedWeekIso);
+    if (applicable.length > 0) {
+      weekStatusMap[projectId] = applicable[applicable.length - 1]!.status;
+    }
+  }
 
   const projects: Project[] = rawProjects.map((p) => ({
     id: p.id,

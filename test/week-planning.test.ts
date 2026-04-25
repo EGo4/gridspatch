@@ -112,7 +112,7 @@ await run(
         availability: {
           findMany: async () => [],
         },
-        projectWeekStatus: {
+        projectStatusTransition: {
           findMany: async () => [],
         },
         week: {

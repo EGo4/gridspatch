@@ -100,23 +100,20 @@ model Project {
   constructionManagerId String?
   constructionManager   User?   @relation(fields: [constructionManagerId], references: [id], onDelete: SetNull)
 
-  assignments  Assignment[]
-  weekStatuses ProjectWeekStatus[]
+  assignments        Assignment[]
+  statusTransitions  ProjectStatusTransition[]
 }
 
-model ProjectWeekStatus {
-  id        String  @id @default(cuid())
-  projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  weekId    String
-  week      Week    @relation(fields: [weekId], references: [id], onDelete: Cascade)
-  status    String  // planned | active | on_hold | done | inactive
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model ProjectStatusTransition {
+  id            String   @id @default(cuid())
+  projectId     String
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  weekStartDate DateTime @db.Date
+  status        String   // planned | active | on_hold | done | inactive
+  createdAt     DateTime @default(now())
 
-  @@unique([projectId, weekId])
+  @@unique([projectId, weekStartDate])
   @@index([projectId])
-  @@index([weekId])
 }
 
 model Week {
@@ -129,7 +126,6 @@ model Week {
 
   assignments    Assignment[]
   availabilities Availability[]
-  weekStatuses   ProjectWeekStatus[]
 }
 
 enum DayPart {

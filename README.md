@@ -2,9 +2,74 @@
 
 Gridspatch is a weekly construction staffing board built with Next.js, Prisma, and Better Auth.
 
-## Upcoming Features
+## Setup
 
-Full details in [FEATURE_ROADMAP.md](./FEATURE_ROADMAP.md).
+```bash
+git clone <repo>
+cd gridspatch
+npm install
+cp .env.example .env          # then edit .env — see below
+```
+
+Edit `.env` and set `DATABASE_URL` and `BETTER_AUTH_SECRET`. The connection string format is:
+
+```
+postgresql://<user>:<password>@<host>:<port>/<database>
+```
+
+> Trouble with credentials? See [Authentication failed (P1000)](#authentication-failed-p1000) and [DATABASE_URL not found](#database_url-not-found).
+
+**Start the database — pick one:**
+
+**A) Docker (recommended):**
+```bash
+./start-database.sh           # reads DATABASE_URL from .env, creates a container to match
+```
+> On Windows, run this inside WSL with Docker Desktop or Podman Desktop running.
+
+**B) Existing PostgreSQL:**
+```bash
+sudo service postgresql start
+```
+> Credentials in `DATABASE_URL` must match your existing Postgres user. See [Using an existing PostgreSQL installation](#using-an-existing-postgresql-installation).
+
+**Apply migrations and seed:**
+
+```bash
+npx prisma migrate dev --name init
+npx tsx prisma/seed.ts
+```
+
+**Start the dev server:**
+
+```bash
+npm run dev
+```
+
+**Create the first admin user** (only needed once on a fresh database):
+
+```bash
+npx tsx scripts/create-admin.ts "Your Name" you@example.com yourpassword
+```
+
+Then log in at `http://localhost:3000/login` and create further users from the admin panel.
+
+> Public sign-up is disabled — this script is the only way to bootstrap the first account.
+
+## Daily development
+
+```bash
+npm run dev          # start dev server (Turbopack)
+npm run check        # lint + typecheck
+npm run test         # run tests
+npm run db:studio    # Prisma Studio
+```
+
+After editing `prisma/schema.prisma`:
+
+```bash
+npx prisma migrate dev --name <description>
+```
 
 ## Current Scope
 
@@ -16,107 +81,109 @@ Full details in [FEATURE_ROADMAP.md](./FEATURE_ROADMAP.md).
 - Split employee days into pre-lunch / after-lunch
 - Copy assignments from another day
 
-## Development
-
-```bash
-npm install
-npm run dev
-```
-
-## Database
-
-### First-time setup (fresh database)
-
-The database runs in WSL. Prisma commands can be run from Windows (PowerShell/cmd) — they connect via `localhost:5432`.
-
-1. Start the database (in WSL):
-
-   ```bash
-   # e.g. docker compose up -d  or  sudo service postgresql start
-   ```
-
-2. Create and apply all migrations:
-
-   ```bash
-   npx prisma migrate dev --name init
-   ```
-
-3. Seed development data (employees, projects, current week):
-
-   ```bash
-   npx tsx prisma/seed.ts
-   ```
-
-### Schema changes
-
-After editing `prisma/schema.prisma`, create and apply a new migration:
-
-```bash
-npx prisma migrate dev --name <description>
-```
-
-> **Note:** `npm run db:seed` requires `tsx` to be installed globally. Use `npx tsx prisma/seed.ts` if it isn't.
-
-### If migrations are out of sync with the database
-
-If Prisma reports drift (schema and migration history don't match), reset the dev database and re-apply everything:
-
-```bash
-npx prisma migrate reset   # drops all data, re-applies all migrations
-npx tsx prisma/seed.ts     # re-seed
-```
-
-### Other useful commands
-
-```bash
-npm run db:push     # push schema directly without migrations (skips migration history)
-npm run db:studio   # open Prisma Studio
-```
+Full feature plans in [FEATURE_ROADMAP.md](./FEATURE_ROADMAP.md).
 
 ## Deployment Target
 
-Planned deployment target:
-- Ubuntu 22.04 or 24.04
-- Local network hosting
-- Optional Docker-based deployment
-- Optional Caddy reverse proxy with DuckDNS
+Planned:
+- Ubuntu 22.04 or 24.04, local network hosting
+- Docker: app container + PostgreSQL container + persistent volumes
+- Optional Caddy reverse proxy with DuckDNS for remote access
 
-## Docker Deployment Plan
+What still needs to be added: production `Dockerfile`, `docker-compose.yml`, production env example, deployment scripts.
 
-The intended production setup is:
-- `gridspatch` app container
-- PostgreSQL container
-- persistent Docker volumes
-- optional Caddy in front of the app
+See [Caddy + DuckDNS setup](#caddy--duckdns-setup) if you need external access.
 
-What still needs to be added to the repo:
-- production `Dockerfile`
-- `docker-compose.yml`
-- production env example
-- deployment scripts or step-by-step commands
+---
 
-Recommended target layout:
-- App listens on an internal container port
-- PostgreSQL is only exposed to Docker/internal network
-- Caddy handles public HTTP/HTTPS if remote access is needed
+## Troubleshooting
 
-## If You Use Caddy And DuckDNS
+### DATABASE_URL not found
 
-If the app should be reachable via a DuckDNS URL, the usual setup is:
+```
+Error: Environment variable not found: DATABASE_URL
+```
+
+The `.env` file is gitignored and won't exist on a fresh clone. Fix:
+
+```bash
+cp .env.example .env
+```
+
+Then fill in `DATABASE_URL` and `BETTER_AUTH_SECRET`.
+
+---
+
+### Authentication failed (P1000)
+
+```
+Error: P1000: Authentication failed against database server
+```
+
+The password in `DATABASE_URL` doesn't match what your Postgres instance expects. Every part of the connection string must match exactly:
+
+```
+postgresql://postgres:password@localhost:5432/gridspatch
+             ^^^^^^^^ ^^^^^^^^  ^^^^^^^^^^ ^^^^^^^^^^^^
+             user     password  host       database
+```
+
+**If using Docker (`start-database.sh`):** the script sets the container password from whatever is in `DATABASE_URL`. If you changed the password in `.env` after already creating the container, the container still has the old password. Either update `DATABASE_URL` back to the old password, or delete the container and re-run the script:
+
+```bash
+docker rm -f gridspatch-postgres
+./start-database.sh
+```
+
+---
+
+### Using an existing PostgreSQL installation
+
+Set (or look up) the postgres user password, then update `DATABASE_URL` to match:
+
+```bash
+sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'yourpassword';"
+```
+
+```
+DATABASE_URL="postgresql://postgres:yourpassword@localhost:5432/gridspatch"
+```
+
+Create the database if it doesn't exist:
+
+```bash
+sudo -u postgres createdb gridspatch
+```
+
+---
+
+### Migrations out of sync
+
+If Prisma reports schema drift, reset and re-seed:
+
+```bash
+npx prisma migrate reset    # drops all data, re-applies all migrations
+npx tsx prisma/seed.ts
+```
+
+---
+
+### Caddy + DuckDNS setup
+
+For remote access via a DuckDNS domain:
 
 1. Point your DuckDNS domain to your public IP.
 2. Forward router ports `80` and `443` to the Ubuntu server.
-3. Run Caddy on the Ubuntu host or in Docker.
-4. Configure Caddy to reverse proxy the DuckDNS hostname to the Gridspatch app.
-5. Use the final HTTPS DuckDNS URL for auth/app base URL settings once login is fully rolled out.
+3. Run Caddy on the host or in Docker, reverse-proxying the DuckDNS hostname to the app.
+4. Use the final HTTPS URL for auth base URL settings once login is rolled out.
 
-Practical notes:
-- Caddy should be the only public-facing service.
-- The app container itself should usually stay behind Caddy on an internal port.
-- If the app is local-network only, you do not need DuckDNS at all.
-- If you use local-only hosting, accessing the app via local IP or internal DNS is simpler.
+Notes:
+- Caddy should be the only public-facing service; the app stays on an internal port.
+- If the app is local-network only, you don't need DuckDNS at all.
+
+---
 
 ## Notes
 
 - The app entry redirects from `/` to `/board`.
-- Authentication is present in the codebase for future rollout, but the planning board is currently the main focus.
+- Authentication is wired up but not enforced — the board is the current focus.
