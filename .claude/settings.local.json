@@ -3,7 +3,10 @@
     "allow": [
       "Bash(xargs grep *)",
       "Bash(npm run *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(npx prisma *)",
+      "Bash(npx --version)",
+      "Bash(./node_modules/.bin/prisma migrate *)"
     ]
   }
 }

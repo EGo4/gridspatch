@@ -81,6 +81,8 @@ model Employee {
   initials    String
   img         String?        // Profile image URL
   role        String?        // e.g., "Foreman", "Apprentice"
+  startDate   DateTime?      @db.Date
+  endDate     DateTime?      @db.Date
   createdAt   DateTime       @default(now())
   updatedAt   DateTime       @updatedAt
 

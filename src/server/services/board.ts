@@ -25,7 +25,7 @@ export type BoardDb = {
     findMany: (args: { where: { weekId: string } }) => Promise<Availability[]>;
   };
   employee: {
-    findMany: () => Promise<Employee[]>;
+    findMany: () => Promise<Array<Employee & { startDate: Date | null; endDate: Date | null }>>;
   };
   project: {
     findMany: (args?: {
@@ -93,7 +93,7 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
     },
   });
 
-  const [weeks, rawProjects, employees, assignments, availabilities, allTransitions] = await Promise.all([
+  const [weeks, rawProjects, rawEmployees, assignments, availabilities, allTransitions] = await Promise.all([
     database.week.findMany({ orderBy: { startDate: "desc" } }),
     database.project.findMany({
       orderBy: { name: "asc" },
@@ -104,6 +104,12 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
     database.availability.findMany({ where: { weekId: selectedWeek.id } }),
     database.projectStatusTransition.findMany({ orderBy: { weekStartDate: "asc" } }),
   ]);
+
+  const employees: Employee[] = rawEmployees.filter((emp) => {
+    if (emp.startDate && emp.startDate > weekEnd) return false;
+    if (emp.endDate && emp.endDate < weekStart) return false;
+    return true;
+  });
 
   const selectedWeekIso = toDateParam(selectedWeek.startDate);
   const weekStatusMap: Record<string, string> = {};

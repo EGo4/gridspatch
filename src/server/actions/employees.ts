@@ -11,6 +11,8 @@ type EmployeeDb = {
         initials: string;
         img: string | null;
         role: string | null;
+        startDate: Date | null;
+        endDate: Date | null;
         createdAt: Date;
         updatedAt: Date;
       }>
@@ -21,6 +23,8 @@ type EmployeeDb = {
         initials: string;
         img?: string | null;
         role?: string | null;
+        startDate?: Date | null;
+        endDate?: Date | null;
       };
     }) => Promise<{ id: string }>;
     update: (args: {
@@ -30,6 +34,8 @@ type EmployeeDb = {
         initials?: string;
         img?: string | null;
         role?: string | null;
+        startDate?: Date | null;
+        endDate?: Date | null;
       };
     }) => Promise<{ id: string }>;
     delete: (args: { where: { id: string } }) => Promise<{ id: string }>;
@@ -43,6 +49,8 @@ export async function createEmployee(input: {
   initials: string;
   img?: string | null;
   role?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
 }) {
   const employee = await empDb.employee.create({
     data: {
@@ -50,6 +58,8 @@ export async function createEmployee(input: {
       initials: input.initials.trim().toUpperCase(),
       img: input.img?.trim() || null,
       role: input.role?.trim() || null,
+      startDate: input.startDate ? new Date(input.startDate) : null,
+      endDate: input.endDate ? new Date(input.endDate) : null,
     },
   });
   return { id: employee.id };
@@ -61,6 +71,8 @@ export async function updateEmployee(input: {
   initials: string;
   img?: string | null;
   role?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
 }) {
   await empDb.employee.update({
     where: { id: input.id },
@@ -69,6 +81,8 @@ export async function updateEmployee(input: {
       initials: input.initials.trim().toUpperCase(),
       img: input.img?.trim() || null,
       role: input.role?.trim() || null,
+      startDate: input.startDate ? new Date(input.startDate) : null,
+      endDate: input.endDate ? new Date(input.endDate) : null,
     },
   });
   return { success: true };

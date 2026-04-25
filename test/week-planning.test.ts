@@ -92,6 +92,8 @@ await run(
               id: "employee-1",
               img: null,
               name: "Alice",
+              startDate: null,
+              endDate: null,
             },
           ],
         },

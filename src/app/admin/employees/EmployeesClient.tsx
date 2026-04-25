@@ -14,6 +14,8 @@ type Employee = {
   initials: string;
   img: string | null;
   role: string | null;
+  startDate: string | null;
+  endDate: string | null;
 };
 
 type FormState = {
@@ -23,6 +25,8 @@ type FormState = {
   /** Saved URL (existing or just uploaded). */
   img: string;
   role: string;
+  startDate: string;
+  endDate: string;
   /** File picked by the user, not yet uploaded. */
   pendingFile: File | null;
 };
@@ -32,6 +36,8 @@ const EMPTY_FORM: FormState = {
   initials: "",
   img: "",
   role: "",
+  startDate: "",
+  endDate: "",
   pendingFile: null,
 };
 
@@ -206,6 +212,26 @@ function EmployeeFormPanel({
               value={form.role}
               onChange={(e) => onChange({ ...form, role: e.target.value })}
               placeholder="e.g. Foreman, Apprentice"
+              className={inputCls}
+            />,
+          )}
+
+          {field(
+            "Start date",
+            <input
+              type="date"
+              value={form.startDate}
+              onChange={(e) => onChange({ ...form, startDate: e.target.value })}
+              className={inputCls}
+            />,
+          )}
+
+          {field(
+            "End date",
+            <input
+              type="date"
+              value={form.endDate}
+              onChange={(e) => onChange({ ...form, endDate: e.target.value })}
               className={inputCls}
             />,
           )}
@@ -615,6 +641,8 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
       initials: employee.initials,
       img: employee.img ?? "",
       role: employee.role ?? "",
+      startDate: employee.startDate ?? "",
+      endDate: employee.endDate ?? "",
       pendingFile: null,
     });
     setFormOpen(true);
@@ -636,9 +664,9 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
       }
 
       if (form.id) {
-        await updateEmployee({ id: form.id, name: form.name, initials: form.initials, img: imgUrl, role: form.role || null });
+        await updateEmployee({ id: form.id, name: form.name, initials: form.initials, img: imgUrl, role: form.role || null, startDate: form.startDate || null, endDate: form.endDate || null });
       } else {
-        await createEmployee({ name: form.name, initials: form.initials, img: imgUrl, role: form.role || null });
+        await createEmployee({ name: form.name, initials: form.initials, img: imgUrl, role: form.role || null, startDate: form.startDate || null, endDate: form.endDate || null });
       }
 
       setFormOpen(false);
@@ -777,6 +805,7 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
                       </button>
                     </th>
                   ))}
+                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">Period</th>
                   <th scope="col" className="w-20 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-transparent" aria-label="Actions">Actions</th>
                 </tr>
               </thead>
@@ -809,6 +838,9 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
                     </td>
                     <td className="px-4 py-3 text-[#a09fa6]">
                       {employee.role ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-[#6b6875] tabular-nums">
+                      {employee.startDate ?? "∞"} — {employee.endDate ?? "∞"}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
