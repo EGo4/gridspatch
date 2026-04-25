@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Sidebar } from "~/components/Sidebar";
 import type { ProjectStatus } from "~/types";
 import { getSuperStatus, ALLOWED_TRANSITIONS } from "~/types";
-import { createSite, updateSite, deleteSite, getSiteTransitions, setSiteTransition, deleteSiteTransition } from "~/server/actions/sites";
+import { createSite, updateSite, deleteSite, getSiteTransitions, setSiteTransition, deleteSiteTransition, bulkCreateSites } from "~/server/actions/sites";
 import { addUtcDays, normalizeWeekStart, toDateParam, formatWeekLabel } from "~/lib/week";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -673,6 +673,165 @@ function SiteStatusPanel({
   );
 }
 
+// ── Import/export types & panels ──────────────────────────────────────────────
+
+type ImportedSite = {
+  name: string;
+  description: string | null;
+  startDate: string | null;
+  endDate: string | null;
+};
+
+function SiteListImportPanel({
+  onClose,
+  onImport,
+  importing,
+}: {
+  onClose: () => void;
+  onImport: (items: ImportedSite[]) => void;
+  importing: boolean;
+}) {
+  const [text, setText] = useState("");
+  const parsed: ImportedSite[] = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((name) => ({ name, description: null, startDate: null, endDate: null }));
+
+  const inputCls =
+    "w-full rounded-lg border border-[#313036] bg-[#17161c] px-3 py-2 text-sm text-[#ececef] placeholder-[#4a4950] outline-none focus:border-[var(--color-accent)] transition-colors";
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
+      <div
+        className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(96vw,480px)] max-h-[min(90vh,600px)] flex flex-col rounded-2xl border border-[#313036] bg-[#1f1e24] shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-[#313036] px-5 py-4 flex-shrink-0">
+          <div>
+            <h2 className="text-sm font-semibold text-[#ececef]">Import from list</h2>
+            <p className="text-xs text-[#6b6875] mt-0.5">One site name per line.</p>
+          </div>
+          <button type="button" onClick={onClose} title="Close"
+            className="rounded-md p-1 text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+            <CloseIcon />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4 min-h-0">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={"Site Müller – Hauptstraße\nSite Bahnhof Nord\nSite Westpark"}
+            rows={6}
+            className={`${inputCls} resize-none`}
+            autoFocus
+          />
+          {parsed.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
+                Preview — {parsed.length} site{parsed.length !== 1 ? "s" : ""}
+              </p>
+              <div className="max-h-48 overflow-y-auto rounded-lg border border-[#313036] divide-y divide-[#252429]">
+                {parsed.map((item, i) => (
+                  <div key={i} className="px-3 py-2 text-sm text-[#ececef]">{item.name}</div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-[#313036] px-5 py-4 flex-shrink-0">
+          <button type="button" onClick={onClose}
+            className="rounded-lg px-4 py-2 text-sm text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+            Cancel
+          </button>
+          <button type="button" onClick={() => onImport(parsed)}
+            disabled={parsed.length === 0 || importing}
+            className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white transition-opacity disabled:opacity-40 hover:opacity-90">
+            {importing ? "Importing…" : `Import ${parsed.length || ""} site${parsed.length !== 1 ? "s" : ""}`}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function SiteJsonImportPanel({
+  onClose,
+  onImport,
+  importing,
+  parsed,
+  error,
+}: {
+  onClose: () => void;
+  onImport: () => void;
+  importing: boolean;
+  parsed: ImportedSite[] | null;
+  error: string | null;
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
+      <div
+        className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(96vw,480px)] max-h-[min(90vh,560px)] flex flex-col rounded-2xl border border-[#313036] bg-[#1f1e24] shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-[#313036] px-5 py-4 flex-shrink-0">
+          <div>
+            <h2 className="text-sm font-semibold text-[#ececef]">Import from JSON</h2>
+            <p className="text-xs text-[#6b6875] mt-0.5">Import a previously exported sites file.</p>
+          </div>
+          <button type="button" onClick={onClose} title="Close"
+            className="rounded-md p-1 text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+            <CloseIcon />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4 min-h-0">
+          {error && (
+            <div className="rounded-lg border border-[#5c1e1e] bg-[#3a1414] px-4 py-3 text-xs text-[#f87171]">
+              {error}
+            </div>
+          )}
+          {parsed && (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
+                {parsed.length} site{parsed.length !== 1 ? "s" : ""} ready to import
+              </p>
+              <div className="max-h-64 overflow-y-auto rounded-lg border border-[#313036] divide-y divide-[#252429]">
+                {parsed.map((item, i) => (
+                  <div key={i} className="px-3 py-2">
+                    <p className="text-sm text-[#ececef]">{item.name}</p>
+                    {(item.startDate ?? item.endDate) && (
+                      <p className="text-[11px] text-[#6b6875] mt-0.5">
+                        {item.startDate ?? "—"} → {item.endDate ?? "—"}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-[#313036] px-5 py-4 flex-shrink-0">
+          <button type="button" onClick={onClose}
+            className="rounded-lg px-4 py-2 text-sm text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+            Cancel
+          </button>
+          <button type="button" onClick={onImport}
+            disabled={!parsed || parsed.length === 0 || importing}
+            className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white transition-opacity disabled:opacity-40 hover:opacity-90">
+            {importing ? "Importing…" : `Import ${parsed?.length ?? ""} site${(parsed?.length ?? 0) !== 1 ? "s" : ""}`}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; managers: Manager[] }) {
@@ -714,7 +873,118 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
   const [deleting, setDeleting] = useState(false);
   const [statusSite, setStatusSite] = useState<Site | null>(null);
 
+  const [importMenuOpen, setImportMenuOpen] = useState(false);
+  const [listImportOpen, setListImportOpen] = useState(false);
+  const [jsonImportParsed, setJsonImportParsed] = useState<ImportedSite[] | null>(null);
+  const [jsonImportError, setJsonImportError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const importBtnRef = useRef<HTMLButtonElement>(null);
+  const importMenuRef = useRef<HTMLDivElement>(null);
+  const jsonFileInputRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => { setSites(initialSites); }, [initialSites]);
+
+  useEffect(() => {
+    if (!importMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!importMenuRef.current?.contains(t) && !importBtnRef.current?.contains(t)) {
+        setImportMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [importMenuOpen]);
+
+  const handleExport = () => {
+    const data = sites.map((s) => ({
+      name: s.name,
+      description: s.description ?? null,
+      startDate: s.startDate ? s.startDate.toISOString().slice(0, 10) : null,
+      endDate: s.endDate ? s.endDate.toISOString().slice(0, 10) : null,
+    }));
+    const blob = new Blob(
+      [JSON.stringify({ version: 1, type: "sites", exported: new Date().toISOString(), data }, null, 2)],
+      { type: "application/json" },
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `gridspatch-sites-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleJsonFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const json: unknown = JSON.parse(ev.target?.result as string);
+        let items: unknown[];
+        if (Array.isArray(json)) {
+          items = json;
+        } else if (json && typeof json === "object" && Array.isArray((json as Record<string, unknown>).data)) {
+          items = (json as Record<string, unknown>).data as unknown[];
+        } else {
+          setJsonImportError("Invalid format. Expected an array or an exported JSON file.");
+          setJsonImportParsed(null);
+          return;
+        }
+        const valid: ImportedSite[] = items
+          .filter((item) => item && typeof item === "object" && typeof (item as Record<string, unknown>).name === "string")
+          .map((item) => {
+            const i = item as Record<string, unknown>;
+            return {
+              name: String(i.name).trim(),
+              description: typeof i.description === "string" ? i.description.trim() || null : null,
+              startDate: typeof i.startDate === "string" && i.startDate ? i.startDate : null,
+              endDate: typeof i.endDate === "string" && i.endDate ? i.endDate : null,
+            };
+          })
+          .filter((s) => s.name);
+        if (valid.length === 0) {
+          setJsonImportError("No valid sites found in the file.");
+          setJsonImportParsed(null);
+          return;
+        }
+        setJsonImportParsed(valid);
+        setJsonImportError(null);
+      } catch {
+        setJsonImportError("Could not parse file. Make sure it is valid JSON.");
+        setJsonImportParsed(null);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const handleListImport = async (items: ImportedSite[]) => {
+    setImporting(true);
+    try {
+      await bulkCreateSites(items);
+      setListImportOpen(false);
+      startTransition(() => router.refresh());
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleJsonImport = async () => {
+    if (!jsonImportParsed) return;
+    setImporting(true);
+    try {
+      await bulkCreateSites(jsonImportParsed);
+      setJsonImportParsed(null);
+      setJsonImportError(null);
+      startTransition(() => router.refresh());
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const openAdd = () => { setForm(EMPTY_FORM); setFormOpen(true); };
 
@@ -797,13 +1067,76 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
           </svg>
         </button>
         <h1 className="text-sm font-semibold text-[#ececef]">Building Sites</h1>
-        <button type="button" onClick={openAdd}
-          className="ml-auto flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          Add site
-        </button>
+
+        <div className="ml-auto flex items-center gap-2">
+          {/* Import dropdown */}
+          <div className="relative">
+            <button
+              ref={importBtnRef}
+              type="button"
+              onClick={() => setImportMenuOpen((o) => !o)}
+              className="flex items-center gap-1.5 rounded-lg border border-[#313036] bg-[#1f1e24] px-3 py-1.5 text-xs text-[#a09fa6] transition-colors hover:border-[#4a4950] hover:text-[#ececef]"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              Import
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                className={`transition-transform ${importMenuOpen ? "rotate-180" : ""}`}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {importMenuOpen && (
+              <div
+                ref={importMenuRef}
+                className="absolute right-0 top-full mt-1 z-20 w-44 rounded-lg border border-[#313036] bg-[#1f1e24] shadow-xl overflow-hidden"
+              >
+                <button type="button"
+                  onClick={() => { setListImportOpen(true); setImportMenuOpen(false); }}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-xs text-[#a09fa6] transition-colors hover:bg-[#28272d] hover:text-[#ececef]">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
+                    <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+                  </svg>
+                  Paste list
+                </button>
+                <button type="button"
+                  onClick={() => { jsonFileInputRef.current?.click(); setImportMenuOpen(false); }}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-xs text-[#a09fa6] transition-colors hover:bg-[#28272d] hover:text-[#ececef]">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                  Import JSON
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Export */}
+          <button type="button" onClick={handleExport}
+            className="flex items-center gap-1.5 rounded-lg border border-[#313036] bg-[#1f1e24] px-3 py-1.5 text-xs text-[#a09fa6] transition-colors hover:border-[#4a4950] hover:text-[#ececef]">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Export
+          </button>
+
+          {/* Add */}
+          <button type="button" onClick={openAdd}
+            className="flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Add site
+          </button>
+        </div>
+
+        <input ref={jsonFileInputRef} type="file" accept=".json,application/json" aria-label="Import JSON" className="hidden" onChange={handleJsonFile} />
       </header>
 
       {/* Table */}
@@ -895,6 +1228,24 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
           site={statusSite}
           onClose={() => setStatusSite(null)}
           onStatusChange={handleSiteStatusChange}
+        />
+      )}
+
+      {listImportOpen && (
+        <SiteListImportPanel
+          onClose={() => setListImportOpen(false)}
+          onImport={(items) => void handleListImport(items)}
+          importing={importing}
+        />
+      )}
+
+      {(jsonImportParsed ?? jsonImportError) && (
+        <SiteJsonImportPanel
+          onClose={() => { setJsonImportParsed(null); setJsonImportError(null); }}
+          onImport={() => void handleJsonImport()}
+          importing={importing}
+          parsed={jsonImportParsed}
+          error={jsonImportError}
         />
       )}
       </div>

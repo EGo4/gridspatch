@@ -237,6 +237,34 @@ export async function setSiteTransition(
   return { success: true };
 }
 
+export async function bulkCreateSites(
+  items: Array<{
+    name: string;
+    description?: string | null;
+    startDate?: string | null;
+    endDate?: string | null;
+  }>,
+): Promise<{ created: number; errors: number }> {
+  let created = 0;
+  let errors = 0;
+  for (const item of items) {
+    try {
+      await siteDb.project.create({
+        data: {
+          name: item.name.trim(),
+          description: item.description?.trim() ?? null,
+          startDate: item.startDate ? new Date(item.startDate) : null,
+          endDate: item.endDate ? new Date(item.endDate) : null,
+        },
+      });
+      created++;
+    } catch {
+      errors++;
+    }
+  }
+  return { created, errors };
+}
+
 export async function deleteSiteTransition(
   projectId: string,
   weekStartIso: string,

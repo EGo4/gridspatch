@@ -34,9 +34,6 @@ If Caddy is used with DuckDNS:
 
 ## Light Mode
 
-Why:
-Some users prefer a light theme, especially when working in bright environments.
-
 Goal:
 Add a light mode and a toggle in the top bar to switch between dark and light themes.
 

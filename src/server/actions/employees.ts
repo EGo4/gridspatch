@@ -78,3 +78,25 @@ export async function deleteEmployee(id: string) {
   await empDb.employee.delete({ where: { id } });
   return { success: true };
 }
+
+export async function bulkCreateEmployees(
+  items: Array<{ name: string; initials: string; role?: string | null }>,
+): Promise<{ created: number; errors: number }> {
+  let created = 0;
+  let errors = 0;
+  for (const item of items) {
+    try {
+      await empDb.employee.create({
+        data: {
+          name: item.name.trim(),
+          initials: item.initials.trim().toUpperCase(),
+          role: item.role?.trim() || null,
+        },
+      });
+      created++;
+    } catch {
+      errors++;
+    }
+  }
+  return { created, errors };
+}

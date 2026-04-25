@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useRef, useState, useTransition } from "react";
+import React, { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { createEmployee, updateEmployee, deleteEmployee } from "~/server/actions/employees";
+import { createEmployee, updateEmployee, deleteEmployee, bulkCreateEmployees } from "~/server/actions/employees";
 import { UserIcon } from "~/components/icons";
 import { Sidebar } from "~/components/Sidebar";
 
@@ -34,6 +34,19 @@ const EMPTY_FORM: FormState = {
   role: "",
   pendingFile: null,
 };
+
+type ImportedEmployee = { name: string; initials: string; role: string | null };
+
+function deriveInitials(name: string): string {
+  return (
+    name
+      .trim()
+      .split(/\s+/)
+      .map((w) => w[0]?.toUpperCase() ?? "")
+      .join("")
+      .slice(0, 4) || "?"
+  );
+}
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
@@ -263,6 +276,170 @@ function DeleteConfirmPanel({
   );
 }
 
+// ── List import panel ─────────────────────────────────────────────────────────
+
+function EmployeeListImportPanel({
+  onClose,
+  onImport,
+  importing,
+}: {
+  onClose: () => void;
+  onImport: (items: ImportedEmployee[]) => void;
+  importing: boolean;
+}) {
+  const [text, setText] = useState("");
+  const parsed: ImportedEmployee[] = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((name) => ({ name, initials: deriveInitials(name), role: null }));
+
+  const inputCls =
+    "w-full rounded-lg border border-[#313036] bg-[#17161c] px-3 py-2 text-sm text-[#ececef] placeholder-[#4a4950] outline-none focus:border-[var(--color-accent)] transition-colors";
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
+      <div
+        className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(96vw,480px)] max-h-[min(90vh,600px)] flex flex-col rounded-2xl border border-[#313036] bg-[#1f1e24] shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-[#313036] px-5 py-4 flex-shrink-0">
+          <div>
+            <h2 className="text-sm font-semibold text-[#ececef]">Import from list</h2>
+            <p className="text-xs text-[#6b6875] mt-0.5">One name per line — initials are auto-derived.</p>
+          </div>
+          <button type="button" onClick={onClose} title="Close"
+            className="rounded-md p-1 text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4 min-h-0">
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={"John Smith\nJane Doe\nBob Johnson"}
+            rows={6}
+            className={`${inputCls} resize-none`}
+            autoFocus
+          />
+          {parsed.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
+                Preview — {parsed.length} employee{parsed.length !== 1 ? "s" : ""}
+              </p>
+              <div className="max-h-48 overflow-y-auto rounded-lg border border-[#313036] divide-y divide-[#252429]">
+                {parsed.map((item, i) => (
+                  <div key={i} className="flex items-center gap-3 px-3 py-2">
+                    <span className="flex-1 text-sm text-[#ececef]">{item.name}</span>
+                    <span className="font-mono text-[11px] text-[#6b6875] bg-[#313036] rounded px-1.5 py-0.5">
+                      {item.initials}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-[#313036] px-5 py-4 flex-shrink-0">
+          <button type="button" onClick={onClose}
+            className="rounded-lg px-4 py-2 text-sm text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+            Cancel
+          </button>
+          <button type="button" onClick={() => onImport(parsed)}
+            disabled={parsed.length === 0 || importing}
+            className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white transition-opacity disabled:opacity-40 hover:opacity-90">
+            {importing ? "Importing…" : `Import ${parsed.length || ""} employee${parsed.length !== 1 ? "s" : ""}`}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── JSON import panel ─────────────────────────────────────────────────────────
+
+function EmployeeJsonImportPanel({
+  onClose,
+  onImport,
+  importing,
+  parsed,
+  error,
+}: {
+  onClose: () => void;
+  onImport: () => void;
+  importing: boolean;
+  parsed: ImportedEmployee[] | null;
+  error: string | null;
+}) {
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
+      <div
+        className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(96vw,480px)] max-h-[min(90vh,560px)] flex flex-col rounded-2xl border border-[#313036] bg-[#1f1e24] shadow-2xl overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-[#313036] px-5 py-4 flex-shrink-0">
+          <div>
+            <h2 className="text-sm font-semibold text-[#ececef]">Import from JSON</h2>
+            <p className="text-xs text-[#6b6875] mt-0.5">Import a previously exported employees file.</p>
+          </div>
+          <button type="button" onClick={onClose} title="Close"
+            className="rounded-md p-1 text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4 min-h-0">
+          {error && (
+            <div className="rounded-lg border border-[#5c1e1e] bg-[#3a1414] px-4 py-3 text-xs text-[#f87171]">
+              {error}
+            </div>
+          )}
+          {parsed && (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
+                {parsed.length} employee{parsed.length !== 1 ? "s" : ""} ready to import
+              </p>
+              <div className="max-h-64 overflow-y-auto rounded-lg border border-[#313036] divide-y divide-[#252429]">
+                {parsed.map((item, i) => (
+                  <div key={i} className="flex items-center gap-3 px-3 py-2">
+                    <span className="flex-1 text-sm text-[#ececef]">{item.name}</span>
+                    <span className="font-mono text-[11px] text-[#6b6875] bg-[#313036] rounded px-1.5 py-0.5">
+                      {item.initials}
+                    </span>
+                    {item.role && (
+                      <span className="text-[11px] text-[#a09fa6]">{item.role}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-[#313036] px-5 py-4 flex-shrink-0">
+          <button type="button" onClick={onClose}
+            className="rounded-lg px-4 py-2 text-sm text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+            Cancel
+          </button>
+          <button type="button" onClick={onImport}
+            disabled={!parsed || parsed.length === 0 || importing}
+            className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white transition-opacity disabled:opacity-40 hover:opacity-90">
+            {importing ? "Importing…" : `Import ${parsed?.length ?? ""} employee${(parsed?.length ?? 0) !== 1 ? "s" : ""}`}
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 // ── Sorting ───────────────────────────────────────────────────────────────────
 
 type EmpSortKey = "name" | "initials" | "role";
@@ -302,6 +479,27 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
   const [sortKey, setSortKey] = useState<EmpSortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
 
+  const [importMenuOpen, setImportMenuOpen] = useState(false);
+  const [listImportOpen, setListImportOpen] = useState(false);
+  const [jsonImportParsed, setJsonImportParsed] = useState<ImportedEmployee[] | null>(null);
+  const [jsonImportError, setJsonImportError] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
+  const importBtnRef = useRef<HTMLButtonElement>(null);
+  const importMenuRef = useRef<HTMLDivElement>(null);
+  const jsonFileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!importMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (!importMenuRef.current?.contains(t) && !importBtnRef.current?.contains(t)) {
+        setImportMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [importMenuOpen]);
+
   const handleSort = (key: EmpSortKey) => {
     if (sortKey !== key) { setSortKey(key); setSortDir("asc"); }
     else if (sortDir === "asc") setSortDir("desc");
@@ -314,6 +512,96 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
     const vb = (b[sortKey] ?? "").toLowerCase();
     return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
   });
+
+  const handleExport = () => {
+    const data = initialEmployees.map((e) => ({
+      name: e.name,
+      initials: e.initials,
+      role: e.role ?? null,
+    }));
+    const blob = new Blob(
+      [JSON.stringify({ version: 1, type: "employees", exported: new Date().toISOString(), data }, null, 2)],
+      { type: "application/json" },
+    );
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `gridspatch-employees-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleJsonFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const json: unknown = JSON.parse(ev.target?.result as string);
+        let items: unknown[];
+        if (Array.isArray(json)) {
+          items = json;
+        } else if (json && typeof json === "object" && Array.isArray((json as Record<string, unknown>).data)) {
+          items = (json as Record<string, unknown>).data as unknown[];
+        } else {
+          setJsonImportError("Invalid format. Expected an array or an exported JSON file.");
+          setJsonImportParsed(null);
+          return;
+        }
+        const valid: ImportedEmployee[] = items
+          .filter((item) => item && typeof item === "object" && typeof (item as Record<string, unknown>).name === "string")
+          .map((item) => {
+            const i = item as Record<string, unknown>;
+            const name = String(i.name).trim();
+            const initials =
+              typeof i.initials === "string"
+                ? i.initials.trim().toUpperCase().slice(0, 4) || deriveInitials(name)
+                : deriveInitials(name);
+            const role = typeof i.role === "string" ? i.role.trim() || null : null;
+            return { name, initials, role };
+          })
+          .filter((emp) => emp.name && emp.initials);
+        if (valid.length === 0) {
+          setJsonImportError("No valid employees found in the file.");
+          setJsonImportParsed(null);
+          return;
+        }
+        setJsonImportParsed(valid);
+        setJsonImportError(null);
+      } catch {
+        setJsonImportError("Could not parse file. Make sure it is valid JSON.");
+        setJsonImportParsed(null);
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  };
+
+  const handleListImport = async (items: ImportedEmployee[]) => {
+    setImporting(true);
+    try {
+      await bulkCreateEmployees(items);
+      setListImportOpen(false);
+      startTransition(() => router.refresh());
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleJsonImport = async () => {
+    if (!jsonImportParsed) return;
+    setImporting(true);
+    try {
+      await bulkCreateEmployees(jsonImportParsed);
+      setJsonImportParsed(null);
+      setJsonImportError(null);
+      startTransition(() => router.refresh());
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const openAdd = () => {
     setForm(EMPTY_FORM);
@@ -393,17 +681,75 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
         </button>
         <h1 className="text-sm font-semibold text-[#ececef]">Employees</h1>
 
-        <button
-          type="button"
-          onClick={openAdd}
-          className="ml-auto flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          Add employee
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          {/* Import dropdown */}
+          <div className="relative">
+            <button
+              ref={importBtnRef}
+              type="button"
+              onClick={() => setImportMenuOpen((o) => !o)}
+              className="flex items-center gap-1.5 rounded-lg border border-[#313036] bg-[#1f1e24] px-3 py-1.5 text-xs text-[#a09fa6] transition-colors hover:border-[#4a4950] hover:text-[#ececef]"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              Import
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                className={`transition-transform ${importMenuOpen ? "rotate-180" : ""}`}>
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            {importMenuOpen && (
+              <div
+                ref={importMenuRef}
+                className="absolute right-0 top-full mt-1 z-20 w-44 rounded-lg border border-[#313036] bg-[#1f1e24] shadow-xl overflow-hidden"
+              >
+                <button type="button"
+                  onClick={() => { setListImportOpen(true); setImportMenuOpen(false); }}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-xs text-[#a09fa6] transition-colors hover:bg-[#28272d] hover:text-[#ececef]">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
+                    <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
+                  </svg>
+                  Paste list
+                </button>
+                <button type="button"
+                  onClick={() => { jsonFileInputRef.current?.click(); setImportMenuOpen(false); }}
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-xs text-[#a09fa6] transition-colors hover:bg-[#28272d] hover:text-[#ececef]">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                  Import JSON
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Export */}
+          <button type="button" onClick={handleExport}
+            className="flex items-center gap-1.5 rounded-lg border border-[#313036] bg-[#1f1e24] px-3 py-1.5 text-xs text-[#a09fa6] transition-colors hover:border-[#4a4950] hover:text-[#ececef]">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
+            </svg>
+            Export
+          </button>
+
+          {/* Add */}
+          <button type="button" onClick={openAdd}
+            className="flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-white transition-opacity hover:opacity-90">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            Add employee
+          </button>
+        </div>
+
+        <input ref={jsonFileInputRef} type="file" accept=".json,application/json" aria-label="Import JSON" className="hidden" onChange={handleJsonFile} />
       </header>
 
       {/* Table */}
@@ -518,6 +864,24 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
           deleting={deleting}
           onClose={() => setDeleteTarget(null)}
           onConfirm={handleDelete}
+        />
+      )}
+
+      {listImportOpen && (
+        <EmployeeListImportPanel
+          onClose={() => setListImportOpen(false)}
+          onImport={(items) => void handleListImport(items)}
+          importing={importing}
+        />
+      )}
+
+      {(jsonImportParsed ?? jsonImportError) && (
+        <EmployeeJsonImportPanel
+          onClose={() => { setJsonImportParsed(null); setJsonImportError(null); }}
+          onImport={() => void handleJsonImport()}
+          importing={importing}
+          parsed={jsonImportParsed}
+          error={jsonImportError}
         />
       )}
       </div>
