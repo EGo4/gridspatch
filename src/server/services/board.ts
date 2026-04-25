@@ -8,6 +8,7 @@ import {
   toDateParam,
 } from "../../lib/week.ts";
 import type { Assignment, Availability, Employee, Project, ProjectStatus } from "../../types/index.ts";
+import { getSuperStatus } from "../../types/index.ts";
 
 type WeekRecord = {
   id: string;
@@ -119,16 +120,22 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
     }
   }
 
-  const projects: Project[] = rawProjects.map((p) => ({
-    id: p.id,
-    name: p.name,
-    description: p.description,
-    startDate: p.startDate,
-    endDate: p.endDate,
-    status: p.status as ProjectStatus,
-    constructionManagerId: p.constructionManagerId,
-    constructionManagerName: p.constructionManager?.name ?? null,
-  }));
+  const projects: Project[] = rawProjects
+    .filter((p) => {
+      const effectiveStatus = (weekStatusMap[p.id] ?? "planned") as ProjectStatus;
+      const superStatus = getSuperStatus(effectiveStatus);
+      return superStatus === "ongoing";
+    })
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+      startDate: p.startDate,
+      endDate: p.endDate,
+      status: p.status as ProjectStatus,
+      constructionManagerId: p.constructionManagerId,
+      constructionManagerName: p.constructionManager?.name ?? null,
+    }));
 
   return {
     dbAssignments: assignments,
