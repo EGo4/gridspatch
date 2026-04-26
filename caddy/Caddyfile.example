@@ -1,0 +1,25 @@
+# Optional Caddy reverse proxy for Gridspatch
+#
+# Option A — Local network only (no public domain, plain HTTP):
+#
+#   :80 {
+#       reverse_proxy localhost:3000
+#   }
+#
+# Option B — DuckDNS with automatic HTTPS:
+#   Requires Caddy built with the caddy-dns/duckdns plugin.
+#   Download: https://caddyserver.com/download?package=github.com%2Fcaddy-dns%2Fduckdns
+#   Set DUCKDNS_TOKEN in the environment where Caddy runs.
+#   Forward ports 80 and 443 from your router to this server.
+#
+#   Replace "yourname.duckdns.org" with your actual subdomain.
+
+yourname.duckdns.org {
+    tls {
+        dns duckdns {env.DUCKDNS_TOKEN}
+    }
+    reverse_proxy localhost:3000
+}
+
+# If Caddy runs inside the same Docker Compose network, use the service name:
+#   reverse_proxy app:3000

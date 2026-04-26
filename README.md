@@ -83,16 +83,62 @@ npx prisma migrate dev --name <description>
 
 Full feature plans in [FEATURE_ROADMAP.md](./FEATURE_ROADMAP.md).
 
-## Deployment Target
+## Deployment (Docker)
 
-Planned:
-- Ubuntu 22.04 or 24.04, local network hosting
-- Docker: app container + PostgreSQL container + persistent volumes
-- Optional Caddy reverse proxy with DuckDNS for remote access
+Targets Ubuntu 22.04/24.04 on a local network. Requires Docker and Docker Compose.
 
-What still needs to be added: production `Dockerfile`, `docker-compose.yml`, production env example, deployment scripts.
+**1. Copy and fill in the env file:**
 
-See [Caddy + DuckDNS setup](#caddy--duckdns-setup) if you need external access.
+```bash
+cp .env.production.example .env
+```
+
+Set `POSTGRES_PASSWORD` and `BETTER_AUTH_SECRET`. Set `BETTER_AUTH_URL` to the URL the app will be reachable at (e.g. `http://192.168.1.x:3000`).
+
+**2. Build and start:**
+
+```bash
+docker compose up -d --build
+```
+
+This builds the image, waits for Postgres to be healthy, runs `prisma migrate deploy`, then starts the app on port 3000.
+
+**3. Create the first admin user:**
+
+```bash
+docker compose exec app npx tsx scripts/create-admin.ts "Your Name" you@example.com yourpassword
+```
+
+Then log in at `http://<server-ip>:3000/login`.
+
+---
+
+**Backup the database:**
+
+```bash
+docker compose exec postgres pg_dump -U gridspatch gridspatch > backup_$(date +%F).sql
+```
+
+**Restore from backup:**
+
+```bash
+docker compose exec -T postgres psql -U gridspatch gridspatch < backup_YYYY-MM-DD.sql
+```
+
+**Update to a new version:**
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+The entry point always runs `prisma migrate deploy` on start-up, so schema changes are applied automatically.
+
+---
+
+### Optional: Caddy reverse proxy with HTTPS
+
+See [`caddy/Caddyfile.example`](./caddy/Caddyfile.example) for both LAN-only and DuckDNS configurations. When using a domain, set `BETTER_AUTH_URL` to the final HTTPS URL before starting the app.
 
 ---
 
