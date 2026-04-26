@@ -3,6 +3,18 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
+## Disable assignment to on hold sites
+
+Goal:
+Only active sites should be worked on.
+
+Ideas:
+* Keep the on hold sites visible on the board but always minimized
+* dont allow assignments to on hold sites by design
+* when an active is set to on hold for a week and has employees assigned throw a warning before transition that they will get unassigned. Unassign them for the transitioned time
+* Remove the visual modification to the on hold swimmlanes (i dont want it less visible/faded)
+* Put all on hold sites on the bottom of the board (before vacation/sick)
+
 ## Docker Deployment For Local Network Hosting
 
 Why:
@@ -31,17 +43,6 @@ If Caddy is used with DuckDNS:
 - Configure Caddy to reverse proxy the DuckDNS host to the app container or local app port.
 - Ensure `BETTER_AUTH_URL` or future auth base URL settings use the final DuckDNS HTTPS URL.
 - If the app stays local-only without public exposure, skip DuckDNS and use a local hostname or IP.
-
-## Light Mode
-
-Goal:
-Add a light mode and a toggle in the top bar to switch between dark and light themes.
-
-Ideas to realize it:
-- Use a `data-theme` attribute on the root element and define CSS variables for each theme.
-- Store the user's preference in local storage so it persists across sessions.
-- Place the toggle in the top right of the board header, using a simple sun/moon icon button.
-- Tailwind's `dark:` variant can drive most of the color switching with minimal extra classes.
 
 ## Statistics On Worked Weeks
 

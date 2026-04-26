@@ -222,6 +222,12 @@ export async function copyWeekAssignments(
   return { success: true };
 }
 
+export async function clearProjectAssignmentsForWeek(projectId: string, weekId: string) {
+  const assignmentDb = db as unknown as AssignmentDb;
+  await assignmentDb.assignment.deleteMany({ where: { projectId, weekId } });
+  return { success: true };
+}
+
 export async function copyDayAssignments(
   sourceDateIso: string,
   targetDateIso: string,

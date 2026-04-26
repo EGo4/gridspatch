@@ -9,7 +9,7 @@ import type { DragStart, DropResult } from "@hello-pangea/dnd";
 import { EmployeeCard } from "./EmployeeCard";
 import { SyringeIcon, PalmTreeIcon, CopyIcon, AssignSiteIcon, FilterIcon } from "~/components/icons";
 import { Sidebar } from "~/components/Sidebar";
-import { updateAssignment, splitAssignment, mergeAssignment, copyDayAssignments, copyWeekAssignments, setAvailability as persistAvailability, clearAvailability as unpersistAvailability } from "~/server/actions/board";
+import { updateAssignment, splitAssignment, mergeAssignment, copyDayAssignments, copyWeekAssignments, setAvailability as persistAvailability, clearAvailability as unpersistAvailability, clearProjectAssignmentsForWeek } from "~/server/actions/board";
 import { DAYS } from "~/lib/constants";
 import {
   getCurrentWeekStart,
@@ -191,6 +191,9 @@ export function BoardClient({
   const [statusPopoverProjectId, setStatusPopoverProjectId] = useState<string | null>(null);
   const [completingTransition, setCompletingTransition] = useState<{
     projectId: string; status: ProjectStatus; assignmentCount: number;
+  } | null>(null);
+  const [holdingTransition, setHoldingTransition] = useState<{
+    projectId: string; assignmentCount: number;
   } | null>(null);
   const [applyingStatusChange, setApplyingStatusChange] = useState(false);
 
@@ -728,6 +731,13 @@ export function BoardClient({
       setCompletingTransition({ projectId, status: toStatus, assignmentCount: countProjectAssignments(projectId) });
       return;
     }
+    if (toStatus === "on_hold") {
+      const count = countProjectAssignments(projectId);
+      if (count > 0) {
+        setHoldingTransition({ projectId, assignmentCount: count });
+        return;
+      }
+    }
     setApplyingStatusChange(true);
     void setSiteTransition(projectId, selectedWeek.param, toStatus).then(() => {
       router.refresh();
@@ -740,6 +750,28 @@ export function BoardClient({
     try {
       await setSiteTransition(completingTransition.projectId, selectedWeek.param, completingTransition.status, true);
       setCompletingTransition(null);
+      router.refresh();
+    } finally {
+      setApplyingStatusChange(false);
+    }
+  };
+
+  const handleConfirmHold = async () => {
+    if (!holdingTransition) return;
+    setApplyingStatusChange(true);
+    try {
+      await setSiteTransition(holdingTransition.projectId, selectedWeek.param, "on_hold");
+      await clearProjectAssignmentsForWeek(holdingTransition.projectId, selectedWeek.id);
+      setAssignmentsState((prev) => {
+        const next = { ...prev };
+        for (const day of DAYS) {
+          next[fullDayDroppableId(holdingTransition.projectId, day)] = [];
+          next[preLunchDroppableId(holdingTransition.projectId, day)] = [];
+          next[afterLunchDroppableId(holdingTransition.projectId, day)] = [];
+        }
+        return next;
+      });
+      setHoldingTransition(null);
       router.refresh();
     } finally {
       setApplyingStatusChange(false);
@@ -1134,19 +1166,18 @@ export function BoardClient({
               ))}
             </div>
 
-            {/* Project swimlanes */}
+            {/* Project swimlanes — active / planned */}
             {visibleProjects
               .filter((p) => {
                 const s = effectiveStatus(p);
-                return s !== "done" && s !== "inactive";
+                return s !== "done" && s !== "inactive" && s !== "on_hold";
               })
               .map((project) => {
                 const isCollapsed = (collapsedRows ?? new Set()).has(project.id);
                 const es = effectiveStatus(project);
-                const isOnHold = es === "on_hold";
                 const isPlanned = es === "planned";
                 return (
-                  <div key={project.id} className={`flex flex-col gap-2 ${(isOnHold || isPlanned) ? "opacity-50" : ""}`}>
+                  <div key={project.id} className={`flex flex-col gap-2 ${isPlanned ? "opacity-50" : ""}`}>
                     <div className="flex items-center gap-2 py-1">
                       <button
                         type="button"
@@ -1219,6 +1250,72 @@ export function BoardClient({
                         {DAYS.map((day) => renderCell(project.id, day))}
                       </div>
                     )}
+                  </div>
+                );
+              })}
+
+            {/* On-hold swimlanes — always collapsed, no assignments, rendered before sick/vacation */}
+            {visibleProjects
+              .filter((p) => effectiveStatus(p) === "on_hold")
+              .map((project) => {
+                const es = effectiveStatus(project);
+                return (
+                  <div key={project.id} className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2 py-1">
+                      <span className="flex-shrink-0 text-[var(--color-text-muted)]">
+                        <svg className="h-3 w-3 -rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </span>
+                      <span className="flex min-w-0 items-center gap-1 text-left text-sm font-semibold text-[var(--color-text-primary)]">
+                        <span className="truncate">{project.name}</span>
+                        {project.constructionManagerName && (
+                          <span className="flex flex-shrink-0 items-center gap-1 text-[11px] font-normal text-[var(--color-text-muted)]">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="8" r="4" />
+                              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                            </svg>
+                            {project.constructionManagerName}
+                          </span>
+                        )}
+                      </span>
+                      {/* Quick status button + popover */}
+                      <div className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          disabled={applyingStatusChange}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setStatusPopoverProjectId(statusPopoverProjectId === project.id ? null : project.id);
+                          }}
+                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-opacity hover:opacity-80 disabled:opacity-40 ${STATUS_CHIP[es]}`}
+                        >
+                          {STATUS_LABELS[es]}
+                        </button>
+                        {statusPopoverProjectId === project.id && (
+                          <div className="absolute left-0 top-full z-30 mt-1 min-w-[130px] overflow-hidden rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] py-1 shadow-xl">
+                            <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+                              Transition to
+                            </div>
+                            {ALLOWED_TRANSITIONS[es].map((toStatus) => {
+                              const isCompleting = getSuperStatus(toStatus) === "completed";
+                              return (
+                                <button
+                                  key={toStatus}
+                                  type="button"
+                                  onClick={() => handleStatusTransition(project.id, toStatus)}
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
+                                >
+                                  <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${STATUS_CHIP[toStatus].split(" ")[1] ?? ""}`} />
+                                  {STATUS_LABELS[toStatus]}
+                                  {isCompleting && <span className="ml-auto text-[var(--color-warn-text)]">⚠</span>}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 );
               })}
@@ -1461,7 +1558,9 @@ export function BoardClient({
         <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
           Assign to site
         </div>
-        {dbProjects.map((project) => (
+        {dbProjects
+          .filter((p) => effectiveStatus(p) !== "on_hold")
+          .map((project) => (
           <button
             key={project.id}
             type="button"
@@ -1640,6 +1739,53 @@ export function BoardClient({
         </div>
       </>
     )}
+
+    {/* On-hold confirmation modal — warns that assignments will be removed */}
+    {holdingTransition && (() => {
+      const project = dbProjects.find((p) => p.id === holdingTransition.projectId);
+      return (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/60" onClick={() => setHoldingTransition(null)} />
+          <div
+            className="fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
+              <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Put site on hold?</h3>
+              <button type="button" title="Close" onClick={() => setHoldingTransition(null)}
+                className="flex items-center rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-5 py-4 flex flex-col gap-3">
+              <p className="text-sm text-[var(--color-text-secondary)]">
+                <span className="font-semibold text-[var(--color-text-primary)]">{project?.name}</span> will be moved
+                to on hold starting this week.
+              </p>
+              <div className="flex items-start gap-2 rounded-lg border border-[var(--color-warn-border)] bg-[var(--color-warn-bg)] px-3 py-2.5 text-xs text-[var(--color-warn-text)]">
+                <svg className="mt-0.5 flex-shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                {holdingTransition.assignmentCount} assignment{holdingTransition.assignmentCount !== 1 ? "s" : ""} this week will be removed.
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4">
+              <button type="button" onClick={() => setHoldingTransition(null)}
+                className="rounded-lg px-4 py-2 text-xs font-semibold text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]">
+                Cancel
+              </button>
+              <button type="button" onClick={() => void handleConfirmHold()} disabled={applyingStatusChange}
+                className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
+                {applyingStatusChange ? "Applying…" : "Put on hold"}
+              </button>
+            </div>
+          </div>
+        </>
+      );
+    })()}
 
     {/* Complete site confirmation modal */}
     {completingTransition && (() => {
