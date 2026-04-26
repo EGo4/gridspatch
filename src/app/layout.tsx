@@ -30,9 +30,10 @@ export default async function RootLayout({
   if (prefs?.pmColor) rules.push(`--pm-hue:${prefs.pmColor}`);
   if (prefs?.uiScale && prefs.uiScale !== 1) rules.push(`--ui-scale:${prefs.uiScale}`);
   const inlineVars = rules.length > 0 ? `:root{${rules.join(";")}}` : null;
+  const theme = prefs?.theme ?? "dark";
 
   return (
-    <html lang="en" className={`${geist.variable}`}>
+    <html lang="en" className={`${geist.variable}`} data-theme={theme}>
       {inlineVars && (
         <head>
           <style dangerouslySetInnerHTML={{ __html: inlineVars }} />

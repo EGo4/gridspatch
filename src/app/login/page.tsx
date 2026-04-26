@@ -43,18 +43,18 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#1f1e24] flex items-center justify-center">
+    <div className="min-h-screen bg-[var(--color-bg-page)] flex items-center justify-center">
       <div className="w-full max-w-sm">
         <div className="flex flex-col items-center gap-3 mb-8">
           <Logo size={48} />
-          <span className="text-lg font-semibold text-[#ececef]">Gridspatch</span>
+          <span className="text-lg font-semibold text-[var(--color-text-primary)]">Gridspatch</span>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="bg-[#28272d] rounded-xl border border-[#3a3940] p-6 flex flex-col gap-4"
+          className="bg-[var(--color-bg-surface)] rounded-xl border border-[var(--color-border-muted)] p-6 flex flex-col gap-4"
         >
-          <h2 className="text-[#ececef] font-medium text-sm">Sign in</h2>
+          <h2 className="text-[var(--color-text-primary)] font-medium text-sm">Sign in</h2>
 
           {error && (
             <p className="text-xs text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">
@@ -63,7 +63,7 @@ export default function LoginPage() {
           )}
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-[#a09fa6]" htmlFor="identifier">
+            <label className="text-xs text-[var(--color-text-secondary)]" htmlFor="identifier">
               Username or email
             </label>
             <input
@@ -73,13 +73,13 @@ export default function LoginPage() {
               required
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
-              className="rounded-lg bg-[#1f1e24] border border-[#3a3940] px-3 py-2 text-sm text-[#ececef] placeholder:text-[#6b6875] outline-none focus:border-[#6b6875] transition-colors"
+              className="rounded-lg bg-[var(--color-bg-page)] border border-[var(--color-border-muted)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-border-strong)] transition-colors"
               placeholder="John or you@example.com"
             />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs text-[#a09fa6]" htmlFor="password">
+            <label className="text-xs text-[var(--color-text-secondary)]" htmlFor="password">
               Password
             </label>
             <input
@@ -89,7 +89,7 @@ export default function LoginPage() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="rounded-lg bg-[#1f1e24] border border-[#3a3940] px-3 py-2 text-sm text-[#ececef] placeholder:text-[#6b6875] outline-none focus:border-[#6b6875] transition-colors"
+              className="rounded-lg bg-[var(--color-bg-page)] border border-[var(--color-border-muted)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-border-strong)] transition-colors"
               placeholder="••••••••"
             />
           </div>
@@ -97,7 +97,7 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="mt-1 rounded-lg bg-[#3a3940] px-4 py-2 text-sm font-medium text-[#ececef] hover:bg-[#4a4950] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="mt-1 rounded-lg bg-[var(--color-bg-active)] px-4 py-2 text-sm font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-border-strong)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Signing in…" : "Sign in"}
           </button>

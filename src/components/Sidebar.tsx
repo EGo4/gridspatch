@@ -88,8 +88,8 @@ function NavLink({
       title={label}
       className={`flex items-center gap-3 rounded-lg px-2.5 py-2.5 transition-colors ${
         isActive
-          ? "bg-[#252e3d] text-accent"
-          : "text-[#a09fa6] hover:bg-[#28272d] hover:text-[#ececef]"
+          ? "bg-[var(--color-nav-active-bg)] text-accent"
+          : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]"
       }`}
     >
       <span className="flex-shrink-0">{icon}</span>
@@ -124,11 +124,11 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   return (
     <>
       {/* Desktop sidebar — fixed overlay, icon-only by default, expands on hover */}
-      <aside className="group fixed left-0 top-0 z-40 hidden h-full w-14 flex-col overflow-hidden border-r border-[#313036] bg-[#18171d] transition-[width] duration-200 ease-in-out hover:w-52 lg:flex">
+      <aside className="group fixed left-0 top-0 z-40 hidden h-full w-14 flex-col overflow-hidden border-r border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] transition-[width] duration-200 ease-in-out hover:w-52 lg:flex">
         {/* Logo */}
-        <div className="flex h-14 flex-shrink-0 items-center overflow-hidden border-b border-[#313036] px-3">
+        <div className="flex h-14 flex-shrink-0 items-center overflow-hidden border-b border-[var(--color-border-subtle)] px-3">
           <span className="flex-shrink-0"><Logo size={26} /></span>
-          <span className="ml-2.5 whitespace-nowrap text-sm font-bold text-[#ececef] opacity-0 transition-opacity duration-150 group-hover:opacity-100">
+          <span className="ml-2.5 whitespace-nowrap text-sm font-bold text-[var(--color-text-primary)] opacity-0 transition-opacity duration-150 group-hover:opacity-100">
             Gridspatch
           </span>
         </div>
@@ -147,19 +147,19 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         </nav>
 
         {/* Bottom: Account + divider + Sign out */}
-        <div className="flex flex-shrink-0 flex-col gap-0.5 border-t border-[#313036] p-2">
+        <div className="flex flex-shrink-0 flex-col gap-0.5 border-t border-[var(--color-border-subtle)] p-2">
           <NavLink
             href="/profile"
             icon={<AccountIcon />}
             label="Account"
             isActive={pathname === "/profile"}
           />
-          <div className="mx-1 my-0.5 h-px bg-[#313036]" />
+          <div className="mx-1 my-0.5 h-px bg-[var(--color-border-subtle)]" />
           <button
             type="button"
             onClick={() => void handleLogout()}
             title="Sign out"
-            className="flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-[#f87171] transition-colors hover:bg-[#2c1a1a] hover:text-[#fca5a5]"
+            className="flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-[var(--color-danger-text)] transition-colors hover:bg-[var(--color-danger-bg)] hover:text-[var(--color-danger-hover)]"
           >
             <span className="flex-shrink-0"><LogoutIcon /></span>
             <span className="whitespace-nowrap text-sm font-medium opacity-0 transition-opacity duration-150 group-hover:opacity-100">
@@ -179,21 +179,21 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
       {/* Mobile: slide-in drawer */}
       <aside
-        className={`fixed left-0 top-0 z-50 flex h-full w-64 flex-col border-r border-[#313036] bg-[#18171d] transition-transform duration-200 lg:hidden ${
+        className={`fixed left-0 top-0 z-50 flex h-full w-64 flex-col border-r border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] transition-transform duration-200 lg:hidden ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
         {/* Mobile header */}
-        <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-[#313036] px-4">
+        <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-[var(--color-border-subtle)] px-4">
           <div className="flex items-center gap-2.5">
             <Logo size={26} />
-            <span className="text-sm font-bold text-[#ececef]">Gridspatch</span>
+            <span className="text-sm font-bold text-[var(--color-text-primary)]">Gridspatch</span>
           </div>
           <button
             type="button"
             onClick={onMobileClose}
             title="Close menu"
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-[#6b6875] transition-colors hover:bg-[#28272d] hover:text-[#ececef]"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -218,7 +218,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
         </nav>
 
         {/* Mobile bottom */}
-        <div className="flex flex-shrink-0 flex-col gap-0.5 border-t border-[#313036] p-2">
+        <div className="flex flex-shrink-0 flex-col gap-0.5 border-t border-[var(--color-border-subtle)] p-2">
           <NavLink
             href="/profile"
             icon={<AccountIcon />}
@@ -227,11 +227,11 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             onClick={onMobileClose}
             labelClass="text-sm font-medium"
           />
-          <div className="mx-1 my-0.5 h-px bg-[#313036]" />
+          <div className="mx-1 my-0.5 h-px bg-[var(--color-border-subtle)]" />
           <button
             type="button"
             onClick={() => void handleLogout()}
-            className="flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-[#f87171] transition-colors hover:bg-[#2c1a1a] hover:text-[#fca5a5]"
+            className="flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-[var(--color-danger-text)] transition-colors hover:bg-[var(--color-danger-bg)] hover:text-[var(--color-danger-hover)]"
           >
             <LogoutIcon />
             <span className="text-sm font-medium">Sign out</span>

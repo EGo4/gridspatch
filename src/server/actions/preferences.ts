@@ -9,18 +9,19 @@ export type UserPrefs = {
   amColor: string | null;
   pmColor: string | null;
   uiScale: number | null;
+  theme: string | null;
 };
 
 type PrefDb = {
   userPreference: {
     findUnique: (args: {
       where: { userId: string };
-      select: { accentColor: true; amColor: true; pmColor: true; uiScale: true };
+      select: { accentColor: true; amColor: true; pmColor: true; uiScale: true; theme: true };
     }) => Promise<UserPrefs | null>;
     upsert: (args: {
       where: { userId: string };
-      update: UserPrefs;
-      create: UserPrefs & { userId: string };
+      update: Partial<UserPrefs>;
+      create: Partial<UserPrefs> & { userId: string };
     }) => Promise<unknown>;
   };
 };
@@ -34,7 +35,7 @@ export async function getUserPreferences(): Promise<UserPrefs | null> {
 
   return prefDb.userPreference.findUnique({
     where: { userId: session.user.id },
-    select: { accentColor: true, amColor: true, pmColor: true, uiScale: true },
+    select: { accentColor: true, amColor: true, pmColor: true, uiScale: true, theme: true },
   });
 }
 
@@ -47,5 +48,17 @@ export async function saveUserPreferences(prefs: UserPrefs): Promise<void> {
     where: { userId: session.user.id },
     update: prefs,
     create: { userId: session.user.id, ...prefs },
+  });
+}
+
+export async function saveThemePreference(theme: "dark" | "light"): Promise<void> {
+  const h = await headers();
+  const session = await auth.api.getSession({ headers: h });
+  if (!session?.user?.id) throw new Error("Not authenticated");
+
+  await prefDb.userPreference.upsert({
+    where: { userId: session.user.id },
+    update: { theme },
+    create: { userId: session.user.id, accentColor: null, amColor: null, pmColor: null, uiScale: null, theme },
   });
 }

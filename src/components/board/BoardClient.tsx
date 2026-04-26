@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { DragDropContext, Droppable } from "@hello-pangea/dnd";
@@ -22,6 +22,7 @@ import {
 import type { Assignment, Availability, BoardWeek, DayPart, Employee, Project, ProjectStatus } from "~/types";
 import { ALLOWED_TRANSITIONS, getSuperStatus } from "~/types";
 import { setSiteTransition } from "~/server/actions/sites";
+import { saveThemePreference } from "~/server/actions/preferences";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -101,12 +102,55 @@ const STATUS_LABELS: Record<ProjectStatus, string> = {
 };
 
 const STATUS_CHIP: Record<ProjectStatus, string> = {
-  planned:  "bg-[#1a2535] text-[#60a5fa]",
-  active:   "bg-[#0f2e1e] text-[#4ade80]",
-  on_hold:  "bg-[#2c2619] text-[#fbbf24]",
-  done:     "bg-[#0f2020] text-[#34d399]",
-  inactive: "bg-[#252429] text-[#6b6875]",
+  planned:  "bg-[var(--color-status-planned-bg)] text-[var(--color-status-planned-txt)]",
+  active:   "bg-[var(--color-status-active-bg)] text-[var(--color-status-active-txt)]",
+  on_hold:  "bg-[var(--color-status-hold-bg)] text-[var(--color-status-hold-txt)]",
+  done:     "bg-[var(--color-status-done-bg)] text-[var(--color-status-done-txt)]",
+  inactive: "bg-[var(--color-status-inactive-bg)] text-[var(--color-status-inactive-txt)]",
 };
+
+// ── Theme toggle ──────────────────────────────────────────────────────────────
+
+function ThemeToggle() {
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+
+  useEffect(() => {
+    setTheme((document.documentElement.getAttribute("data-theme") ?? "dark") as "dark" | "light");
+  }, []);
+
+  const toggle = async () => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    document.documentElement.setAttribute("data-theme", next);
+    await saveThemePreference(next);
+    startTransition(() => router.refresh());
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={() => void toggle()}
+      title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]"
+    >
+      {theme === "dark" ? (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+      ) : (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      )}
+    </button>
+  );
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -704,7 +748,7 @@ export function BoardClient({
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  if (!isLoaded) return <div className="p-10 text-white">Loading board...</div>;
+  if (!isLoaded) return <div className="p-10 text-[var(--color-text-primary)] bg-[var(--color-bg-page)]">Loading board...</div>;
 
   /**
    * Render a project day cell.
@@ -739,7 +783,7 @@ export function BoardClient({
         className={`day-cell w-full lg:min-w-max lg:flex-1 flex flex-col rounded-md border transition-opacity duration-150 overflow-hidden ${
           day === activeDay ? "" : "hidden"
         } lg:flex lg:flex-col ${
-          isDimmed ? "opacity-30 border-[#252428] bg-[#28272d]" : "border-[#313036] bg-[#28272d]"
+          isDimmed ? "opacity-30 border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]" : "border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]"
         }`}
       >
         {/* Full-day section */}
@@ -750,9 +794,9 @@ export function BoardClient({
               {...provided.droppableProps}
               className={`flex-1 min-h-[56px] p-2.5 flex flex-col gap-2.5 transition-colors ${
                 snapshot.isDraggingOver
-                  ? "bg-[#333238]"
+                  ? "bg-[var(--color-bg-hover)]"
                   : isDraggingFullHere
-                    ? "bg-[#252e3d]"
+                    ? "bg-[var(--color-nav-active-bg)]"
                     : ""
               }`}
             >
@@ -805,7 +849,7 @@ export function BoardClient({
                   }`}
                 >
                   {showHalfSection && (
-                    <div className="text-[9px] font-semibold text-[#6b6875] uppercase tracking-wider">AM</div>
+                    <div className="text-[9px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">AM</div>
                   )}
                   {(assignmentsState[preId] ?? []).map((entry, index) => (
                     <EmployeeCard
@@ -852,7 +896,7 @@ export function BoardClient({
                   }`}
                 >
                   {showHalfSection && (
-                    <div className="text-[9px] font-semibold text-[#6b6875] uppercase tracking-wider">PM</div>
+                    <div className="text-[9px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">PM</div>
                   )}
                   {(assignmentsState[postId] ?? []).map((entry, index) => (
                     <EmployeeCard
@@ -880,19 +924,19 @@ export function BoardClient({
 
   return (
   <DragDropContext onDragEnd={onDragEnd} onDragStart={onDragStart}>
-    <div className="h-dvh bg-[#1f1e24] font-sans text-[#ececef] flex flex-col lg:flex-row">
+    <div className="h-dvh bg-[var(--color-bg-page)] font-sans text-[var(--color-text-primary)] flex flex-col lg:flex-row">
       <Sidebar mobileOpen={navSidebarOpen} onMobileClose={() => setNavSidebarOpen(false)} />
       <div className="flex-1 flex flex-col min-h-0 min-w-0 lg:pl-14">
 
         {/* Mobile header — outside scroll area so content never scrolls behind it */}
-        <div className="lg:hidden flex items-center gap-2 bg-[#1f1e24] px-4 pt-4 pb-2 shadow-[0_6px_0_6px_#1f1e24]">
+        <div className="lg:hidden flex items-center gap-2 bg-[var(--color-bg-page)] px-4 pt-4 pb-2 shadow-[0_6px_0_6px_var(--color-bg-page)]">
 
           {/* Hamburger button — top-left */}
           <button
             type="button"
             onClick={() => setNavSidebarOpen(true)}
             title="Open menu"
-            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[#28272d] text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]"
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="3" y1="6" x2="21" y2="6" />
@@ -902,19 +946,19 @@ export function BoardClient({
           </button>
 
           {/* Day selector pill */}
-          <div className="relative inline-flex items-center rounded-full bg-[#28272d] text-sm font-medium text-[#a09fa6]">
+          <div className="relative inline-flex items-center rounded-full bg-[var(--color-pill-bg)] text-sm font-medium text-[var(--color-text-secondary)]">
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setDayDropdownOpen((o) => !o); }}
-              className="flex items-center gap-1.5 px-4 py-2 text-[#ececef] transition hover:text-white"
+              className="flex items-center gap-1.5 px-4 py-2 text-[var(--color-text-primary)] transition hover:text-[var(--color-text-primary)]"
             >
               {activeDay}
-              <svg className="h-3 w-3 text-[#8b8893]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <svg className="h-3 w-3 text-[var(--color-pill-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
             </button>
             {dayDropdownOpen && (
-              <div className="absolute top-full left-0 z-50 mt-2 min-w-[160px] overflow-hidden rounded-xl border border-[#313036] bg-[#28272d] shadow-xl">
+              <div className="absolute top-full left-0 z-50 mt-2 min-w-[160px] overflow-hidden rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] shadow-xl">
                 {DAYS.map((day) => (
                   <button
                     key={day}
@@ -923,7 +967,7 @@ export function BoardClient({
                     className={`block w-full text-left px-4 py-2.5 text-sm font-medium transition ${
                       day === activeDay
                         ? "bg-accent text-white"
-                        : "text-[#a09fa6] hover:bg-[#333238] hover:text-[#ececef]"
+                        : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
                     }`}
                   >
                     {day}
@@ -934,33 +978,33 @@ export function BoardClient({
           </div>
 
           {/* Week selector pill */}
-          <div className="ml-auto relative inline-flex items-center rounded-full bg-[#28272d] text-sm font-medium text-[#a09fa6]">
+          <div className="ml-auto relative inline-flex items-center rounded-full bg-[var(--color-pill-bg)] text-sm font-medium text-[var(--color-text-secondary)]">
             <Link
               href={`/board?week=${getPreviousWeekParam(selectedWeek.startDateIso)}`}
-              className="px-3 py-2 transition hover:text-[#ececef]"
+              className="px-3 py-2 transition hover:text-[var(--color-text-primary)]"
             >
               &#8249;
             </Link>
-            <div className="h-4 w-px bg-[#3a3940]" />
+            <div className="h-4 w-px bg-[var(--color-pill-divider)]" />
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setWeekDropdownOpen((o) => !o); }}
-              className="flex items-center gap-1.5 px-4 py-2 text-[#ececef] transition hover:text-white"
+              className="flex items-center gap-1.5 px-4 py-2 text-[var(--color-text-primary)] transition hover:text-[var(--color-text-primary)]"
             >
               {selectedWeek.label}
-              <svg className="h-3 w-3 text-[#8b8893]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <svg className="h-3 w-3 text-[var(--color-pill-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
             </button>
-            <div className="h-4 w-px bg-[#3a3940]" />
+            <div className="h-4 w-px bg-[var(--color-pill-divider)]" />
             <Link
               href={`/board?week=${getNextWeekParam(selectedWeek.startDateIso)}`}
-              className="px-3 py-2 transition hover:text-[#ececef]"
+              className="px-3 py-2 transition hover:text-[var(--color-text-primary)]"
             >
               &#8250;
             </Link>
             {weekDropdownOpen && (
-              <div className="absolute top-full right-0 z-50 mt-2 min-w-[200px] overflow-hidden rounded-xl border border-[#313036] bg-[#28272d] shadow-xl">
+              <div className="absolute top-full right-0 z-50 mt-2 min-w-[200px] overflow-hidden rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] shadow-xl">
                 {weeks.map((week) => (
                   <Link
                     key={week.id}
@@ -969,7 +1013,7 @@ export function BoardClient({
                     className={`block px-4 py-2.5 text-sm font-medium transition ${
                       week.id === selectedWeek.id
                         ? "bg-accent text-white"
-                        : "text-[#a09fa6] hover:bg-[#333238] hover:text-[#ececef]"
+                        : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
                     }`}
                   >
                     {week.label}
@@ -983,34 +1027,37 @@ export function BoardClient({
         <main className="flex-1 overflow-auto min-h-0 px-4 flex flex-col">
 
         {/* Week selector — desktop only */}
-        <div className="mt-4 mb-6 hidden lg:flex items-center justify-center bg-[#1f1e24] relative">
-          <div className="relative inline-flex items-center rounded-full bg-[#28272d] text-sm font-medium text-[#a09fa6]">
+        <div className="mt-4 mb-6 hidden lg:flex items-center justify-center bg-[var(--color-bg-page)] relative">
+          <div className="absolute right-0 top-1/2 -translate-y-1/2">
+            <ThemeToggle />
+          </div>
+          <div className="relative inline-flex items-center rounded-full bg-[var(--color-pill-bg)] text-sm font-medium text-[var(--color-text-secondary)]">
             <Link
               href={`/board?week=${getPreviousWeekParam(selectedWeek.startDateIso)}`}
-              className="px-3 py-2 transition hover:text-[#ececef]"
+              className="px-3 py-2 transition hover:text-[var(--color-text-primary)]"
             >
               &#8249;
             </Link>
-            <div className="h-4 w-px bg-[#3a3940]" />
+            <div className="h-4 w-px bg-[var(--color-pill-divider)]" />
             <button
               type="button"
               onClick={() => setWeekDropdownOpen((o) => !o)}
-              className="flex items-center gap-1.5 px-4 py-2 text-[#ececef] transition hover:text-white"
+              className="flex items-center gap-1.5 px-4 py-2 text-[var(--color-text-primary)] transition hover:text-[var(--color-text-primary)]"
             >
               {selectedWeek.label}
-              <svg className="h-3 w-3 text-[#8b8893]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <svg className="h-3 w-3 text-[var(--color-pill-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
             </button>
-            <div className="h-4 w-px bg-[#3a3940]" />
+            <div className="h-4 w-px bg-[var(--color-pill-divider)]" />
             <Link
               href={`/board?week=${getNextWeekParam(selectedWeek.startDateIso)}`}
-              className="px-3 py-2 transition hover:text-[#ececef]"
+              className="px-3 py-2 transition hover:text-[var(--color-text-primary)]"
             >
               &#8250;
             </Link>
             {weekDropdownOpen && (
-              <div className="absolute top-full left-1/2 z-50 mt-2 min-w-[200px] -translate-x-1/2 overflow-hidden rounded-xl border border-[#313036] bg-[#28272d] shadow-xl">
+              <div className="absolute top-full left-1/2 z-50 mt-2 min-w-[200px] -translate-x-1/2 overflow-hidden rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] shadow-xl">
                 {weeks.map((week) => (
                   <Link
                     key={week.id}
@@ -1019,7 +1066,7 @@ export function BoardClient({
                     className={`block px-4 py-2.5 text-sm font-medium transition ${
                       week.id === selectedWeek.id
                         ? "bg-accent text-white"
-                        : "text-[#a09fa6] hover:bg-[#333238] hover:text-[#ececef]"
+                        : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
                     }`}
                   >
                     {week.label}
@@ -1034,7 +1081,7 @@ export function BoardClient({
           <div className="w-full lg:min-w-max flex flex-col gap-4">
 
             {/* Day headers — sticky so column labels stay visible while scrolling */}
-            <div className="sticky top-0 z-20 hidden lg:flex gap-4 bg-[#1f1e24] -mt-4 pt-4 pb-2 shadow-[0_6px_0_6px_#1f1e24]">
+            <div className="sticky top-0 z-20 hidden lg:flex gap-4 bg-[var(--color-bg-page)] -mt-4 pt-4 pb-2 shadow-[0_6px_0_6px_var(--color-bg-page)]">
               {DAYS.map((day) => (
                 <div
                   key={day}
@@ -1043,10 +1090,10 @@ export function BoardClient({
                     day === activeDay ? "flex" : "hidden"
                   } lg:flex items-center justify-between ${
                     draggingDay && day === draggingDay
-                      ? "bg-[#2d3748] text-accent/80 ring-1 ring-inset ring-accent/40"
+                      ? "bg-[var(--color-day-drag-bg)] text-accent/80 ring-1 ring-inset ring-accent/40"
                       : draggingDay
-                      ? "bg-[#28272d] opacity-30"
-                      : "bg-[#28272d]"
+                      ? "bg-[var(--color-bg-surface)] opacity-30"
+                      : "bg-[var(--color-bg-surface)]"
                   }`}
                 >
                   <span>{day}</span>
@@ -1058,14 +1105,14 @@ export function BoardClient({
                         setCopyPopoverDay(copyPopoverDay === day ? null : day);
                       }}
                       title={`Copy assignments to ${day}`}
-                      className="flex items-center rounded bg-[#3a3940] p-1.5 text-[#c8c4be] transition-colors hover:bg-[#4a4950] hover:text-white"
+                      className="flex items-center rounded bg-[var(--color-copy-btn)] p-1.5 text-[var(--color-copy-btn-text)] transition-colors hover:bg-[var(--color-copy-btn-hover)] hover:text-[var(--color-text-primary)]"
                     >
                       <CopyIcon size={14} />
                     </button>
                   )}
                   {copyPopoverDay === day && (
-                    <div className="absolute top-full left-0 z-50 mt-1 min-w-[140px] rounded-lg border border-[#313036] bg-[#1f1e24] p-2 shadow-xl">
-                      <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#6b6875]">
+                    <div className="absolute top-full left-0 z-50 mt-1 min-w-[140px] rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] p-2 shadow-xl">
+                      <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
                         Copy from
                       </div>
                       {DAYS.filter((d) => d !== day).map((sourceDay) => (
@@ -1076,7 +1123,7 @@ export function BoardClient({
                             e.stopPropagation();
                             copyDay(sourceDay, day);
                           }}
-                          className="block w-full rounded px-2 py-1.5 text-left text-xs font-medium text-[#a09fa6] transition-colors hover:bg-[#333238] hover:text-[#ececef]"
+                          className="block w-full rounded px-2 py-1.5 text-left text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
                         >
                           {sourceDay}
                         </button>
@@ -1105,7 +1152,7 @@ export function BoardClient({
                         type="button"
                         onClick={() => toggleCollapsed(project.id)}
                         title={isCollapsed ? "Expand" : "Collapse"}
-                        className="flex-shrink-0 text-[#6b6875] transition-colors hover:text-white"
+                        className="flex-shrink-0 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
                       >
                         <svg
                           className={`h-3 w-3 transition-transform duration-200 ${isCollapsed ? "-rotate-90" : ""}`}
@@ -1117,11 +1164,11 @@ export function BoardClient({
                       <button
                         type="button"
                         onClick={() => toggleCollapsed(project.id)}
-                        className="flex min-w-0 items-center gap-1 text-left text-sm font-semibold text-[#ececef] transition-colors hover:text-white"
+                        className="flex min-w-0 items-center gap-1 text-left text-sm font-semibold text-[var(--color-text-primary)] transition-colors hover:text-[var(--color-text-primary)]"
                       >
                         <span className="truncate">{project.name}</span>
                         {project.constructionManagerName && (
-                          <span className="flex flex-shrink-0 items-center gap-1 text-[11px] font-normal text-[#6b6875]">
+                          <span className="flex flex-shrink-0 items-center gap-1 text-[11px] font-normal text-[var(--color-text-muted)]">
                             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <circle cx="12" cy="8" r="4" />
                               <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
@@ -1144,8 +1191,8 @@ export function BoardClient({
                           {STATUS_LABELS[es]}
                         </button>
                         {statusPopoverProjectId === project.id && (
-                          <div className="absolute left-0 top-full z-30 mt-1 min-w-[130px] overflow-hidden rounded-lg border border-[#313036] bg-[#1f1e24] py-1 shadow-xl">
-                            <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#6b6875]">
+                          <div className="absolute left-0 top-full z-30 mt-1 min-w-[130px] overflow-hidden rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] py-1 shadow-xl">
+                            <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
                               Transition to
                             </div>
                             {ALLOWED_TRANSITIONS[es].map((toStatus) => {
@@ -1155,11 +1202,11 @@ export function BoardClient({
                                   key={toStatus}
                                   type="button"
                                   onClick={() => handleStatusTransition(project.id, toStatus)}
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-[#a09fa6] transition-colors hover:bg-[#333238] hover:text-[#ececef]"
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
                                 >
                                   <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${STATUS_CHIP[toStatus].split(" ")[1] ?? ""}`} />
                                   {STATUS_LABELS[toStatus]}
-                                  {isCompleting && <span className="ml-auto text-[#fbbf24]">⚠</span>}
+                                  {isCompleting && <span className="ml-auto text-[var(--color-warn-text)]">⚠</span>}
                                 </button>
                               );
                             })}
@@ -1181,7 +1228,7 @@ export function BoardClient({
               <button
                 type="button"
                 onClick={() => toggleCollapsed("sick-vacation")}
-                className="flex items-center gap-2 py-1 text-left text-sm font-semibold text-[#a09fa6] transition-colors hover:text-[#ececef]"
+                className="flex items-center gap-2 py-1 text-left text-sm font-semibold text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
               >
                 <svg
                   className={`h-3 w-3 transition-transform duration-200 ${(collapsedRows ?? new Set()).has("sick-vacation") ? "-rotate-90" : ""}`}
@@ -1213,7 +1260,7 @@ export function BoardClient({
                     return (
                       <div
                         key={day}
-                        className={`w-full lg:min-w-max lg:flex-1 min-h-[60px] rounded-md p-2.5 flex-col gap-2 border border-dashed border-[#3a3940] ${
+                        className={`w-full lg:min-w-max lg:flex-1 min-h-[60px] rounded-md p-2.5 flex-col gap-2 border border-dashed border-[var(--color-avail-border)] ${
                           day === activeDay ? "flex" : "hidden"
                         } lg:flex`}
                       >
@@ -1223,9 +1270,9 @@ export function BoardClient({
                             type="button"
                             onClick={() => clearAvailability(employee.id, day)}
                             title="Click to remove status"
-                            className="flex w-full min-w-max cursor-pointer items-center gap-2 rounded-full border border-[#3a3940] bg-[#302f36] p-1.5 text-sm transition-colors hover:border-[#5a5961]"
+                            className="flex w-full min-w-max cursor-pointer items-center gap-2 rounded-full border border-[var(--color-avail-border)] bg-[var(--color-avail-bg)] p-1.5 text-sm transition-colors hover:border-[var(--color-avail-hover)]"
                           >
-                            <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-full bg-gray-600">
+                            <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-full bg-[var(--color-avatar-bg)]">
                               {employee.img && (
                                 <img
                                   src={employee.img}
@@ -1234,10 +1281,10 @@ export function BoardClient({
                                 />
                               )}
                             </div>
-                            <span className="whitespace-nowrap text-xs font-medium text-[#ececef]">
+                            <span className="whitespace-nowrap text-xs font-medium text-[var(--color-text-primary)]">
                               {employee.name}
                             </span>
-                            <span className="ml-auto pl-1 text-[#c8c4be]">
+                            <span className="ml-auto pl-1 text-[var(--color-text-secondary)]">
                               {status === "sick" ? <SyringeIcon size={16} /> : <PalmTreeIcon size={16} />}
                             </span>
                           </button>
@@ -1270,7 +1317,7 @@ export function BoardClient({
                     <button
                       type="button"
                       onClick={() => { setSideMenuOpen(false); setCopyWeekModalOpen(true); }}
-                      className="hidden lg:flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium bg-[#28272d] text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]"
+                      className="hidden lg:flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
                       title={`Copy assignments from ${previousWeek.label}`}
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1288,7 +1335,7 @@ export function BoardClient({
                     className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
                       filterManagerId
                         ? "bg-accent text-white"
-                        : "bg-[#28272d] text-[#a09fa6] hover:bg-[#313036] hover:text-[#ececef]"
+                        : "bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
                     }`}
                   >
                     <FilterIcon size={12} />
@@ -1301,7 +1348,7 @@ export function BoardClient({
                       type="button"
                       onClick={() => setFilterManagerId(null)}
                       title="Clear filter"
-                      className="flex items-center rounded-lg p-2 bg-[#28272d] text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]"
+                      className="flex items-center rounded-lg p-2 bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
                     >
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -1319,7 +1366,7 @@ export function BoardClient({
                 className={`flex items-center justify-center rounded-lg w-8 h-9 transition-colors ${
                   filterManagerId
                     ? "bg-accent text-white shadow-lg"
-                    : "bg-[#313036] text-[#6b6875] hover:bg-[#3a3940] hover:text-[#a09fa6]"
+                    : "bg-[var(--color-border-subtle)] text-[var(--color-text-muted)] hover:bg-[var(--color-border-muted)] hover:text-[var(--color-text-secondary)]"
                 }`}
               >
                 <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
@@ -1331,7 +1378,7 @@ export function BoardClient({
           </div>
 
           {/* Pool — always visible at the bottom of the content column, scrolls independently */}
-          <div className="pool-overlay flex flex-col gap-2 bg-[#1f1e24] border-t border-[#313036] px-4 pt-3 pb-4">
+          <div className="pool-overlay flex flex-col gap-2 bg-[var(--color-bg-page)] border-t border-[var(--color-border-subtle)] px-4 pt-3 pb-4">
           <button
             type="button"
             onClick={() => toggleCollapsed("pool")}
@@ -1357,7 +1404,7 @@ export function BoardClient({
                   className={`w-full lg:min-w-max lg:flex-1 flex flex-col rounded-md border border-dashed transition-opacity duration-150 ${
                     day === activeDay ? "" : "hidden"
                   } lg:block ${
-                    isDimmed ? "opacity-30 border-[#252428]" : "border-[#4a4950]"
+                    isDimmed ? "opacity-30 border-[var(--color-border-subtle)]" : "border-[var(--color-border-strong)]"
                   }`}
                 >
                   <Droppable droppableId={fdId} type={day}>
@@ -1367,9 +1414,9 @@ export function BoardClient({
                         {...provided.droppableProps}
                         className={`flex-1 min-h-[56px] p-2.5 flex flex-col gap-2.5 transition-colors ${
                           snapshot.isDraggingOver
-                            ? "bg-[#333238]"
+                            ? "bg-[var(--color-bg-hover)]"
                             : isDraggingFullHere
-                              ? "bg-[#252e3d]"
+                              ? "bg-[var(--color-nav-active-bg)]"
                               : ""
                         }`}
                       >
@@ -1409,9 +1456,9 @@ export function BoardClient({
       <div
         ref={sitePickerRef}
         onClick={(e) => e.stopPropagation()}
-        className="site-picker z-[100] min-w-[180px] overflow-hidden rounded-xl border border-[#313036] bg-[#1f1e24] py-1 shadow-2xl"
+        className="site-picker z-[100] min-w-[180px] overflow-hidden rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] py-1 shadow-2xl"
       >
-        <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#6b6875]">
+        <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
           Assign to site
         </div>
         {dbProjects.map((project) => (
@@ -1422,9 +1469,9 @@ export function BoardClient({
               e.stopPropagation();
               assignToSite(sitePickerFor.employeeId, sitePickerFor.day, project.id);
             }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-[#a09fa6] transition-colors hover:bg-[#333238] hover:text-[#ececef]"
+            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
           >
-            <AssignSiteIcon size={12} className="flex-shrink-0 text-[#6b6875]" />
+            <AssignSiteIcon size={12} className="flex-shrink-0 text-[var(--color-text-muted)]" />
             {project.name}
           </button>
         ))}
@@ -1440,17 +1487,17 @@ export function BoardClient({
           onClick={() => setCopyWeekModalOpen(false)}
         />
         <div
-          className="fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[#313036] bg-[#1f1e24] shadow-2xl"
+          className="fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-[#313036] px-5 py-4">
-            <h3 className="text-sm font-semibold text-[#ececef]">Copy previous week</h3>
+          <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
+            <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Copy previous week</h3>
             <button
               type="button"
               onClick={() => setCopyWeekModalOpen(false)}
               title="Close"
-              className="flex items-center rounded p-1 text-[#6b6875] transition-colors hover:text-[#ececef]"
+              className="flex items-center rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -1460,15 +1507,15 @@ export function BoardClient({
 
           {/* Body */}
           <div className="px-5 py-4 flex flex-col gap-3">
-            <p className="text-sm text-[#a09fa6]">
+            <p className="text-sm text-[var(--color-text-secondary)]">
               Copy all assignments from{" "}
-              <span className="font-semibold text-[#ececef]">{previousWeek.label}</span>{" "}
+              <span className="font-semibold text-[var(--color-text-primary)]">{previousWeek.label}</span>{" "}
               into{" "}
-              <span className="font-semibold text-[#ececef]">{selectedWeek.label}</span>?
+              <span className="font-semibold text-[var(--color-text-primary)]">{selectedWeek.label}</span>?
             </p>
 
             {targetWeekHasAssignments && (
-              <div className="flex items-start gap-2 rounded-lg border border-[#4a3b1a] bg-[#2c2619] px-3 py-2.5 text-xs text-[#fbbf24]">
+              <div className="flex items-start gap-2 rounded-lg border border-[var(--color-warn-border)] bg-[var(--color-warn-bg)] px-3 py-2.5 text-xs text-[var(--color-warn-text)]">
                 <svg className="mt-0.5 flex-shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                   <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
@@ -1477,17 +1524,17 @@ export function BoardClient({
               </div>
             )}
 
-            <p className="text-xs text-[#6b6875]">
+            <p className="text-xs text-[var(--color-text-muted)]">
               Sick and vacation days are not copied — affected employees will appear in the pool.
             </p>
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-2 border-t border-[#313036] px-5 py-4">
+          <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4">
             <button
               type="button"
               onClick={() => setCopyWeekModalOpen(false)}
-              className="rounded-lg px-4 py-2 text-xs font-semibold text-[#a09fa6] transition-colors hover:text-[#ececef]"
+              className="rounded-lg px-4 py-2 text-xs font-semibold text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
             >
               Cancel
             </button>
@@ -1514,17 +1561,17 @@ export function BoardClient({
 
         {/* Dialog */}
         <div
-          className="fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[#313036] bg-[#1f1e24] shadow-2xl"
+          className="fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] shadow-2xl"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-[#313036] px-5 py-4">
-            <h3 className="text-sm font-semibold text-[#ececef]">Filters</h3>
+          <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
+            <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Filters</h3>
             <button
               type="button"
               onClick={() => setFilterModalOpen(false)}
               title="Close"
-              className="flex items-center rounded p-1 text-[#6b6875] transition-colors hover:text-[#ececef]"
+              className="flex items-center rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -1534,7 +1581,7 @@ export function BoardClient({
 
           {/* Section: Construction manager */}
           <div className="px-5 py-4">
-            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[#6b6875]">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
               Construction manager
             </div>
             <div className="flex flex-col gap-1">
@@ -1543,14 +1590,14 @@ export function BoardClient({
                 onClick={() => setPendingManagerId(null)}
                 className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
                   pendingManagerId === null
-                    ? "bg-[#252e3d] text-accent"
-                    : "text-[#a09fa6] hover:bg-[#28272d] hover:text-[#ececef]"
+                    ? "bg-[var(--color-nav-active-bg)] text-accent"
+                    : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]"
                 }`}
               >
                 All managers
               </button>
               {managersWithSites.length === 0 ? (
-                <p className="px-3 py-2 text-sm text-[#4a4950]">No managers assigned yet</p>
+                <p className="px-3 py-2 text-sm text-[var(--color-text-faint)]">No managers assigned yet</p>
               ) : (
                 managersWithSites.map((m) => (
                   <button
@@ -1559,8 +1606,8 @@ export function BoardClient({
                     onClick={() => setPendingManagerId(m.id)}
                     className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
                       pendingManagerId === m.id
-                        ? "bg-[#252e3d] text-accent"
-                        : "text-[#a09fa6] hover:bg-[#28272d] hover:text-[#ececef]"
+                        ? "bg-[var(--color-nav-active-bg)] text-accent"
+                        : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]"
                     }`}
                   >
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1574,11 +1621,11 @@ export function BoardClient({
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between border-t border-[#313036] px-5 py-4">
+          <div className="flex items-center justify-between border-t border-[var(--color-border-subtle)] px-5 py-4">
             <button
               type="button"
               onClick={() => setPendingManagerId(null)}
-              className="text-xs text-[#6b6875] transition-colors hover:text-[#a09fa6]"
+              className="text-xs text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-secondary)]"
             >
               Clear all
             </button>
@@ -1601,27 +1648,27 @@ export function BoardClient({
         <>
           <div className="fixed inset-0 z-40 bg-black/60" onClick={() => setCompletingTransition(null)} />
           <div
-            className="fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[#313036] bg-[#1f1e24] shadow-2xl"
+            className="fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-[#313036] px-5 py-4">
-              <h3 className="text-sm font-semibold text-[#ececef]">
+            <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
+              <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
                 Mark as {STATUS_LABELS[completingTransition.status]}?
               </h3>
               <button type="button" title="Close" onClick={() => setCompletingTransition(null)}
-                className="flex items-center rounded p-1 text-[#6b6875] transition-colors hover:text-[#ececef]">
+                className="flex items-center rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                 </svg>
               </button>
             </div>
             <div className="px-5 py-4 flex flex-col gap-3">
-              <p className="text-sm text-[#a09fa6]">
-                <span className="font-semibold text-[#ececef]">{project?.name}</span> will be removed
+              <p className="text-sm text-[var(--color-text-secondary)]">
+                <span className="font-semibold text-[var(--color-text-primary)]">{project?.name}</span> will be removed
                 from the board starting this week.
               </p>
               {completingTransition.assignmentCount > 0 && (
-                <div className="flex items-start gap-2 rounded-lg border border-[#4a3b1a] bg-[#2c2619] px-3 py-2.5 text-xs text-[#fbbf24]">
+                <div className="flex items-start gap-2 rounded-lg border border-[var(--color-warn-border)] bg-[var(--color-warn-bg)] px-3 py-2.5 text-xs text-[var(--color-warn-text)]">
                   <svg className="mt-0.5 flex-shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                     <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
@@ -1630,9 +1677,9 @@ export function BoardClient({
                 </div>
               )}
             </div>
-            <div className="flex items-center justify-end gap-2 border-t border-[#313036] px-5 py-4">
+            <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4">
               <button type="button" onClick={() => setCompletingTransition(null)}
-                className="rounded-lg px-4 py-2 text-xs font-semibold text-[#a09fa6] transition-colors hover:text-[#ececef]">
+                className="rounded-lg px-4 py-2 text-xs font-semibold text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]">
                 Cancel
               </button>
               <button type="button" onClick={() => void handleConfirmComplete()} disabled={applyingStatusChange}
@@ -1648,28 +1695,28 @@ export function BoardClient({
 {showPastWeekModal && (
       <>
         <div className="fixed inset-0 z-40 bg-black/50" onClick={() => { setShowPastWeekModal(false); setPendingAction(null); }} />
-        <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[#5c3a0f] bg-[#1f1e24] p-6 shadow-2xl">
-          <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-[#fbbf24]">
+        <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[var(--color-warn-border)] bg-[var(--color-bg-overlay)] p-6 shadow-2xl">
+          <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-[var(--color-warn-text)]">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
               <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
               <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
             </svg>
             Editing a past week
           </div>
-          <p className="mb-5 text-xs text-[#a09fa6]">
+          <p className="mb-5 text-xs text-[var(--color-text-secondary)]">
             You are about to modify historical data. This change will be recorded in a past week.
           </p>
           <div className="flex flex-col gap-2">
             <button type="button" onClick={() => executePending(false)}
-              className="w-full rounded-lg bg-[#fbbf24] px-4 py-2 text-xs font-semibold text-[#1a1400] transition-opacity hover:opacity-90">
+              className="w-full rounded-lg bg-[var(--color-warn-text)] px-4 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90">
               Yes, change assignment
             </button>
             <button type="button" onClick={() => executePending(true)}
-              className="w-full rounded-lg border border-[#5c3a0f] bg-[#2c1e0a] px-4 py-2 text-xs font-medium text-[#fbbf24] transition-colors hover:bg-[#3d2910]">
+              className="w-full rounded-lg border border-[var(--color-warn-border)] bg-[var(--color-warn-bg)] px-4 py-2 text-xs font-medium text-[var(--color-warn-text)] transition-colors hover:opacity-90">
               Yes, and mute this message for 5 minutes
             </button>
             <button type="button" onClick={() => { setShowPastWeekModal(false); setPendingAction(null); }}
-              className="w-full rounded-lg px-4 py-2 text-xs text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+              className="w-full rounded-lg px-4 py-2 text-xs text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
               Cancel
             </button>
           </div>

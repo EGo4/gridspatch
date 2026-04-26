@@ -25,12 +25,12 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const ROLE_STYLES: Record<string, string> = {
-  construction_manager: "bg-[#1a2c3d] text-[#60a5fa] border border-[#1e3a52]",
-  admin: "bg-[#2c1a3d] text-[#c084fc] border border-[#3a1e52]",
+  construction_manager: "bg-[var(--color-status-planned-bg)] text-[var(--color-status-planned-txt)] border border-[var(--color-border-subtle)]",
+  admin: "bg-[var(--color-status-done-bg)] text-[var(--color-status-done-txt)] border border-[var(--color-border-subtle)]",
 };
 
 const inputCls =
-  "w-full rounded-lg border border-[#313036] bg-[#17161c] px-3 py-2 text-sm text-[#ececef] placeholder-[#4a4950] outline-none focus:border-[var(--color-accent)] transition-colors";
+  "w-full rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-input)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder-[var(--color-text-faint)] outline-none focus:border-[var(--color-accent)] transition-colors";
 
 // Defaults match the globals.css hue values
 const DEFAULT_ACCENT = "#4f7cf0";
@@ -60,18 +60,18 @@ function PhotoPicker({
 
   return (
     <div className="flex items-center gap-4">
-      <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#313036] bg-[#17161c]">
+      <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--color-border-subtle)] bg-[var(--color-bg-input)]">
         {previewSrc ? (
           <img src={previewSrc} alt="Profile photo" className="h-full w-full object-cover" />
         ) : (
-          <UserIcon size={32} className="text-[#4a4950]" />
+          <UserIcon size={32} className="text-[var(--color-text-faint)]" />
         )}
       </div>
       <div className="flex flex-col gap-2">
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="rounded-lg border border-[#313036] bg-[#17161c] px-3 py-1.5 text-xs text-[#a09fa6] transition-colors hover:border-[#4a4950] hover:text-[#ececef]"
+          className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-input)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-text-primary)]"
         >
           {previewSrc ? "Change photo" : "Upload photo"}
         </button>
@@ -79,12 +79,12 @@ function PhotoPicker({
           <button
             type="button"
             onClick={() => onChange("", null)}
-            className="text-left text-xs text-[#6b6875] transition-colors hover:text-[#f87171]"
+            className="text-left text-xs text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-danger-text)]"
           >
             Remove
           </button>
         )}
-        <p className="text-[11px] text-[#4a4950]">JPEG, PNG, WebP · max 5 MB</p>
+        <p className="text-[11px] text-[var(--color-text-faint)]">JPEG, PNG, WebP · max 5 MB</p>
       </div>
       <input
         ref={inputRef}
@@ -118,34 +118,34 @@ function ColorField({
   const inputRef = useRef<HTMLInputElement>(null);
   return (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
+      <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
         {label}
       </label>
       <div className="flex items-center gap-3">
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="h-9 w-9 flex-shrink-0 cursor-pointer rounded-lg border-2 border-[#313036] transition-colors hover:border-[#4a4950]"
+          className="h-9 w-9 flex-shrink-0 cursor-pointer rounded-lg border-2 border-[var(--color-border-subtle)] transition-colors hover:border-[var(--color-border-strong)]"
           style={{ backgroundColor: value }}
           title="Click to pick colour"
         />
         {previewStyle && (
           <div
-            className="h-9 w-9 flex-shrink-0 rounded-lg border border-[#313036]"
+            className="h-9 w-9 flex-shrink-0 rounded-lg border border-[var(--color-border-subtle)]"
             style={previewStyle}
             title="Resulting zone colour"
           />
         )}
-        <span className="font-mono text-xs text-[#6b6875]">{value.toUpperCase()}</span>
+        <span className="font-mono text-xs text-[var(--color-text-muted)]">{value.toUpperCase()}</span>
         <button
           type="button"
           onClick={onReset}
-          className="ml-auto text-[11px] text-[#4a4950] transition-colors hover:text-[#a09fa6]"
+          className="ml-auto text-[11px] text-[var(--color-text-faint)] transition-colors hover:text-[var(--color-text-secondary)]"
         >
           Reset
         </button>
       </div>
-      <p className="text-[11px] text-[#4a4950]">{hint}</p>
+      <p className="text-[11px] text-[var(--color-text-faint)]">{hint}</p>
       <input
         ref={inputRef}
         type="color"
@@ -153,6 +153,45 @@ function ColorField({
         onChange={(e) => onChange(e.target.value)}
         className="sr-only"
       />
+    </div>
+  );
+}
+
+// ── Theme toggle ──────────────────────────────────────────────────────────────
+
+function ThemeToggle({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const options: { label: string; value: string }[] = [
+    { label: "Dark", value: "dark" },
+    { label: "Light", value: "light" },
+  ];
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+        Theme
+      </label>
+      <div className="inline-flex rounded-lg border border-[var(--color-border-subtle)] overflow-hidden">
+        {options.map((opt) => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange(opt.value)}
+            className={`flex-1 px-4 py-2 text-xs font-medium transition-colors ${
+              value === opt.value
+                ? "bg-[var(--color-accent,#4f7cf0)] text-white"
+                : "bg-[var(--color-bg-input)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      <p className="text-[11px] text-[var(--color-text-faint)]">Choose the app colour scheme.</p>
     </div>
   );
 }
@@ -187,6 +226,7 @@ export function ProfileClient({
   const [amColor, setAmColor] = useState(initialPrefs?.amColor ?? DEFAULT_AM_HUE);
   const [pmColor, setPmColor] = useState(initialPrefs?.pmColor ?? DEFAULT_PM_HUE);
   const [uiScale, setUiScale] = useState(initialPrefs?.uiScale ?? DEFAULT_SCALE);
+  const [theme, setTheme] = useState(initialPrefs?.theme ?? "dark");
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -199,7 +239,8 @@ export function ProfileClient({
     root.style.setProperty("--am-hue", amColor);
     root.style.setProperty("--pm-hue", pmColor);
     root.style.setProperty("--ui-scale", String(uiScale));
-  }, [accentColor, amColor, pmColor, uiScale]);
+    root.setAttribute("data-theme", theme);
+  }, [accentColor, amColor, pmColor, uiScale, theme]);
 
   const uploadPhoto = async (file: File): Promise<string> => {
     const fd = new FormData();
@@ -249,6 +290,7 @@ export function ProfileClient({
         amColor: amColor !== DEFAULT_AM_HUE ? amColor : null,
         pmColor: pmColor !== DEFAULT_PM_HUE ? pmColor : null,
         uiScale: uiScale !== DEFAULT_SCALE ? uiScale : null,
+        theme: theme !== "dark" ? theme : null,
       });
 
       setSuccessMsg("Changes saved.");
@@ -262,7 +304,7 @@ export function ProfileClient({
 
   const field = (label: string, node: React.ReactNode) => (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
+      <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
         {label}
       </label>
       {node}
@@ -272,17 +314,17 @@ export function ProfileClient({
   const scalePercent = Math.round(uiScale * 100);
 
   return (
-    <div className="flex h-dvh bg-[#17161c] text-[#ececef]">
+    <div className="flex h-dvh bg-[var(--color-bg-page)] text-[var(--color-text-primary)]">
       <Sidebar mobileOpen={navSidebarOpen} onMobileClose={() => setNavSidebarOpen(false)} />
       <div className="flex flex-1 flex-col min-h-0 min-w-0 lg:pl-14">
 
       {/* Top bar */}
-      <header className="flex flex-shrink-0 items-center gap-4 border-b border-[#313036] bg-[#1f1e24] px-6 py-4">
+      <header className="flex flex-shrink-0 items-center gap-4 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-6 py-4">
         <button
           type="button"
           onClick={() => setNavSidebarOpen(true)}
           title="Open menu"
-          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef] lg:hidden"
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)] lg:hidden"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="3" y1="6" x2="21" y2="6" />
@@ -290,7 +332,7 @@ export function ProfileClient({
             <line x1="3" y1="18" x2="21" y2="18" />
           </svg>
         </button>
-        <h1 className="text-sm font-semibold text-[#ececef]">Account</h1>
+        <h1 className="text-sm font-semibold text-[var(--color-text-primary)]">Account</h1>
       </header>
 
       {/* Content */}
@@ -299,22 +341,22 @@ export function ProfileClient({
 
         {/* Error / success banners */}
         {error && (
-          <div className="mb-6 rounded-lg border border-[#5c1e1e] bg-[#3a1414] px-4 py-3 text-xs text-[#f87171]">
+          <div className="mb-6 rounded-lg border border-[var(--color-danger-text)]/30 bg-[var(--color-danger-bg)] px-4 py-3 text-xs text-[var(--color-danger-text)]">
             {error}
           </div>
         )}
         {successMsg && (
-          <div className="mb-6 rounded-lg border border-[#1a3a2e] bg-[#0f2920] px-4 py-3 text-xs text-[#4ade80]">
+          <div className="mb-6 rounded-lg border border-[var(--color-status-active-txt)]/30 bg-[var(--color-status-active-bg)] px-4 py-3 text-xs text-[var(--color-status-active-txt)]">
             {successMsg}
           </div>
         )}
 
         {/* Profile card */}
-        <div className="rounded-xl border border-[#313036] bg-[#1f1e24]">
+        <div className="rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]">
 
           {/* Section: Identity */}
           <div className="flex flex-col gap-5 px-6 py-6">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">Profile</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Profile</p>
 
             {field(
               "Photo",
@@ -352,22 +394,22 @@ export function ProfileClient({
               <div className="flex items-center gap-2 py-1">
                 <span
                   className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                    ROLE_STYLES[user.role] ?? "bg-[#252429] text-[#6b6875] border border-[#313036]"
+                    ROLE_STYLES[user.role] ?? "bg-[var(--color-bg-hover)] text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]"
                   }`}
                 >
                   {ROLE_LABELS[user.role] ?? user.role}
                 </span>
-                <span className="text-[11px] text-[#4a4950]">Managed by admins</span>
+                <span className="text-[11px] text-[var(--color-text-faint)]">Managed by admins</span>
               </div>,
             )}
           </div>
 
-          <div className="border-t border-[#313036]" />
+          <div className="border-t border-[var(--color-border-subtle)]" />
 
           {/* Section: Password */}
           <div className="flex flex-col gap-5 px-6 py-6">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">Change password</p>
-            <p className="text-xs text-[#6b6875]">Leave blank to keep your current password. Enter your current password to confirm any change.</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Change password</p>
+            <p className="text-xs text-[var(--color-text-muted)]">Leave blank to keep your current password. Enter your current password to confirm any change.</p>
 
             {field(
               "Current password",
@@ -406,23 +448,23 @@ export function ProfileClient({
             )}
 
             {passwordTooShort && (
-              <p className="text-[11px] text-[#f87171]">Password must be at least 8 characters.</p>
+              <p className="text-[11px] text-[var(--color-danger-text)]">Password must be at least 8 characters.</p>
             )}
             {currentPasswordRequired && (
-              <p className="text-[11px] text-[#f87171]">Current password is required to set a new password.</p>
+              <p className="text-[11px] text-[var(--color-danger-text)]">Current password is required to set a new password.</p>
             )}
             {passwordMismatch && (
-              <p className="text-[11px] text-[#f87171]">Passwords do not match.</p>
+              <p className="text-[11px] text-[var(--color-danger-text)]">Passwords do not match.</p>
             )}
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-2 border-t border-[#313036] px-6 py-4">
+          <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-6 py-4">
             <button
               type="button"
               onClick={handleSave}
               disabled={!canSave || saving}
-              className="rounded-lg bg-[var(--color-accent)] px-5 py-2 text-sm font-medium text-white transition-opacity disabled:opacity-40 hover:opacity-90"
+              className="rounded-lg bg-[var(--color-accent,#4f7cf0)] px-5 py-2 text-sm font-medium text-white transition-opacity disabled:opacity-40 hover:opacity-90"
             >
               {saving ? "Saving…" : "Save changes"}
             </button>
@@ -430,9 +472,11 @@ export function ProfileClient({
         </div>
 
         {/* Appearance card */}
-        <div className="mt-6 rounded-xl border border-[#313036] bg-[#1f1e24]">
+        <div className="mt-6 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]">
           <div className="flex flex-col gap-5 px-6 py-6">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">Appearance</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Appearance</p>
+
+            <ThemeToggle value={theme} onChange={setTheme} />
 
             <ColorField
               label="Accent colour"
@@ -444,24 +488,24 @@ export function ProfileClient({
 
             <ColorField
               label="AM zone hue"
-              hint="Pick a hue — the board renders a very dark tint of it for AM (pre-lunch) zones."
+              hint="Pick a hue — the board renders a tint of it for AM (pre-lunch) zones."
               value={amColor}
               onChange={setAmColor}
               onReset={() => setAmColor(DEFAULT_AM_HUE)}
-              previewStyle={{ backgroundColor: `color-mix(in srgb, ${amColor} 20%, black)` }}
+              previewStyle={{ backgroundColor: `color-mix(in srgb, ${amColor} 20%, ${theme === "light" ? "white" : "black"})` }}
             />
 
             <ColorField
               label="PM zone hue"
-              hint="Pick a hue — the board renders a very dark tint of it for PM (after-lunch) zones."
+              hint="Pick a hue — the board renders a tint of it for PM (after-lunch) zones."
               value={pmColor}
               onChange={setPmColor}
               onReset={() => setPmColor(DEFAULT_PM_HUE)}
-              previewStyle={{ backgroundColor: `color-mix(in srgb, ${pmColor} 20%, black)` }}
+              previewStyle={{ backgroundColor: `color-mix(in srgb, ${pmColor} 20%, ${theme === "light" ? "white" : "black"})` }}
             />
 
             <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
                 Text &amp; element size
               </label>
               <div className="flex items-center gap-3">
@@ -472,27 +516,27 @@ export function ProfileClient({
                   step={0.05}
                   value={uiScale}
                   onChange={(e) => setUiScale(parseFloat(e.target.value))}
-                  className="flex-1 accent-[var(--color-accent)]"
+                  className="flex-1 accent-[var(--color-accent,#4f7cf0)]"
                 />
-                <span className="w-10 text-right font-mono text-xs text-[#a09fa6]">{scalePercent}%</span>
+                <span className="w-10 text-right font-mono text-xs text-[var(--color-text-secondary)]">{scalePercent}%</span>
                 <button
                   type="button"
                   onClick={() => setUiScale(DEFAULT_SCALE)}
-                  className="text-[11px] text-[#4a4950] transition-colors hover:text-[#a09fa6]"
+                  className="text-[11px] text-[var(--color-text-faint)] transition-colors hover:text-[var(--color-text-secondary)]"
                 >
                   Reset
                 </button>
               </div>
-              <p className="text-[11px] text-[#4a4950]">Scales text and element sizes globally. Range: 80% – 120%.</p>
+              <p className="text-[11px] text-[var(--color-text-faint)]">Scales text and element sizes globally. Range: 80% – 120%.</p>
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 border-t border-[#313036] px-6 py-4">
+          <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-6 py-4">
             <button
               type="button"
               onClick={handleSave}
               disabled={!canSave || saving}
-              className="rounded-lg bg-[var(--color-accent)] px-5 py-2 text-sm font-medium text-white transition-opacity disabled:opacity-40 hover:opacity-90"
+              className="rounded-lg bg-[var(--color-accent,#4f7cf0)] px-5 py-2 text-sm font-medium text-white transition-opacity disabled:opacity-40 hover:opacity-90"
             >
               {saving ? "Saving…" : "Save changes"}
             </button>

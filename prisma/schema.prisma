@@ -176,4 +176,5 @@ model UserPreference {
   amColor     String? // AM hue, e.g. "#dcbe7d"
   pmColor     String? // PM hue, e.g. "#82aafa"
   uiScale     Float?  // e.g. 1.0
+  theme       String? // "light" | "dark" | null (system default = dark)
 }

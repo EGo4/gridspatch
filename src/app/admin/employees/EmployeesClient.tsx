@@ -78,11 +78,11 @@ function PhotoPicker({
   return (
     <div className="flex items-center gap-4">
       {/* Avatar preview */}
-      <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#313036] bg-[#17161c]">
+      <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]">
         {previewSrc ? (
           <img src={previewSrc} alt="Preview" className="h-full w-full object-cover" />
         ) : (
-          <UserIcon size={28} className="text-[#4a4950]" />
+          <UserIcon size={28} className="text-[var(--color-text-faint)]" />
         )}
       </div>
 
@@ -90,7 +90,7 @@ function PhotoPicker({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="rounded-lg border border-[#313036] bg-[#17161c] px-3 py-1.5 text-xs text-[#a09fa6] transition-colors hover:border-[#4a4950] hover:text-[#ececef]"
+          className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-text-primary)]"
         >
           {previewSrc ? "Change photo" : "Upload photo"}
         </button>
@@ -99,13 +99,13 @@ function PhotoPicker({
           <button
             type="button"
             onClick={() => onChange("", null)}
-            className="text-left text-xs text-[#6b6875] transition-colors hover:text-[#f87171]"
+            className="text-left text-xs text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-danger-text)]"
           >
             Remove
           </button>
         )}
 
-        <p className="text-[11px] text-[#4a4950]">JPEG, PNG, WebP · max 5 MB</p>
+        <p className="text-[11px] text-[var(--color-text-faint)]">JPEG, PNG, WebP · max 5 MB</p>
       </div>
 
       <input
@@ -137,7 +137,7 @@ function EmployeeFormPanel({
 
   const field = (label: string, node: React.ReactNode) => (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
+      <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
         {label}
       </label>
       {node}
@@ -145,23 +145,23 @@ function EmployeeFormPanel({
   );
 
   const inputCls =
-    "w-full rounded-lg border border-[#313036] bg-[#17161c] px-3 py-2 text-sm text-[#ececef] placeholder-[#4a4950] outline-none focus:border-[var(--color-accent)] transition-colors";
+    "w-full rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder-[#4a4950] outline-none focus:border-[var(--color-accent)] transition-colors";
 
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
 
-      <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-sm flex-col border-l border-[#313036] bg-[#1f1e24] shadow-2xl">
+      <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-sm flex-col border-l border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#313036] px-5 py-4">
-          <h2 className="text-sm font-semibold text-[#ececef]">
+        <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
+          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
             {isEdit ? "Edit employee" : "New employee"}
           </h2>
           <button
             type="button"
             onClick={onClose}
             title="Close"
-            className="rounded-md p-1 text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]"
+            className="rounded-md p-1 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -238,11 +238,11 @@ function EmployeeFormPanel({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 border-t border-[#313036] px-5 py-4">
+        <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]"
+            className="rounded-lg px-4 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
           >
             Cancel
           </button>
@@ -274,17 +274,17 @@ function DeleteConfirmPanel({
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
-      <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[#313036] bg-[#1f1e24] p-6 shadow-2xl">
-        <h2 className="mb-2 text-sm font-semibold text-[#ececef]">Delete employee?</h2>
-        <p className="mb-5 text-xs text-[#a09fa6]">
-          <span className="font-medium text-[#ececef]">{employee.name}</span> will be permanently
+      <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] p-6 shadow-2xl">
+        <h2 className="mb-2 text-sm font-semibold text-[var(--color-text-primary)]">Delete employee?</h2>
+        <p className="mb-5 text-xs text-[var(--color-text-secondary)]">
+          <span className="font-medium text-[var(--color-text-primary)]">{employee.name}</span> will be permanently
           deleted. All their assignments will be deleted too.
         </p>
         <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]"
+            className="rounded-lg px-4 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
           >
             Cancel
           </button>
@@ -292,7 +292,7 @@ function DeleteConfirmPanel({
             type="button"
             onClick={onConfirm}
             disabled={deleting}
-            className="rounded-lg bg-[#5c1e1e] px-4 py-2 text-sm font-medium text-[#f87171] transition-opacity disabled:opacity-40 hover:bg-[#6e2424]"
+            className="rounded-lg bg-[#5c1e1e] px-4 py-2 text-sm font-medium text-[var(--color-danger-text)] transition-opacity disabled:opacity-40 hover:bg-[#6e2424]"
           >
             {deleting ? "Deleting…" : "Delete"}
           </button>
@@ -321,22 +321,22 @@ function EmployeeListImportPanel({
     .map((name) => ({ name, initials: deriveInitials(name), role: null }));
 
   const inputCls =
-    "w-full rounded-lg border border-[#313036] bg-[#17161c] px-3 py-2 text-sm text-[#ececef] placeholder-[#4a4950] outline-none focus:border-[var(--color-accent)] transition-colors";
+    "w-full rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder-[#4a4950] outline-none focus:border-[var(--color-accent)] transition-colors";
 
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
       <div
-        className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(96vw,480px)] max-h-[min(90vh,600px)] flex flex-col rounded-2xl border border-[#313036] bg-[#1f1e24] shadow-2xl overflow-hidden"
+        className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(96vw,480px)] max-h-[min(90vh,600px)] flex flex-col rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-[#313036] px-5 py-4 flex-shrink-0">
+        <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4 flex-shrink-0">
           <div>
-            <h2 className="text-sm font-semibold text-[#ececef]">Import from list</h2>
-            <p className="text-xs text-[#6b6875] mt-0.5">One name per line — initials are auto-derived.</p>
+            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Import from list</h2>
+            <p className="text-xs text-[var(--color-text-muted)] mt-0.5">One name per line — initials are auto-derived.</p>
           </div>
           <button type="button" onClick={onClose} title="Close"
-            className="rounded-md p-1 text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+            className="rounded-md p-1 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
             </svg>
@@ -354,14 +354,14 @@ function EmployeeListImportPanel({
           />
           {parsed.length > 0 && (
             <div className="flex flex-col gap-1.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
                 Preview — {parsed.length} employee{parsed.length !== 1 ? "s" : ""}
               </p>
-              <div className="max-h-48 overflow-y-auto rounded-lg border border-[#313036] divide-y divide-[#252429]">
+              <div className="max-h-48 overflow-y-auto rounded-lg border border-[var(--color-border-subtle)] divide-y divide-[#252429]">
                 {parsed.map((item, i) => (
                   <div key={i} className="flex items-center gap-3 px-3 py-2">
-                    <span className="flex-1 text-sm text-[#ececef]">{item.name}</span>
-                    <span className="font-mono text-[11px] text-[#6b6875] bg-[#313036] rounded px-1.5 py-0.5">
+                    <span className="flex-1 text-sm text-[var(--color-text-primary)]">{item.name}</span>
+                    <span className="font-mono text-[11px] text-[var(--color-text-muted)] bg-[var(--color-border-subtle)] rounded px-1.5 py-0.5">
                       {item.initials}
                     </span>
                   </div>
@@ -371,9 +371,9 @@ function EmployeeListImportPanel({
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-[#313036] px-5 py-4 flex-shrink-0">
+        <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4 flex-shrink-0">
           <button type="button" onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+            className="rounded-lg px-4 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
             Cancel
           </button>
           <button type="button" onClick={() => onImport(parsed)}
@@ -406,16 +406,16 @@ function EmployeeJsonImportPanel({
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
       <div
-        className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(96vw,480px)] max-h-[min(90vh,560px)] flex flex-col rounded-2xl border border-[#313036] bg-[#1f1e24] shadow-2xl overflow-hidden"
+        className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(96vw,480px)] max-h-[min(90vh,560px)] flex flex-col rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-[#313036] px-5 py-4 flex-shrink-0">
+        <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4 flex-shrink-0">
           <div>
-            <h2 className="text-sm font-semibold text-[#ececef]">Import from JSON</h2>
-            <p className="text-xs text-[#6b6875] mt-0.5">Import a previously exported employees file.</p>
+            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Import from JSON</h2>
+            <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Import a previously exported employees file.</p>
           </div>
           <button type="button" onClick={onClose} title="Close"
-            className="rounded-md p-1 text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+            className="rounded-md p-1 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
             </svg>
@@ -424,24 +424,24 @@ function EmployeeJsonImportPanel({
 
         <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4 min-h-0">
           {error && (
-            <div className="rounded-lg border border-[#5c1e1e] bg-[#3a1414] px-4 py-3 text-xs text-[#f87171]">
+            <div className="rounded-lg border border-[#5c1e1e] bg-[#3a1414] px-4 py-3 text-xs text-[var(--color-danger-text)]">
               {error}
             </div>
           )}
           {parsed && (
             <div className="flex flex-col gap-1.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
                 {parsed.length} employee{parsed.length !== 1 ? "s" : ""} ready to import
               </p>
-              <div className="max-h-64 overflow-y-auto rounded-lg border border-[#313036] divide-y divide-[#252429]">
+              <div className="max-h-64 overflow-y-auto rounded-lg border border-[var(--color-border-subtle)] divide-y divide-[#252429]">
                 {parsed.map((item, i) => (
                   <div key={i} className="flex items-center gap-3 px-3 py-2">
-                    <span className="flex-1 text-sm text-[#ececef]">{item.name}</span>
-                    <span className="font-mono text-[11px] text-[#6b6875] bg-[#313036] rounded px-1.5 py-0.5">
+                    <span className="flex-1 text-sm text-[var(--color-text-primary)]">{item.name}</span>
+                    <span className="font-mono text-[11px] text-[var(--color-text-muted)] bg-[var(--color-border-subtle)] rounded px-1.5 py-0.5">
                       {item.initials}
                     </span>
                     {item.role && (
-                      <span className="text-[11px] text-[#a09fa6]">{item.role}</span>
+                      <span className="text-[11px] text-[var(--color-text-secondary)]">{item.role}</span>
                     )}
                   </div>
                 ))}
@@ -450,9 +450,9 @@ function EmployeeJsonImportPanel({
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-[#313036] px-5 py-4 flex-shrink-0">
+        <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4 flex-shrink-0">
           <button type="button" onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+            className="rounded-lg px-4 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
             Cancel
           </button>
           <button type="button" onClick={onImport}
@@ -689,17 +689,17 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
   };
 
   return (
-    <div className="flex h-dvh bg-[#17161c] text-[#ececef]">
+    <div className="flex h-dvh bg-[var(--color-bg-base)] text-[var(--color-text-primary)]">
       <Sidebar mobileOpen={navSidebarOpen} onMobileClose={() => setNavSidebarOpen(false)} />
       <div className="flex flex-1 flex-col min-h-0 min-w-0 lg:pl-14">
 
       {/* Top bar */}
-      <header className="flex flex-shrink-0 items-center gap-4 border-b border-[#313036] bg-[#1f1e24] px-6 py-4">
+      <header className="flex flex-shrink-0 items-center gap-4 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] px-6 py-4">
         <button
           type="button"
           onClick={() => setNavSidebarOpen(true)}
           title="Open menu"
-          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef] lg:hidden"
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)] lg:hidden"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="3" y1="6" x2="21" y2="6" />
@@ -707,7 +707,7 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
             <line x1="3" y1="18" x2="21" y2="18" />
           </svg>
         </button>
-        <h1 className="text-sm font-semibold text-[#ececef]">Employees</h1>
+        <h1 className="text-sm font-semibold text-[var(--color-text-primary)]">Employees</h1>
 
         <div className="ml-auto flex items-center gap-2">
           {/* Import dropdown */}
@@ -716,7 +716,7 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
               ref={importBtnRef}
               type="button"
               onClick={() => setImportMenuOpen((o) => !o)}
-              className="flex items-center gap-1.5 rounded-lg border border-[#313036] bg-[#1f1e24] px-3 py-1.5 text-xs text-[#a09fa6] transition-colors hover:border-[#4a4950] hover:text-[#ececef]"
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-text-primary)]"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -732,11 +732,11 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
             {importMenuOpen && (
               <div
                 ref={importMenuRef}
-                className="absolute right-0 top-full mt-1 z-20 w-44 rounded-lg border border-[#313036] bg-[#1f1e24] shadow-xl overflow-hidden"
+                className="absolute right-0 top-full mt-1 z-20 w-44 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] shadow-xl overflow-hidden"
               >
                 <button type="button"
                   onClick={() => { setListImportOpen(true); setImportMenuOpen(false); }}
-                  className="flex w-full items-center gap-2 px-3 py-2.5 text-xs text-[#a09fa6] transition-colors hover:bg-[#28272d] hover:text-[#ececef]">
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-xs text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
                     <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
@@ -745,7 +745,7 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
                 </button>
                 <button type="button"
                   onClick={() => { jsonFileInputRef.current?.click(); setImportMenuOpen(false); }}
-                  className="flex w-full items-center gap-2 px-3 py-2.5 text-xs text-[#a09fa6] transition-colors hover:bg-[#28272d] hover:text-[#ececef]">
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-xs text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
@@ -758,7 +758,7 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
 
           {/* Export */}
           <button type="button" onClick={handleExport}
-            className="flex items-center gap-1.5 rounded-lg border border-[#313036] bg-[#1f1e24] px-3 py-1.5 text-xs text-[#a09fa6] transition-colors hover:border-[#4a4950] hover:text-[#ececef]">
+            className="flex items-center gap-1.5 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-text-primary)]">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="7 10 12 15 17 10" />
@@ -783,8 +783,8 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
       {/* Table */}
       <main className="flex-1 overflow-y-auto overflow-x-clip p-6">
         {initialEmployees.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[#313036] py-20 text-center">
-            <p className="text-sm text-[#6b6875]">No employees yet</p>
+          <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--color-border-subtle)] py-20 text-center">
+            <p className="text-sm text-[var(--color-text-muted)]">No employees yet</p>
             <button
               type="button"
               onClick={openAdd}
@@ -794,18 +794,18 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-[#313036]">
+          <div className="overflow-x-auto rounded-xl border border-[var(--color-border-subtle)]">
             <table className="w-full min-w-[480px] text-left text-sm">
               <thead>
-                <tr className="border-b border-[#313036] bg-[#1f1e24]">
+                <tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-page)]">
                   {([ ["name", "Name"], ["initials", "Initials"], ["role", "Role"] ] as [EmpSortKey, string][]).map(([key, label]) => (
-                    <th key={key} className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
-                      <button type="button" onClick={() => handleSort(key)} className="flex items-center gap-0.5 transition-colors hover:text-[#ececef]">
+                    <th key={key} className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+                      <button type="button" onClick={() => handleSort(key)} className="flex items-center gap-0.5 transition-colors hover:text-[var(--color-text-primary)]">
                         {label}<SortIcon dir={sortKey === key ? sortDir : null} />
                       </button>
                     </th>
                   ))}
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">Period</th>
+                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Period</th>
                   <th scope="col" className="w-20 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-transparent" aria-label="Actions">Actions</th>
                 </tr>
               </thead>
@@ -813,7 +813,7 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
                 {sortedEmployees.map((employee, i) => (
                   <tr
                     key={employee.id}
-                    className={`border-b border-[#252429] transition-colors hover:bg-[#252429] ${
+                    className={`border-b border-[#252429] transition-colors hover:bg-[var(--color-bg-raised)] ${
                       i === sortedEmployees.length - 1 ? "border-b-0" : ""
                     }`}
                   >
@@ -826,20 +826,20 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
                             className="h-7 w-7 rounded-full object-cover"
                           />
                         ) : (
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#313036]">
-                            <UserIcon size={16} className="text-[#6b6875]" />
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-border-subtle)]">
+                            <UserIcon size={16} className="text-[var(--color-text-muted)]" />
                           </div>
                         )}
-                        <span className="font-medium text-[#ececef]">{employee.name}</span>
+                        <span className="font-medium text-[var(--color-text-primary)]">{employee.name}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs text-[#a09fa6]">
+                    <td className="px-4 py-3 font-mono text-xs text-[var(--color-text-secondary)]">
                       {employee.initials}
                     </td>
-                    <td className="px-4 py-3 text-[#a09fa6]">
+                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                       {employee.role ?? "—"}
                     </td>
-                    <td className="px-4 py-3 text-xs text-[#6b6875] tabular-nums">
+                    <td className="px-4 py-3 text-xs text-[var(--color-text-muted)] tabular-nums">
                       {employee.startDate ?? "∞"} — {employee.endDate ?? "∞"}
                     </td>
                     <td className="px-4 py-3">
@@ -848,7 +848,7 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
                           type="button"
                           onClick={() => openEdit(employee)}
                           title="Edit"
-                          className="rounded-md p-1.5 text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]"
+                          className="rounded-md p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -859,7 +859,7 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
                           type="button"
                           onClick={() => setDeleteTarget(employee)}
                           title="Delete"
-                          className="rounded-md p-1.5 text-[#6b6875] transition-colors hover:bg-[#3a1e1e] hover:text-[#f87171]"
+                          className="rounded-md p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[#3a1e1e] hover:text-[var(--color-danger-text)]"
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="3 6 5 6 21 6" />

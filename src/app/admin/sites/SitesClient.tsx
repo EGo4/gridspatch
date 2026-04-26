@@ -72,27 +72,27 @@ const STATUS_LABELS: Record<ProjectStatus, string> = {
 };
 
 const STATUS_BADGE: Record<ProjectStatus, string> = {
-  planned:  "bg-[#1a2535] text-[#60a5fa] border border-[#1e3145]",
-  active:   "bg-[#0f2e1e] text-[#4ade80] border border-[#1a4a2e]",
-  on_hold:  "bg-[#2c2619] text-[#fbbf24] border border-[#3d3319]",
-  done:     "bg-[#0f2020] text-[#34d399] border border-[#1a3530]",
-  inactive: "bg-[#252429] text-[#6b6875] border border-[#313036]",
+  planned:  "bg-[var(--color-status-planned-bg)] text-[var(--color-status-planned-txt)] border border-[var(--color-border-subtle)]",
+  active:   "bg-[var(--color-status-active-bg)] text-[var(--color-status-active-txt)] border border-[var(--color-border-subtle)]",
+  on_hold:  "bg-[var(--color-status-hold-bg)] text-[var(--color-status-hold-txt)] border border-[var(--color-border-subtle)]",
+  done:     "bg-[var(--color-status-done-bg)] text-[var(--color-status-done-txt)] border border-[var(--color-border-subtle)]",
+  inactive: "bg-[var(--color-status-inactive-bg)] text-[var(--color-status-inactive-txt)] border border-[var(--color-border-subtle)]",
 };
 
 const STATUS_CHIP_BG: Record<ProjectStatus, string> = {
-  planned:  "bg-[#1a2535]",
-  active:   "bg-[#0f2e1e]",
-  on_hold:  "bg-[#2c2619]",
-  done:     "bg-[#0f2020]",
-  inactive: "bg-[#252429]",
+  planned:  "bg-[var(--color-status-planned-bg)]",
+  active:   "bg-[var(--color-status-active-bg)]",
+  on_hold:  "bg-[var(--color-status-hold-bg)]",
+  done:     "bg-[var(--color-status-done-bg)]",
+  inactive: "bg-[var(--color-status-inactive-bg)]",
 };
 
 const STATUS_CHIP_TEXT: Record<ProjectStatus, string> = {
-  planned:  "text-[#60a5fa]",
-  active:   "text-[#4ade80]",
-  on_hold:  "text-[#fbbf24]",
-  done:     "text-[#34d399]",
-  inactive: "text-[#6b6875]",
+  planned:  "text-[var(--color-status-planned-txt)]",
+  active:   "text-[var(--color-status-active-txt)]",
+  on_hold:  "text-[var(--color-status-hold-txt)]",
+  done:     "text-[var(--color-status-done-txt)]",
+  inactive: "text-[var(--color-status-inactive-txt)]",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -133,24 +133,24 @@ function SiteFormPanel({
 
   const field = (label: string, node: React.ReactNode) => (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">{label}</label>
+      <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{label}</label>
       {node}
     </div>
   );
 
   const inputCls =
-    "w-full rounded-lg border border-[#313036] bg-[#17161c] px-3 py-2 text-sm text-[#ececef] placeholder-[#4a4950] outline-none focus:border-[var(--color-accent)] transition-colors";
+    "w-full rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder-[#4a4950] outline-none focus:border-[var(--color-accent)] transition-colors";
 
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
-      <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-sm flex-col border-l border-[#313036] bg-[#1f1e24] shadow-2xl">
-        <div className="flex items-center justify-between border-b border-[#313036] px-5 py-4">
-          <h2 className="text-sm font-semibold text-[#ececef]">
+      <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-sm flex-col border-l border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] shadow-2xl">
+        <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
+          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
             {isEdit ? "Edit building site" : "New building site"}
           </h2>
           <button type="button" onClick={onClose} title="Close"
-            className="rounded-md p-1 text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+            className="rounded-md p-1 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
             <CloseIcon />
           </button>
         </div>
@@ -182,9 +182,9 @@ function SiteFormPanel({
             )}
           </div>
         </div>
-        <div className="flex items-center justify-end gap-2 border-t border-[#313036] px-5 py-4">
+        <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4">
           <button type="button" onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+            className="rounded-lg px-4 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
             Cancel
           </button>
           <button type="button" onClick={onSave} disabled={!form.name.trim() || saving}
@@ -207,19 +207,19 @@ function DeleteConfirmPanel({
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
-      <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[#313036] bg-[#1f1e24] p-6 shadow-2xl">
-        <h2 className="mb-2 text-sm font-semibold text-[#ececef]">Delete building site?</h2>
-        <p className="mb-5 text-xs text-[#a09fa6]">
-          <span className="font-medium text-[#ececef]">{site.name}</span> will be permanently
+      <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] p-6 shadow-2xl">
+        <h2 className="mb-2 text-sm font-semibold text-[var(--color-text-primary)]">Delete building site?</h2>
+        <p className="mb-5 text-xs text-[var(--color-text-secondary)]">
+          <span className="font-medium text-[var(--color-text-primary)]">{site.name}</span> will be permanently
           deleted. Existing assignments referencing this site will be unlinked.
         </p>
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+            className="rounded-lg px-4 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
             Cancel
           </button>
           <button type="button" onClick={onConfirm} disabled={deleting}
-            className="rounded-lg bg-[#5c1e1e] px-4 py-2 text-sm font-medium text-[#f87171] transition-opacity disabled:opacity-40 hover:bg-[#6e2424]">
+            className="rounded-lg bg-[#5c1e1e] px-4 py-2 text-sm font-medium text-[var(--color-danger-text)] transition-opacity disabled:opacity-40 hover:bg-[#6e2424]">
             {deleting ? "Deleting…" : "Delete"}
           </button>
         </div>
@@ -401,17 +401,17 @@ function SiteStatusPanel({
     <>
       <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} />
       <div
-        className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(96vw,520px)] max-h-[min(90vh,640px)] flex flex-col rounded-2xl border border-[#313036] bg-[#1f1e24] shadow-2xl overflow-hidden"
+        className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(96vw,520px)] max-h-[min(90vh,640px)] flex flex-col rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#313036] px-5 py-4 flex-shrink-0">
+        <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4 flex-shrink-0">
           <div>
-            <h2 className="text-sm font-semibold text-[#ececef]">Status transitions</h2>
-            <p className="text-xs text-[#6b6875] mt-0.5">{site.name}</p>
+            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Status transitions</h2>
+            <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{site.name}</p>
           </div>
           <button type="button" onClick={onClose} title="Close"
-            className="rounded-md p-1 text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+            className="rounded-md p-1 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
             <CloseIcon />
           </button>
         </div>
@@ -421,21 +421,21 @@ function SiteStatusPanel({
 
           {/* Existing transitions */}
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875] mb-2">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mb-2">
               Recorded transitions
             </p>
             {loading ? (
-              <p className="text-sm text-[#6b6875]">Loading…</p>
+              <p className="text-sm text-[var(--color-text-muted)]">Loading…</p>
             ) : transitions.length === 0 ? (
-              <p className="text-xs text-[#4a4950]">
+              <p className="text-xs text-[var(--color-text-faint)]">
                 No transitions set — defaults to <span className={`font-semibold ${STATUS_CHIP_TEXT.planned}`}>Planned</span>
               </p>
             ) : (
               <div className="flex flex-col gap-1">
                 {transitions.map((t) => (
                   <div key={t.weekStartIso}
-                    className="flex items-center gap-3 rounded-lg bg-[#28272d] px-3 py-2">
-                    <span className="flex-1 text-xs text-[#a09fa6]">
+                    className="flex items-center gap-3 rounded-lg bg-[var(--color-bg-surface)] px-3 py-2">
+                    <span className="flex-1 text-xs text-[var(--color-text-secondary)]">
                       From {formatWeekLabel(t.weekStartIso)}
                     </span>
                     <StatusBadge status={t.status} />
@@ -444,7 +444,7 @@ function SiteStatusPanel({
                       title="Remove transition"
                       disabled={deletingWeek === t.weekStartIso}
                       onClick={() => void handleDelete(t.weekStartIso)}
-                      className="rounded p-1 text-[#6b6875] transition-colors hover:text-[#f87171] disabled:opacity-40"
+                      className="rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-danger-text)] disabled:opacity-40"
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -456,11 +456,11 @@ function SiteStatusPanel({
             )}
           </div>
 
-          <div className="border-t border-[#313036]" />
+          <div className="border-t border-[var(--color-border-subtle)]" />
 
           {/* Set transition */}
           <div className="flex flex-col gap-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
               Set transition
             </p>
 
@@ -469,13 +469,13 @@ function SiteStatusPanel({
               ref={triggerRef}
               type="button"
               onClick={openPicker}
-              className="w-full flex items-center justify-between rounded-lg border border-[#313036] bg-[#17161c] px-3 py-2 text-sm text-left transition-colors hover:border-[var(--color-accent)] focus:outline-none focus:border-[var(--color-accent)]"
+              className="w-full flex items-center justify-between rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 py-2 text-sm text-left transition-colors hover:border-[var(--color-accent)] focus:outline-none focus:border-[var(--color-accent)]"
             >
-              <span className={selectedWeek ? "text-[#ececef]" : "text-[#4a4950]"}>
+              <span className={selectedWeek ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-faint)]"}>
                 {selectedWeek ? formatWeekLabel(selectedWeek) : "Select a week…"}
               </span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
-                className={`text-[#6b6875] transition-transform ${weekPickerOpen ? "rotate-180" : ""}`}>
+                className={`text-[var(--color-text-muted)] transition-transform ${weekPickerOpen ? "rotate-180" : ""}`}>
                 <polyline points="6 9 12 15 18 9" />
               </svg>
             </button>
@@ -483,7 +483,7 @@ function SiteStatusPanel({
             {/* Available transitions */}
             {currentEffective && (
               <div className="flex flex-col gap-2">
-                <p className="text-[11px] text-[#6b6875]">
+                <p className="text-[11px] text-[var(--color-text-muted)]">
                   Effective status: <StatusBadge status={currentEffective} />
                   <span className="ml-1.5">→ transition to:</span>
                 </p>
@@ -502,12 +502,12 @@ function SiteStatusPanel({
                         className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
                           pickedStatus === s
                             ? `${STATUS_CHIP_BG[s]} ${STATUS_CHIP_TEXT[s]} ring-1 ring-white/30`
-                            : "bg-[#28272d] text-[#6b6875] hover:text-[#a09fa6]"
+                            : "bg-[var(--color-bg-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
                         }`}
                       >
                         {STATUS_LABELS[s]}
                         {(getSuperStatus(currentEffective!) === "completed" && getSuperStatus(s) === "ongoing") || wouldAffectLater ? (
-                          <span className="ml-1 text-[#fbbf24]">⚠</span>
+                          <span className="ml-1 text-[var(--color-warn-text)]">⚠</span>
                         ) : null}
                       </button>
                     );
@@ -518,7 +518,7 @@ function SiteStatusPanel({
 
             {/* Block message */}
             {blockMsg && (
-              <div className="flex items-start gap-2 rounded-lg border border-[#4a1e1e] bg-[#2c1212] px-3 py-2 text-xs text-[#f87171]">
+              <div className="flex items-start gap-2 rounded-lg border border-[#4a1e1e] bg-[#2c1212] px-3 py-2 text-xs text-[var(--color-danger-text)]">
                 <svg className="mt-0.5 flex-shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="12" /><line x1="12" y1="16" x2="12.01" y2="16" />
                 </svg>
@@ -528,25 +528,25 @@ function SiteStatusPanel({
 
             {/* Warning: completed → ongoing */}
             {warnOngoing && isCompletedToOngoing && (
-              <div className="flex items-start gap-3 rounded-lg border border-[#4a3b1a] bg-[#2c2210] px-3 py-3">
-                <svg className="mt-0.5 flex-shrink-0 text-[#fbbf24]" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <div className="flex items-start gap-3 rounded-lg border border-[var(--color-warn-border)] bg-[var(--color-warn-bg)] px-3 py-3">
+                <svg className="mt-0.5 flex-shrink-0 text-[var(--color-warn-text)]" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                   <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
                 <div className="flex-1">
-                  <p className="text-xs font-semibold text-[#fbbf24]">Reverting a completed site to ongoing</p>
-                  <p className="mt-1 text-[11px] text-[#a09fa6]">
+                  <p className="text-xs font-semibold text-[var(--color-warn-text)]">Reverting a completed site to ongoing</p>
+                  <p className="mt-1 text-[11px] text-[var(--color-text-secondary)]">
                     All transitions currently marked <strong>Done</strong> or <strong>Inactive</strong> will be reset to <strong>On hold</strong>.
                     This cannot be undone automatically.
                   </p>
                 </div>
                 <div className="flex flex-col gap-1.5 flex-shrink-0">
                   <button type="button" onClick={() => void handleApply(true)} disabled={applying}
-                    className="rounded-lg bg-[#fbbf24] px-3 py-1.5 text-xs font-semibold text-[#1a1500] transition-opacity hover:opacity-90 disabled:opacity-50">
+                    className="rounded-lg bg-[var(--color-warn-text)] px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
                     {applying ? "Applying…" : "Apply anyway"}
                   </button>
                   <button type="button" onClick={() => setWarnOngoing(false)}
-                    className="rounded-lg px-3 py-1.5 text-xs text-[#6b6875] hover:text-[#a09fa6] text-center">
+                    className="rounded-lg px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] text-center">
                     Cancel
                   </button>
                 </div>
@@ -555,16 +555,16 @@ function SiteStatusPanel({
 
             {/* Warning: ongoing_after_completed */}
             {warnOngoingAfter && pickedStatus && (
-              <div className="flex items-start gap-3 rounded-lg border border-[#4a3b1a] bg-[#2c2210] px-3 py-3">
-                <svg className="mt-0.5 flex-shrink-0 text-[#fbbf24]" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <div className="flex items-start gap-3 rounded-lg border border-[var(--color-warn-border)] bg-[var(--color-warn-bg)] px-3 py-3">
+                <svg className="mt-0.5 flex-shrink-0 text-[var(--color-warn-text)]" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                   <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
                 <div className="flex-1">
-                  <p className="text-xs font-semibold text-[#fbbf24]">
+                  <p className="text-xs font-semibold text-[var(--color-warn-text)]">
                     Later ongoing transitions will be removed
                   </p>
-                  <p className="mt-1 text-[11px] text-[#a09fa6]">
+                  <p className="mt-1 text-[11px] text-[var(--color-text-secondary)]">
                     {laterOngoingAffected} transition{laterOngoingAffected !== 1 ? "s" : ""} after this week{" "}
                     {laterOngoingAffected !== 1 ? "are" : "is"} <strong>Active</strong> or <strong>On hold</strong> and would
                     contradict the <strong>{STATUS_LABELS[pickedStatus]}</strong> state set here. They will be permanently deleted.
@@ -572,11 +572,11 @@ function SiteStatusPanel({
                 </div>
                 <div className="flex flex-col gap-1.5 flex-shrink-0">
                   <button type="button" onClick={() => void handleApply(true)} disabled={applying}
-                    className="rounded-lg bg-[#fbbf24] px-3 py-1.5 text-xs font-semibold text-[#1a1500] transition-opacity hover:opacity-90 disabled:opacity-50">
+                    className="rounded-lg bg-[var(--color-warn-text)] px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
                     {applying ? "Applying…" : "Apply anyway"}
                   </button>
                   <button type="button" onClick={() => setWarnOngoingAfter(false)}
-                    className="rounded-lg px-3 py-1.5 text-xs text-[#6b6875] hover:text-[#a09fa6] text-center">
+                    className="rounded-lg px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] text-center">
                     Cancel
                   </button>
                 </div>
@@ -587,15 +587,15 @@ function SiteStatusPanel({
 
         {/* Footer */}
         {!warnOngoing && !warnOngoingAfter && (
-          <div className="border-t border-[#313036] px-5 py-4 flex-shrink-0 flex items-center justify-between">
-            <p className="text-[11px] text-[#4a4950]">
+          <div className="border-t border-[var(--color-border-subtle)] px-5 py-4 flex-shrink-0 flex items-center justify-between">
+            <p className="text-[11px] text-[var(--color-text-faint)]">
               {transitions.length === 0
                 ? "No transitions — project is Planned by default"
                 : `${transitions.length} transition${transitions.length !== 1 ? "s" : ""} recorded`}
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={onClose}
-                className="rounded-lg px-4 py-2 text-xs text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+                className="rounded-lg px-4 py-2 text-xs text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
                 Close
               </button>
               <button
@@ -615,13 +615,13 @@ function SiteStatusPanel({
       {weekPickerOpen && dropdownPos && (
         <div
           ref={dropdownRef}
-          className="fixed z-[9999] flex flex-col rounded-lg border border-[#313036] bg-[#1f1e24] shadow-2xl overflow-hidden"
+          className="fixed z-[9999] flex flex-col rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] shadow-2xl overflow-hidden"
         >
           {/* Load more above */}
           <button
             type="button"
             onClick={() => setWeeksBefore((n) => n + LOAD_STEP)}
-            className="flex items-center justify-center gap-1.5 py-2 text-[11px] text-[#6b6875] hover:text-[#a09fa6] hover:bg-[#28272d] transition-colors flex-shrink-0 border-b border-[#252429]"
+            className="flex items-center justify-center gap-1.5 py-2 text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-surface)] transition-colors flex-shrink-0 border-b border-[#252429]"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="18 15 12 9 6 15" />
@@ -641,11 +641,11 @@ function SiteStatusPanel({
                   key={weekIso}
                   type="button"
                   onClick={() => handleWeekSelect(weekIso)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-left transition-colors hover:bg-[#28272d] ${isSelected ? "bg-[#28272d]" : ""}`}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-left transition-colors hover:bg-[var(--color-bg-surface)] ${isSelected ? "bg-[var(--color-bg-surface)]" : ""}`}
                 >
-                  <span className={`flex-1 ${isCurrent ? "font-semibold text-[#ececef]" : "text-[#a09fa6]"}`}>
+                  <span className={`flex-1 ${isCurrent ? "font-semibold text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)]"}`}>
                     {formatWeekLabel(weekIso)}
-                    {isCurrent && <span className="ml-1.5 text-[#4a4950]">(current)</span>}
+                    {isCurrent && <span className="ml-1.5 text-[var(--color-text-faint)]">(current)</span>}
                   </span>
                   {hasTransition && (
                     <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] flex-shrink-0" />
@@ -660,7 +660,7 @@ function SiteStatusPanel({
           <button
             type="button"
             onClick={() => setWeeksAfter((n) => n + LOAD_STEP)}
-            className="flex items-center justify-center gap-1.5 py-2 text-[11px] text-[#6b6875] hover:text-[#a09fa6] hover:bg-[#28272d] transition-colors flex-shrink-0 border-t border-[#252429]"
+            className="flex items-center justify-center gap-1.5 py-2 text-[11px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-surface)] transition-colors flex-shrink-0 border-t border-[#252429]"
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="6 9 12 15 18 9" />
@@ -699,22 +699,22 @@ function SiteListImportPanel({
     .map((name) => ({ name, description: null, startDate: null, endDate: null }));
 
   const inputCls =
-    "w-full rounded-lg border border-[#313036] bg-[#17161c] px-3 py-2 text-sm text-[#ececef] placeholder-[#4a4950] outline-none focus:border-[var(--color-accent)] transition-colors";
+    "w-full rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder-[#4a4950] outline-none focus:border-[var(--color-accent)] transition-colors";
 
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
       <div
-        className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(96vw,480px)] max-h-[min(90vh,600px)] flex flex-col rounded-2xl border border-[#313036] bg-[#1f1e24] shadow-2xl overflow-hidden"
+        className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(96vw,480px)] max-h-[min(90vh,600px)] flex flex-col rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-[#313036] px-5 py-4 flex-shrink-0">
+        <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4 flex-shrink-0">
           <div>
-            <h2 className="text-sm font-semibold text-[#ececef]">Import from list</h2>
-            <p className="text-xs text-[#6b6875] mt-0.5">One site name per line.</p>
+            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Import from list</h2>
+            <p className="text-xs text-[var(--color-text-muted)] mt-0.5">One site name per line.</p>
           </div>
           <button type="button" onClick={onClose} title="Close"
-            className="rounded-md p-1 text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+            className="rounded-md p-1 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
             <CloseIcon />
           </button>
         </div>
@@ -730,21 +730,21 @@ function SiteListImportPanel({
           />
           {parsed.length > 0 && (
             <div className="flex flex-col gap-1.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
                 Preview — {parsed.length} site{parsed.length !== 1 ? "s" : ""}
               </p>
-              <div className="max-h-48 overflow-y-auto rounded-lg border border-[#313036] divide-y divide-[#252429]">
+              <div className="max-h-48 overflow-y-auto rounded-lg border border-[var(--color-border-subtle)] divide-y divide-[#252429]">
                 {parsed.map((item, i) => (
-                  <div key={i} className="px-3 py-2 text-sm text-[#ececef]">{item.name}</div>
+                  <div key={i} className="px-3 py-2 text-sm text-[var(--color-text-primary)]">{item.name}</div>
                 ))}
               </div>
             </div>
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-[#313036] px-5 py-4 flex-shrink-0">
+        <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4 flex-shrink-0">
           <button type="button" onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+            className="rounded-lg px-4 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
             Cancel
           </button>
           <button type="button" onClick={() => onImport(parsed)}
@@ -775,37 +775,37 @@ function SiteJsonImportPanel({
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
       <div
-        className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(96vw,480px)] max-h-[min(90vh,560px)] flex flex-col rounded-2xl border border-[#313036] bg-[#1f1e24] shadow-2xl overflow-hidden"
+        className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[min(96vw,480px)] max-h-[min(90vh,560px)] flex flex-col rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] shadow-2xl overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-[#313036] px-5 py-4 flex-shrink-0">
+        <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4 flex-shrink-0">
           <div>
-            <h2 className="text-sm font-semibold text-[#ececef]">Import from JSON</h2>
-            <p className="text-xs text-[#6b6875] mt-0.5">Import a previously exported sites file.</p>
+            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Import from JSON</h2>
+            <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Import a previously exported sites file.</p>
           </div>
           <button type="button" onClick={onClose} title="Close"
-            className="rounded-md p-1 text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+            className="rounded-md p-1 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
             <CloseIcon />
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4 min-h-0">
           {error && (
-            <div className="rounded-lg border border-[#5c1e1e] bg-[#3a1414] px-4 py-3 text-xs text-[#f87171]">
+            <div className="rounded-lg border border-[#5c1e1e] bg-[#3a1414] px-4 py-3 text-xs text-[var(--color-danger-text)]">
               {error}
             </div>
           )}
           {parsed && (
             <div className="flex flex-col gap-1.5">
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
                 {parsed.length} site{parsed.length !== 1 ? "s" : ""} ready to import
               </p>
-              <div className="max-h-64 overflow-y-auto rounded-lg border border-[#313036] divide-y divide-[#252429]">
+              <div className="max-h-64 overflow-y-auto rounded-lg border border-[var(--color-border-subtle)] divide-y divide-[#252429]">
                 {parsed.map((item, i) => (
                   <div key={i} className="px-3 py-2">
-                    <p className="text-sm text-[#ececef]">{item.name}</p>
+                    <p className="text-sm text-[var(--color-text-primary)]">{item.name}</p>
                     {(item.startDate ?? item.endDate) && (
-                      <p className="text-[11px] text-[#6b6875] mt-0.5">
+                      <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
                         {item.startDate ?? "—"} → {item.endDate ?? "—"}
                       </p>
                     )}
@@ -816,9 +816,9 @@ function SiteJsonImportPanel({
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-[#313036] px-5 py-4 flex-shrink-0">
+        <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4 flex-shrink-0">
           <button type="button" onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+            className="rounded-lg px-4 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
             Cancel
           </button>
           <button type="button" onClick={onImport}
@@ -1048,17 +1048,17 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
   void isPending;
 
   return (
-    <div className="flex h-dvh bg-[#17161c] text-[#ececef]">
+    <div className="flex h-dvh bg-[var(--color-bg-base)] text-[var(--color-text-primary)]">
       <Sidebar mobileOpen={navSidebarOpen} onMobileClose={() => setNavSidebarOpen(false)} />
       <div className="flex flex-1 flex-col min-h-0 min-w-0 lg:pl-14">
 
       {/* Top bar */}
-      <header className="flex flex-shrink-0 items-center gap-4 border-b border-[#313036] bg-[#1f1e24] px-6 py-4">
+      <header className="flex flex-shrink-0 items-center gap-4 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] px-6 py-4">
         <button
           type="button"
           onClick={() => setNavSidebarOpen(true)}
           title="Open menu"
-          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef] lg:hidden"
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)] lg:hidden"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="3" y1="6" x2="21" y2="6" />
@@ -1066,7 +1066,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
             <line x1="3" y1="18" x2="21" y2="18" />
           </svg>
         </button>
-        <h1 className="text-sm font-semibold text-[#ececef]">Building Sites</h1>
+        <h1 className="text-sm font-semibold text-[var(--color-text-primary)]">Building Sites</h1>
 
         <div className="ml-auto flex items-center gap-2">
           {/* Import dropdown */}
@@ -1075,7 +1075,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
               ref={importBtnRef}
               type="button"
               onClick={() => setImportMenuOpen((o) => !o)}
-              className="flex items-center gap-1.5 rounded-lg border border-[#313036] bg-[#1f1e24] px-3 py-1.5 text-xs text-[#a09fa6] transition-colors hover:border-[#4a4950] hover:text-[#ececef]"
+              className="flex items-center gap-1.5 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-text-primary)]"
             >
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -1091,11 +1091,11 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
             {importMenuOpen && (
               <div
                 ref={importMenuRef}
-                className="absolute right-0 top-full mt-1 z-20 w-44 rounded-lg border border-[#313036] bg-[#1f1e24] shadow-xl overflow-hidden"
+                className="absolute right-0 top-full mt-1 z-20 w-44 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] shadow-xl overflow-hidden"
               >
                 <button type="button"
                   onClick={() => { setListImportOpen(true); setImportMenuOpen(false); }}
-                  className="flex w-full items-center gap-2 px-3 py-2.5 text-xs text-[#a09fa6] transition-colors hover:bg-[#28272d] hover:text-[#ececef]">
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-xs text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
                     <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
@@ -1104,7 +1104,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
                 </button>
                 <button type="button"
                   onClick={() => { jsonFileInputRef.current?.click(); setImportMenuOpen(false); }}
-                  className="flex w-full items-center gap-2 px-3 py-2.5 text-xs text-[#a09fa6] transition-colors hover:bg-[#28272d] hover:text-[#ececef]">
+                  className="flex w-full items-center gap-2 px-3 py-2.5 text-xs text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
@@ -1117,7 +1117,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
 
           {/* Export */}
           <button type="button" onClick={handleExport}
-            className="flex items-center gap-1.5 rounded-lg border border-[#313036] bg-[#1f1e24] px-3 py-1.5 text-xs text-[#a09fa6] transition-colors hover:border-[#4a4950] hover:text-[#ececef]">
+            className="flex items-center gap-1.5 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-text-primary)]">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
               <polyline points="7 10 12 15 17 10" />
@@ -1142,46 +1142,46 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
       {/* Table */}
       <main className="flex-1 overflow-y-auto overflow-x-clip p-6">
         {sites.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[#313036] py-20 text-center">
-            <p className="text-sm text-[#6b6875]">No building sites yet</p>
+          <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--color-border-subtle)] py-20 text-center">
+            <p className="text-sm text-[var(--color-text-muted)]">No building sites yet</p>
             <button type="button" onClick={openAdd}
               className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-xs font-medium text-white transition-opacity hover:opacity-90">
               Add your first site
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-[#313036]">
+          <div className="overflow-x-auto rounded-xl border border-[var(--color-border-subtle)]">
             <table className="w-full min-w-[700px] text-left text-sm">
               <thead>
-                <tr className="border-b border-[#313036] bg-[#1f1e24]">
+                <tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-page)]">
                   {([ ["name","Name"], ["status","Status"], ["startDate","Start date"], ["endDate","End date"], ["manager","Manager"], ["description","Description"] ] as [SiteSortKey, string][]).map(([key, label]) => (
-                    <th key={key} className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
-                      <button type="button" onClick={() => handleSort(key)} className="flex items-center gap-0.5 transition-colors hover:text-[#ececef]">
+                    <th key={key} className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+                      <button type="button" onClick={() => handleSort(key)} className="flex items-center gap-0.5 transition-colors hover:text-[var(--color-text-primary)]">
                         {label}<SortIcon dir={sortKey === key ? sortDir : null} />
                       </button>
                     </th>
                   ))}
-                  <th className="w-24 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">Actions</th>
+                  <th className="w-24 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {sortedSites.map((site, i) => (
                   <tr key={site.id}
-                    className={`border-b border-[#252429] transition-colors hover:bg-[#252429] ${i === sortedSites.length - 1 ? "border-b-0" : ""}`}>
-                    <td className="px-4 py-3 font-medium text-[#ececef]">{site.name}</td>
+                    className={`border-b border-[#252429] transition-colors hover:bg-[var(--color-bg-raised)] ${i === sortedSites.length - 1 ? "border-b-0" : ""}`}>
+                    <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">{site.name}</td>
                     <td className="px-4 py-3"><StatusBadge status={site.status} /></td>
-                    <td className="px-4 py-3 text-[#a09fa6]">{formatDate(site.startDate)}</td>
-                    <td className="px-4 py-3 text-[#a09fa6]">{formatDate(site.endDate)}</td>
-                    <td className="px-4 py-3 text-[#a09fa6]">
-                      {site.constructionManagerName ?? <span className="text-[#4a4950]">—</span>}
+                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">{formatDate(site.startDate)}</td>
+                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">{formatDate(site.endDate)}</td>
+                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                      {site.constructionManagerName ?? <span className="text-[var(--color-text-faint)]">—</span>}
                     </td>
-                    <td className="max-w-xs px-4 py-3 text-[#a09fa6]">
+                    <td className="max-w-xs px-4 py-3 text-[var(--color-text-secondary)]">
                       <span className="line-clamp-1">{site.description ?? "—"}</span>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
                         <button type="button" onClick={() => setStatusSite(site)} title="Status transitions"
-                          className="rounded-md p-1.5 text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+                          className="rounded-md p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
                             <line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" />
@@ -1189,14 +1189,14 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
                           </svg>
                         </button>
                         <button type="button" onClick={() => openEdit(site)} title="Edit"
-                          className="rounded-md p-1.5 text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]">
+                          className="rounded-md p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                           </svg>
                         </button>
                         <button type="button" onClick={() => setDeleteTarget(site)} title="Delete"
-                          className="rounded-md p-1.5 text-[#6b6875] transition-colors hover:bg-[#3a1e1e] hover:text-[#f87171]">
+                          className="rounded-md p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[#3a1e1e] hover:text-[var(--color-danger-text)]">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="3 6 5 6 21 6" />
                             <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />

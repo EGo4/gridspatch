@@ -10,7 +10,7 @@ body {
   overflow: hidden;
 }
 
-/* ── Custom dark scrollbars (Webkit / Blink) ─────────────────────────────────── */
+/* ── Scrollbars ─────────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
   width: 5px;
   height: 5px;
@@ -19,17 +19,17 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #3a3940;
+  background: var(--color-sb-thumb);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #4a4950;
+  background: var(--color-sb-thumb-hover);
 }
 
 /* Firefox */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #3a3940 transparent;
+  scrollbar-color: var(--color-sb-thumb) transparent;
 }
 
 @theme {
@@ -47,12 +47,6 @@ html {
 }
 
 /* ── Pool overlay constants ──────────────────────────────────────────────────── */
-/*
- * The pool is a fixed overlay pinned to the bottom of the viewport.
- * It scrolls independently and caps at --pool-max-height so it never
- * consume more than that fraction of screen space.
- * Change --pool-max-height here to adjust the cap site-wide.
- */
 :root {
   --pool-max-height: 25vh;
   --ui-scale: 1;
@@ -60,8 +54,6 @@ html {
 
 /*
  * Pool sits at the bottom of the flex-column content area (sibling of main).
- * flex-shrink: 0 keeps it at its natural size; max-height caps it so a large
- * pool never dominates the screen; overflow-y: auto lets it scroll internally.
  */
 .pool-overlay {
   flex-shrink: 0;
@@ -69,15 +61,231 @@ html {
   overflow-y: auto;
 }
 
+/* ── Theme tokens ─────────────────────────────────────────────────────────────
+ *
+ * All theme-sensitive colors are defined here as CSS custom properties.
+ * The [data-theme="dark"] block (default) matches the original hand-picked dark
+ * palette. The [data-theme="light"] block provides a light-mode override.
+ *
+ * Naming convention:
+ *   --bg-*       background layers (darkest → lightest in dark mode)
+ *   --border-*   border / divider shades
+ *   --text-*     text hierarchy
+ *   --sb-*       scrollbar
+ */
+
+/* Dark theme (default) */
+[data-theme="dark"] {
+  /* Backgrounds */
+  --color-bg-base:        #17161c; /* deepest bg, e.g. input fill */
+  --color-bg-page:        #1f1e24; /* page / main surface */
+  --color-bg-surface:     #28272d; /* card / panel surface */
+  --color-bg-raised:      #302f36; /* raised element e.g. pool card */
+  --color-bg-overlay:     #1f1e24; /* popover / modal bg */
+  --color-bg-hover:       #333238; /* hover state on surface */
+  --color-bg-active:      #3a3940; /* active / pressed */
+  --color-bg-input:       #17161c; /* form input background */
+
+  /* Borders */
+  --color-border-subtle:  #313036;
+  --color-border-muted:   #3a3940;
+  --color-border-strong:  #4a4950;
+
+  /* Text */
+  --color-text-primary:   #ececef;
+  --color-text-secondary: #a09fa6;
+  --color-text-muted:     #6b6875;
+  --color-text-faint:     #4a4950;
+
+  /* Scrollbar */
+  --color-sb-thumb:       #3a3940;
+  --color-sb-thumb-hover: #4a4950;
+
+  /* Nav active highlight */
+  --color-nav-active-bg:  #252e3d;
+
+  /* Sick / vacation availability card */
+  --color-avail-bg:       #302f36;
+  --color-avail-border:   #3a3940;
+  --color-avail-hover:    #5a5961;
+
+  /* Sick fly-btn */
+  --color-fly-sick:       #4e2e2e;
+  --color-fly-sick-hover: #5e3838;
+  /* Vacation fly-btn */
+  --color-fly-vacation:       #4a3d1a;
+  --color-fly-vacation-hover: #5a4c24;
+  /* Assign-site fly-btn */
+  --color-fly-assign:       #1e3a2e;
+  --color-fly-assign-hover: #275240;
+  /* Split fly-btn */
+  --color-fly-split:       #1e3a5f;
+  --color-fly-split-hover: #274d7a;
+  /* Merge fly-btn */
+  --color-fly-merge:       #1a3a2e;
+  --color-fly-merge-hover: #234d3c;
+
+  /* Half-day divider */
+  --color-half-divider:   #4a4950;
+
+  /* AM / PM half-day columns */
+  --color-col-divider:    #3a3940;
+
+  /* Day-header active drag bg */
+  --color-day-drag-bg:    #2d3748;
+
+  /* Employee card states */
+  --color-card-bg:        #302f36;
+  --color-card-hover:     #4a4950;
+  --color-card-open:      #3a3940;
+  --color-card-open-border: #5a5961;
+  --color-card-drag:      #3f3e45;
+  --color-card-drag-border: #5a5961;
+  --color-avatar-bg:      #3a3940;
+
+  /* Copy-icon button */
+  --color-copy-btn:       #3a3940;
+  --color-copy-btn-hover: #4a4950;
+  --color-copy-btn-text:  #c8c4be;
+
+  /* Week/day selector pill */
+  --color-pill-bg:        #28272d;
+  --color-pill-divider:   #3a3940;
+  --color-pill-text:      #8b8893;
+
+  /* Status chip bg overrides (light enough to read) */
+  --color-status-planned-bg:  #1a2535;
+  --color-status-planned-txt: #60a5fa;
+  --color-status-active-bg:   #0f2e1e;
+  --color-status-active-txt:  #4ade80;
+  --color-status-hold-bg:     #2c2619;
+  --color-status-hold-txt:    #fbbf24;
+  --color-status-done-bg:     #0f2020;
+  --color-status-done-txt:    #34d399;
+  --color-status-inactive-bg: #252429;
+  --color-status-inactive-txt: #6b6875;
+
+  /* Warning banner */
+  --color-warn-bg:        #2c2619;
+  --color-warn-border:    #4a3b1a;
+  --color-warn-text:      #fbbf24;
+
+  /* Danger (logout hover, error) */
+  --color-danger-bg:      #2c1a1a;
+  --color-danger-text:    #f87171;
+  --color-danger-hover:   #fca5a5;
+}
+
+/* Light theme */
+[data-theme="light"] {
+  /* Backgrounds */
+  --color-bg-base:        #ffffff;
+  --color-bg-page:        #f3f4f6;
+  --color-bg-surface:     #ffffff;
+  --color-bg-raised:      #f9fafb;
+  --color-bg-overlay:     #ffffff;
+  --color-bg-hover:       #f3f4f6;
+  --color-bg-active:      #e5e7eb;
+  --color-bg-input:       #ffffff;
+
+  /* Borders */
+  --color-border-subtle:  #e5e7eb;
+  --color-border-muted:   #d1d5db;
+  --color-border-strong:  #9ca3af;
+
+  /* Text */
+  --color-text-primary:   #111827;
+  --color-text-secondary: #4b5563;
+  --color-text-muted:     #6b7280;
+  --color-text-faint:     #9ca3af;
+
+  /* Scrollbar */
+  --color-sb-thumb:       #d1d5db;
+  --color-sb-thumb-hover: #9ca3af;
+
+  /* Nav active highlight */
+  --color-nav-active-bg:  #eff6ff;
+
+  /* Sick / vacation availability card */
+  --color-avail-bg:       #f9fafb;
+  --color-avail-border:   #e5e7eb;
+  --color-avail-hover:    #9ca3af;
+
+  /* Sick fly-btn */
+  --color-fly-sick:       #fee2e2;
+  --color-fly-sick-hover: #fecaca;
+  /* Vacation fly-btn */
+  --color-fly-vacation:       #fef3c7;
+  --color-fly-vacation-hover: #fde68a;
+  /* Assign-site fly-btn */
+  --color-fly-assign:       #d1fae5;
+  --color-fly-assign-hover: #a7f3d0;
+  /* Split fly-btn */
+  --color-fly-split:       #dbeafe;
+  --color-fly-split-hover: #bfdbfe;
+  /* Merge fly-btn */
+  --color-fly-merge:       #d1fae5;
+  --color-fly-merge-hover: #a7f3d0;
+
+  /* Half-day divider */
+  --color-half-divider:   #d1d5db;
+
+  /* AM / PM half-day columns */
+  --color-col-divider:    #e5e7eb;
+
+  /* Day-header active drag bg */
+  --color-day-drag-bg:    #eff6ff;
+
+  /* Employee card states */
+  --color-card-bg:        #f9fafb;
+  --color-card-hover:     #9ca3af;
+  --color-card-open:      #f3f4f6;
+  --color-card-open-border: #9ca3af;
+  --color-card-drag:      #e5e7eb;
+  --color-card-drag-border: #9ca3af;
+  --color-avatar-bg:      #e5e7eb;
+
+  /* Copy-icon button */
+  --color-copy-btn:       #e5e7eb;
+  --color-copy-btn-hover: #d1d5db;
+  --color-copy-btn-text:  #4b5563;
+
+  /* Week/day selector pill */
+  --color-pill-bg:        #e5e7eb;
+  --color-pill-divider:   #d1d5db;
+  --color-pill-text:      #6b7280;
+
+  /* Status chip bg overrides */
+  --color-status-planned-bg:  #dbeafe;
+  --color-status-planned-txt: #1d4ed8;
+  --color-status-active-bg:   #dcfce7;
+  --color-status-active-txt:  #166534;
+  --color-status-hold-bg:     #fef3c7;
+  --color-status-hold-txt:    #92400e;
+  --color-status-done-bg:     #d1fae5;
+  --color-status-done-txt:    #065f46;
+  --color-status-inactive-bg: #f3f4f6;
+  --color-status-inactive-txt: #6b7280;
+
+  /* Warning banner */
+  --color-warn-bg:        #fffbeb;
+  --color-warn-border:    #fde68a;
+  --color-warn-text:      #92400e;
+
+  /* Danger */
+  --color-danger-bg:      #fee2e2;
+  --color-danger-text:    #dc2626;
+  --color-danger-hover:   #b91c1c;
+}
+
 /* ── AM / PM colour tokens ─────────────────────────────────────────────────── */
 /*
  * --am-hue / --pm-hue are the user-configurable hue colours (mid-brightness,
  * saturated). All four zone variants are derived from them via color-mix().
  * Override --am-hue / --pm-hue (e.g. from user preferences) to retheme both
- * zones at once. Default hues are reverse-engineered to reproduce the original
- * hand-picked dark colours.
+ * zones at once.
  */
-:root {
+[data-theme="dark"] {
   --am-hue: #dcbe7d;
   --am-zone:        color-mix(in srgb, var(--am-hue) 20%, black);
   --am-zone-active: color-mix(in srgb, var(--am-hue) 26%, black);
@@ -91,25 +299,25 @@ html {
   --pm-border:      color-mix(in srgb, var(--pm-hue) 30%, black);
 }
 
-/* ── Employee card fly-out buttons ─────────────────────────────────────────── */
-/*
- * Card height ≈ 44 px  (p-1.5 × 2 = 12 px  +  avatar h-8 = 32 px).
- * Right-semicircle radius = 22 px.
- * Button diameter ≈ 36 px  (slightly under 90 % for aesthetics).
- *   → button radius = 18 px
- *
- * Vacation (🌴) — rightmost, concentric with the pill end:
- *   centre 22 px from right edge  →  right: 22 – 18 = 4 px
- *
- * Sick (💉) — one diameter + 4 px gap to the left:
- *   right: 4 + 36 + 4 = 44 px
- */
+[data-theme="light"] {
+  --am-hue: #d97706;
+  --am-zone:        color-mix(in srgb, var(--am-hue) 12%, white);
+  --am-zone-active: color-mix(in srgb, var(--am-hue) 20%, white);
+  --am-card:        color-mix(in srgb, var(--am-hue) 14%, white);
+  --am-border:      color-mix(in srgb, var(--am-hue) 30%, white);
 
+  --pm-hue: #3b82f6;
+  --pm-zone:        color-mix(in srgb, var(--pm-hue) 10%, white);
+  --pm-zone-active: color-mix(in srgb, var(--pm-hue) 18%, white);
+  --pm-card:        color-mix(in srgb, var(--pm-hue) 12%, white);
+  --pm-border:      color-mix(in srgb, var(--pm-hue) 25%, white);
+}
+
+/* ── Employee card fly-out buttons ─────────────────────────────────────────── */
 .fly-btn {
   position: absolute;
   top: 50%;
   width: 2.25rem;
-  /* 36 px */
   height: 2.25rem;
   border-radius: 9999px;
   display: flex;
@@ -121,41 +329,41 @@ html {
 
 .fly-btn-sick {
   right: 44px;
-  background-color: #4e2e2e;
+  background-color: var(--color-fly-sick);
   transform: translateY(-50%) scale(0);
   transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
   transition-delay: 50ms;
 }
 
 .fly-btn-sick:hover {
-  background-color: #5e3838;
+  background-color: var(--color-fly-sick-hover);
 }
 
 .fly-btn-vacation {
   right: 4px;
-  background-color: #4a3d1a;
+  background-color: var(--color-fly-vacation);
   transform: translateY(-50%) scale(0);
   transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
 }
 
 .fly-btn-vacation:hover {
-  background-color: #5a4c24;
+  background-color: var(--color-fly-vacation-hover);
 }
 
 /*
- * Assign-to-site (→) — pool cards only, third from right (same slot as split on project cards):
+ * Assign-to-site (→) — pool cards only, third from right:
  *   right: 44 + 36 + 4 = 84 px
  */
 .fly-btn-assign-site {
   right: 84px;
-  background-color: #1e3a2e;
+  background-color: var(--color-fly-assign);
   transform: translateY(-50%) scale(0);
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
   transition-delay: 100ms;
 }
 
 .fly-btn-assign-site:hover {
-  background-color: #275240;
+  background-color: var(--color-fly-assign-hover);
 }
 
 .card-open .fly-btn-assign-site {
@@ -170,14 +378,14 @@ html {
  */
 .fly-btn-split {
   right: 84px;
-  background-color: #1e3a5f;
+  background-color: var(--color-fly-split);
   transform: translateY(-50%) scale(0);
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
   transition-delay: 100ms;
 }
 
 .fly-btn-split:hover {
-  background-color: #274d7a;
+  background-color: var(--color-fly-split-hover);
 }
 
 /*
@@ -185,13 +393,13 @@ html {
  */
 .fly-btn-merge {
   right: 4px;
-  background-color: #1a3a2e;
+  background-color: var(--color-fly-merge);
   transform: translateY(-50%) scale(0);
   transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
 }
 
 .fly-btn-merge:hover {
-  background-color: #234d3c;
+  background-color: var(--color-fly-merge-hover);
 }
 
 /* Open state */
@@ -222,25 +430,16 @@ html {
 /* ── Half-day divider inside a day cell ─────────────────────────────────────── */
 .half-day-divider {
   width: 100%;
-  border-top: 1px dashed #4a4950;
+  border-top: 1px dashed var(--color-half-divider);
   margin: 2px 0;
 }
 
 /* ── Day cell — container query root ──────────────────────────────────────── */
-/*
- * Applied to each project day cell so that child container queries can
- * adapt the AM/PM layout based on the actual cell width.
- */
 .day-cell {
   container-type: inline-size;
 }
 
 /* ── AM / PM columns wrapper ──────────────────────────────────────────────── */
-/*
- * Stacked (column) by default — switches to side-by-side (row) once the
- * cell container is at least 260 px wide.  The threshold is chosen so that
- * two employee cards can sit comfortably next to each other.
- */
 .half-day-cols {
   display: flex;
   flex-direction: column;
@@ -253,11 +452,8 @@ html {
 }
 
 /* ── Divider between AM and PM ───────────────────────────────────────────── */
-/*
- * Horizontal line when stacked, vertical line when side-by-side.
- */
 .half-day-col-divider {
-  background-color: #3a3940;
+  background-color: var(--color-col-divider);
   flex-shrink: 0;
   /* Default (stacked): horizontal line */
   width: 100%;
@@ -275,15 +471,6 @@ html {
 }
 
 /* ── Half-day section visibility helpers ────────────────────────────────────── */
-/*
- * The AM/PM Droppables must always have a usable bounding rect so that
- * @hello-pangea/dnd (which snapshots Droppable positions at drag-start) can
- * register them as valid drop targets even before a split exists in this cell.
- *
- * Solution: always give each column a 32 px minimum height, but hide it via
- * opacity when there is nothing to show.  The opacity is toggled in JSX based
- * on `showHalfSection || snapshot.isDraggingOver`.
- */
 .half-col-visible {
   min-height: 40px;
 }
@@ -292,12 +479,6 @@ html {
   min-height: 32px;
 }
 
-/*
- * Half-day column flex sizing:
- *   Stacked (default): flex: 1 0 auto  — starts at content height, can grow,
- *     never shrinks below content, so cards never overflow into the other zone.
- *   Side-by-side (≥260px): flex: 1 1 0% — equal width split.
- */
 .half-day-col {
   flex: 0 0 auto;
 }
@@ -308,19 +489,11 @@ html {
   }
 }
 
-/*
- * Applied to the full-day Droppable when the split section is also visible,
- * so the split zone (not the full-day zone) fills the remaining cell height.
- */
 .fd-no-grow {
   flex-grow: 0;
   flex-shrink: 0;
 }
 
-/*
- * Applied to .half-day-cols when the split section is visible so the colored
- * AM/PM zones stretch to fill the rest of the cell height.
- */
 .half-day-cols-fill {
   flex-grow: 1;
   flex-shrink: 1;
@@ -328,11 +501,6 @@ html {
 }
 
 /* ── Site picker overlay ─────────────────────────────────────────────────────── */
-/*
- * Position is driven by --picker-left / --picker-bottom CSS custom properties
- * set inline on the element (custom properties are exempt from "no inline style"
- * lint rules since they carry no layout semantics on their own).
- */
 .site-picker {
   position: fixed;
   left: var(--picker-left);

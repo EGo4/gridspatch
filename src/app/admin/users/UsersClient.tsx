@@ -52,13 +52,13 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const ROLE_STYLES: Record<string, string> = {
-  construction_manager: "bg-[#1a2c3d] text-[#60a5fa] border border-[#1e3a52]",
-  admin:                "bg-[#2c1a3d] text-[#c084fc] border border-[#3a1e52]",
+  construction_manager: "bg-[var(--color-status-planned-bg)] text-[var(--color-status-planned-txt)] border border-[var(--color-border-subtle)]",
+  admin:                "bg-[var(--color-status-done-bg)] text-[var(--color-status-done-txt)] border border-[var(--color-border-subtle)]",
 };
 
 function RoleBadge({ role }: { role: string }) {
   const label = ROLE_LABELS[role] ?? role;
-  const style = ROLE_STYLES[role] ?? "bg-[#252429] text-[#6b6875] border border-[#313036]";
+  const style = ROLE_STYLES[role] ?? "bg-[var(--color-bg-raised)] text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]";
   return (
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${style}`}>
       {label}
@@ -88,18 +88,18 @@ function PhotoPicker({
 
   return (
     <div className="flex items-center gap-4">
-      <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#313036] bg-[#17161c]">
+      <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]">
         {previewSrc ? (
           <img src={previewSrc} alt="Preview" className="h-full w-full object-cover" />
         ) : (
-          <UserIcon size={28} className="text-[#4a4950]" />
+          <UserIcon size={28} className="text-[var(--color-text-faint)]" />
         )}
       </div>
       <div className="flex flex-col gap-2">
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="rounded-lg border border-[#313036] bg-[#17161c] px-3 py-1.5 text-xs text-[#a09fa6] transition-colors hover:border-[#4a4950] hover:text-[#ececef]"
+          className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-text-primary)]"
         >
           {previewSrc ? "Change photo" : "Upload photo"}
         </button>
@@ -107,12 +107,12 @@ function PhotoPicker({
           <button
             type="button"
             onClick={() => onChange("", null)}
-            className="text-left text-xs text-[#6b6875] transition-colors hover:text-[#f87171]"
+            className="text-left text-xs text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-danger-text)]"
           >
             Remove
           </button>
         )}
-        <p className="text-[11px] text-[#4a4950]">JPEG, PNG, WebP · max 5 MB</p>
+        <p className="text-[11px] text-[var(--color-text-faint)]">JPEG, PNG, WebP · max 5 MB</p>
       </div>
       <input
         ref={inputRef}
@@ -145,7 +145,7 @@ function UserFormPanel({
 
   const field = (label: string, node: React.ReactNode) => (
     <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">
+      <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
         {label}
       </label>
       {node}
@@ -153,7 +153,7 @@ function UserFormPanel({
   );
 
   const inputCls =
-    "w-full rounded-lg border border-[#313036] bg-[#17161c] px-3 py-2 text-sm text-[#ececef] placeholder-[#4a4950] outline-none focus:border-[var(--color-accent)] transition-colors";
+    "w-full rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder-[#4a4950] outline-none focus:border-[var(--color-accent)] transition-colors";
 
   const newPasswordTooShort = !isEdit && form.password.length > 0 && form.password.length < 8;
   const adminPasswordRequired = isEdit && form.password.length > 0 && form.adminPassword.length === 0;
@@ -166,17 +166,17 @@ function UserFormPanel({
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
-      <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-sm flex-col border-l border-[#313036] bg-[#1f1e24] shadow-2xl">
+      <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-sm flex-col border-l border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#313036] px-5 py-4">
-          <h2 className="text-sm font-semibold text-[#ececef]">
+        <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
+          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
             {isEdit ? "Edit user" : "New user"}
           </h2>
           <button
             type="button"
             onClick={onClose}
             title="Close"
-            className="rounded-md p-1 text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]"
+            className="rounded-md p-1 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <line x1="18" y1="6" x2="6" y2="18" />
@@ -257,28 +257,28 @@ function UserFormPanel({
                   autoComplete="current-password"
                 />,
               )}
-              <p className="text-[11px] text-[#6b6875]">
+              <p className="text-[11px] text-[var(--color-text-muted)]">
                 Required only when setting a new password for this user.
               </p>
             </>
           )}
 
           {newPasswordTooShort && (
-            <p className="text-[11px] text-[#f87171]">Password must be at least 8 characters.</p>
+            <p className="text-[11px] text-[var(--color-danger-text)]">Password must be at least 8 characters.</p>
           )}
           {adminPasswordRequired && (
-            <p className="text-[11px] text-[#f87171]">
+            <p className="text-[11px] text-[var(--color-danger-text)]">
               Your admin password is required to change another user&apos;s password.
             </p>
           )}
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-end gap-2 border-t border-[#313036] px-5 py-4">
+        <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]"
+            className="rounded-lg px-4 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
           >
             Cancel
           </button>
@@ -312,17 +312,17 @@ function DeleteConfirmPanel({
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
-      <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[#313036] bg-[#1f1e24] p-6 shadow-2xl">
-        <h2 className="mb-2 text-sm font-semibold text-[#ececef]">Delete user?</h2>
-        <p className="mb-5 text-xs text-[#a09fa6]">
-          <span className="font-medium text-[#ececef]">{user.name}</span> ({user.email}) will be
+      <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] p-6 shadow-2xl">
+        <h2 className="mb-2 text-sm font-semibold text-[var(--color-text-primary)]">Delete user?</h2>
+        <p className="mb-5 text-xs text-[var(--color-text-secondary)]">
+          <span className="font-medium text-[var(--color-text-primary)]">{user.name}</span> ({user.email}) will be
           permanently deleted including all their sessions and login data.
         </p>
         <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg px-4 py-2 text-sm text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef]"
+            className="rounded-lg px-4 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
           >
             Cancel
           </button>
@@ -330,7 +330,7 @@ function DeleteConfirmPanel({
             type="button"
             onClick={onConfirm}
             disabled={deleting}
-            className="rounded-lg bg-[#5c1e1e] px-4 py-2 text-sm font-medium text-[#f87171] transition-opacity disabled:opacity-40 hover:bg-[#6e2424]"
+            className="rounded-lg bg-[#5c1e1e] px-4 py-2 text-sm font-medium text-[var(--color-danger-text)] transition-opacity disabled:opacity-40 hover:bg-[#6e2424]"
           >
             {deleting ? "Deleting…" : "Delete"}
           </button>
@@ -440,17 +440,17 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
   };
 
   return (
-    <div className="flex h-dvh bg-[#17161c] text-[#ececef]">
+    <div className="flex h-dvh bg-[var(--color-bg-base)] text-[var(--color-text-primary)]">
       <Sidebar mobileOpen={navSidebarOpen} onMobileClose={() => setNavSidebarOpen(false)} />
       <div className="flex flex-1 flex-col min-h-0 min-w-0 lg:pl-14">
 
       {/* Top bar */}
-      <header className="flex flex-shrink-0 items-center gap-4 border-b border-[#313036] bg-[#1f1e24] px-6 py-4">
+      <header className="flex flex-shrink-0 items-center gap-4 border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] px-6 py-4">
         <button
           type="button"
           onClick={() => setNavSidebarOpen(true)}
           title="Open menu"
-          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[#a09fa6] transition-colors hover:bg-[#313036] hover:text-[#ececef] lg:hidden"
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)] lg:hidden"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="3" y1="6" x2="21" y2="6" />
@@ -458,7 +458,7 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
             <line x1="3" y1="18" x2="21" y2="18" />
           </svg>
         </button>
-        <h1 className="text-sm font-semibold text-[#ececef]">Users</h1>
+        <h1 className="text-sm font-semibold text-[var(--color-text-primary)]">Users</h1>
 
         <button
           type="button"
@@ -475,7 +475,7 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
 
       {/* Error banner */}
       {error && (
-        <div className="mx-6 mt-4 rounded-lg border border-[#5c1e1e] bg-[#3a1414] px-4 py-3 text-xs text-[#f87171]">
+        <div className="mx-6 mt-4 rounded-lg border border-[#5c1e1e] bg-[#3a1414] px-4 py-3 text-xs text-[var(--color-danger-text)]">
           {error}
         </div>
       )}
@@ -483,9 +483,9 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
       {/* Table */}
       <main className="flex-1 overflow-y-auto overflow-x-clip p-6">
         {initialUsers.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[#313036] py-20 text-center">
-            <p className="text-sm text-[#6b6875]">No users yet</p>
-            <p className="text-xs text-[#4a4950]">The first user you create will become the admin.</p>
+          <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--color-border-subtle)] py-20 text-center">
+            <p className="text-sm text-[var(--color-text-muted)]">No users yet</p>
+            <p className="text-xs text-[var(--color-text-faint)]">The first user you create will become the admin.</p>
             <button
               type="button"
               onClick={openAdd}
@@ -495,13 +495,13 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-[#313036]">
+          <div className="overflow-x-auto rounded-xl border border-[var(--color-border-subtle)]">
             <table className="w-full min-w-[480px] text-left text-sm">
               <thead>
-                <tr className="border-b border-[#313036] bg-[#1f1e24]">
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">Name</th>
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">Email</th>
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[#6b6875]">Role</th>
+                <tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-page)]">
+                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Name</th>
+                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Email</th>
+                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Role</th>
                   <th scope="col" className="w-20 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-transparent">Actions</th>
                 </tr>
               </thead>
@@ -509,7 +509,7 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
                 {initialUsers.map((user, i) => (
                   <tr
                     key={user.id}
-                    className={`border-b border-[#252429] transition-colors hover:bg-[#252429] ${
+                    className={`border-b border-[#252429] transition-colors hover:bg-[var(--color-bg-raised)] ${
                       i === initialUsers.length - 1 ? "border-b-0" : ""
                     }`}
                   >
@@ -522,14 +522,14 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
                             className="h-7 w-7 rounded-full object-cover"
                           />
                         ) : (
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#313036]">
-                            <UserIcon size={16} className="text-[#6b6875]" />
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--color-border-subtle)]">
+                            <UserIcon size={16} className="text-[var(--color-text-muted)]" />
                           </div>
                         )}
-                        <span className="font-medium text-[#ececef]">{user.name}</span>
+                        <span className="font-medium text-[var(--color-text-primary)]">{user.name}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-[#a09fa6]">{user.email}</td>
+                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">{user.email}</td>
                     <td className="px-4 py-3">
                       <RoleBadge role={user.role} />
                     </td>
@@ -539,7 +539,7 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
                           type="button"
                           onClick={() => openEdit(user)}
                           title="Edit"
-                          className="rounded-md p-1.5 text-[#6b6875] transition-colors hover:bg-[#313036] hover:text-[#ececef]"
+                          className="rounded-md p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
@@ -550,7 +550,7 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
                           type="button"
                           onClick={() => setDeleteTarget(user)}
                           title="Delete"
-                          className="rounded-md p-1.5 text-[#6b6875] transition-colors hover:bg-[#3a1e1e] hover:text-[#f87171]"
+                          className="rounded-md p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[#3a1e1e] hover:text-[var(--color-danger-text)]"
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="3 6 5 6 21 6" />
@@ -581,7 +581,7 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
             onSave={handleSave}
           />
           {error && (
-            <div className="fixed bottom-20 right-4 z-[60] rounded-lg border border-[#5c1e1e] bg-[#3a1414] px-4 py-3 text-xs text-[#f87171] shadow-lg">
+            <div className="fixed bottom-20 right-4 z-[60] rounded-lg border border-[#5c1e1e] bg-[#3a1414] px-4 py-3 text-xs text-[var(--color-danger-text)] shadow-lg">
               {error}
             </div>
           )}

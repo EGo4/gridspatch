@@ -52,24 +52,24 @@ export function EmployeeCard({
             onClick={onToggle}
             className={`flex w-full ${isHalfDay ? "min-w-0" : "min-w-max"} cursor-pointer select-none items-center gap-2.5 rounded-full border p-1.5 text-sm transition-colors ${
               snapshot.isDragging
-                ? "scale-105 border-[#5a5961] bg-[#3f3e45]"
+                ? "scale-105 border-[var(--color-card-drag-border)] bg-[var(--color-card-drag)]"
                 : isOpen
-                  ? "border-[#5a5961] bg-[#3a3940]"
+                  ? "border-[var(--color-card-open-border)] bg-[var(--color-card-open)]"
                   : dayPart === "pre_lunch"
                     ? "border-[var(--am-border)] bg-[var(--am-card)]"
                     : dayPart === "after_lunch"
                       ? "border-[var(--pm-border)] bg-[var(--pm-card)]"
-                      : "border-transparent bg-[#302f36] hover:border-[#4a4950]"
+                      : "border-transparent bg-[var(--color-card-bg)] hover:border-[var(--color-card-hover)]"
             }`}
           >
-            <div className="h-7 w-7 flex-shrink-0 overflow-hidden rounded-full bg-[#3a3940] flex items-center justify-center">
+            <div className="h-7 w-7 flex-shrink-0 overflow-hidden rounded-full bg-[var(--color-avatar-bg)] flex items-center justify-center">
               {employee.img ? (
                 <img src={employee.img} alt={employee.name} className="h-full w-full object-cover" />
               ) : (
-                <UserIcon size={16} className="text-[#6b6875]" />
+                <UserIcon size={16} className="text-[var(--color-text-muted)]" />
               )}
             </div>
-            <span className={`text-xs font-medium text-[#ececef] ${isHalfDay ? "truncate" : "whitespace-nowrap"}`}>
+            <span className={`text-xs font-medium text-[var(--color-text-primary)] ${isHalfDay ? "truncate" : "whitespace-nowrap"}`}>
               {employee.name}
             </span>
           </div>
@@ -82,7 +82,7 @@ export function EmployeeCard({
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onMergeDay(); }}
                 title="Merge back to full day"
-                className="fly-btn fly-btn-merge text-[#c8c4be]"
+                className="fly-btn fly-btn-merge text-[var(--color-text-secondary)]"
               >
                 <MergeIcon />
               </button>
@@ -99,7 +99,7 @@ export function EmployeeCard({
                     onAssignToSite({ left: rect.left, top: rect.top });
                   }}
                   title="Assign to building site"
-                  className="fly-btn fly-btn-assign-site text-[#c8c4be]"
+                  className="fly-btn fly-btn-assign-site text-[var(--color-text-secondary)]"
                 >
                   <AssignSiteIcon />
                 </button>
@@ -109,7 +109,7 @@ export function EmployeeCard({
                   type="button"
                   onClick={(e) => { e.stopPropagation(); onSplitDay(); }}
                   title="Split into half-days"
-                  className="fly-btn fly-btn-split text-[#c8c4be]"
+                  className="fly-btn fly-btn-split text-[var(--color-text-secondary)]"
                 >
                   <SplitDayIcon />
                 </button>
@@ -119,7 +119,7 @@ export function EmployeeCard({
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onMarkSick(); }}
                 title="Mark as sick"
-                className={`fly-btn fly-btn-sick text-[#c8c4be] ${!onSplitDay ? "fly-btn-sick-nosplit" : ""}`}
+                className={`fly-btn fly-btn-sick text-[var(--color-text-secondary)] ${!onSplitDay ? "fly-btn-sick-nosplit" : ""}`}
               >
                 <SyringeIcon />
               </button>
@@ -128,7 +128,7 @@ export function EmployeeCard({
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onMarkVacation(); }}
                 title="Mark as on vacation"
-                className="fly-btn fly-btn-vacation text-[#c8c4be]"
+                className="fly-btn fly-btn-vacation text-[var(--color-text-secondary)]"
               >
                 <PalmTreeIcon />
               </button>
