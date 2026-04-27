@@ -2,6 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Sidebar } from "~/components/Sidebar";
 import type { ProjectStatus } from "~/types";
 import { getSuperStatus, ALLOWED_TRANSITIONS } from "~/types";
@@ -63,14 +64,6 @@ const EMPTY_FORM: FormState = {
 
 // ── Status meta ───────────────────────────────────────────────────────────────
 
-const STATUS_LABELS: Record<ProjectStatus, string> = {
-  planned:  "Planned",
-  active:   "Active",
-  on_hold:  "On hold",
-  done:     "Done",
-  inactive: "Inactive",
-};
-
 const STATUS_BADGE: Record<ProjectStatus, string> = {
   planned:  "bg-[var(--color-status-planned-bg)] text-[var(--color-status-planned-txt)] border border-[var(--color-border-subtle)]",
   active:   "bg-[var(--color-status-active-bg)] text-[var(--color-status-active-txt)] border border-[var(--color-border-subtle)]",
@@ -108,9 +101,10 @@ const INIT_RANGE = 4;
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: ProjectStatus }) {
+  const tStatus = useTranslations("Status");
   return (
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${STATUS_BADGE[status]}`}>
-      {STATUS_LABELS[status]}
+      {tStatus(status)}
     </span>
   );
 }
@@ -129,6 +123,8 @@ function SiteFormPanel({
   form: FormState; managers: Manager[]; saving: boolean;
   onClose: () => void; onChange: (f: FormState) => void; onSave: () => void;
 }) {
+  const t = useTranslations("Sites");
+  const tCommon = useTranslations("Common");
   const isEdit = Boolean(form.id);
 
   const field = (label: string, node: React.ReactNode) => (
@@ -147,37 +143,37 @@ function SiteFormPanel({
       <div className="fixed right-0 top-0 z-50 flex h-full w-full max-w-sm flex-col border-l border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] shadow-2xl">
         <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
           <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
-            {isEdit ? "Edit building site" : "New building site"}
+            {isEdit ? t("editSite") : t("newSite")}
           </h2>
-          <button type="button" onClick={onClose} title="Close"
+          <button type="button" onClick={onClose} title={tCommon("close")}
             className="rounded-md p-1 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
             <CloseIcon />
           </button>
         </div>
         <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-6">
-          {field("Name *",
+          {field(t("nameRequired") ?? "Name *",
             <input type="text" value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })}
               placeholder="e.g. Site Müller – Hauptstraße" className={inputCls} autoFocus />,
           )}
-          {field("Description",
+          {field(t("description"),
             <textarea value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })}
               placeholder="Optional notes about this site" rows={3} className={`${inputCls} resize-none`} />,
           )}
-          {field("Construction manager",
-            <select value={form.constructionManagerId} title="Construction manager"
+          {field(t("manager"),
+            <select value={form.constructionManagerId} title={t("manager")}
               onChange={(e) => onChange({ ...form, constructionManagerId: e.target.value })}
               className={inputCls}>
-              <option value="">— None —</option>
+              <option value="">{t("noneManager")}</option>
               {managers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>,
           )}
           <div className="grid grid-cols-2 gap-3">
-            {field("Start date",
-              <input type="date" value={form.startDate} title="Start date"
+            {field(tCommon("startDate"),
+              <input type="date" value={form.startDate} title={tCommon("startDate")}
                 onChange={(e) => onChange({ ...form, startDate: e.target.value })} className={inputCls} />,
             )}
-            {field("End date",
-              <input type="date" value={form.endDate} title="End date"
+            {field(tCommon("endDate"),
+              <input type="date" value={form.endDate} title={tCommon("endDate")}
                 onChange={(e) => onChange({ ...form, endDate: e.target.value })} className={inputCls} />,
             )}
           </div>
@@ -185,11 +181,11 @@ function SiteFormPanel({
         <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4">
           <button type="button" onClick={onClose}
             className="rounded-lg px-4 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
-            Cancel
+            {tCommon("cancel")}
           </button>
           <button type="button" onClick={onSave} disabled={!form.name.trim() || saving}
             className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white transition-opacity disabled:opacity-40 hover:opacity-90">
-            {saving ? "Saving…" : isEdit ? "Save changes" : "Create site"}
+            {saving ? tCommon("saving") : isEdit ? tCommon("saveChanges") : t("createSite")}
           </button>
         </div>
       </div>
@@ -204,23 +200,24 @@ function DeleteConfirmPanel({
 }: {
   site: Site; deleting: boolean; onClose: () => void; onConfirm: () => void;
 }) {
+  const t = useTranslations("Sites");
+  const tCommon = useTranslations("Common");
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
       <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] p-6 shadow-2xl">
-        <h2 className="mb-2 text-sm font-semibold text-[var(--color-text-primary)]">Delete building site?</h2>
+        <h2 className="mb-2 text-sm font-semibold text-[var(--color-text-primary)]">{t("deleteTitle")}</h2>
         <p className="mb-5 text-xs text-[var(--color-text-secondary)]">
-          <span className="font-medium text-[var(--color-text-primary)]">{site.name}</span> will be permanently
-          deleted. Existing assignments referencing this site will be unlinked.
+          <span className="font-medium text-[var(--color-text-primary)]">{site.name}</span> {t("deleteBody")}
         </p>
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose}
             className="rounded-lg px-4 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
-            Cancel
+            {tCommon("cancel")}
           </button>
           <button type="button" onClick={onConfirm} disabled={deleting}
             className="rounded-lg bg-[#5c1e1e] px-4 py-2 text-sm font-medium text-[var(--color-danger-text)] transition-opacity disabled:opacity-40 hover:bg-[#6e2424]">
-            {deleting ? "Deleting…" : "Delete"}
+            {deleting ? tCommon("deleting") : tCommon("delete")}
           </button>
         </div>
       </div>
@@ -249,6 +246,10 @@ function SiteStatusPanel({
   onClose: () => void;
   onStatusChange: (id: string, status: ProjectStatus) => void;
 }) {
+  const t = useTranslations("Sites");
+  const tCommon = useTranslations("Common");
+  const tStatus = useTranslations("Status");
+
   const [transitions, setTransitions] = useState<TransitionEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
@@ -282,14 +283,13 @@ function SiteStatusPanel({
       .finally(() => setLoading(false));
   }, [site.id]);
 
-  // Close dropdown on outside click
   useEffect(() => {
     if (!weekPickerOpen) return;
     const handler = (e: MouseEvent) => {
-      const t = e.target as Node;
+      const target = e.target as Node;
       if (
-        (!triggerRef.current || !triggerRef.current.contains(t)) &&
-        (!dropdownRef.current || !dropdownRef.current.contains(t))
+        (!triggerRef.current || !triggerRef.current.contains(target)) &&
+        (!dropdownRef.current || !dropdownRef.current.contains(target))
       ) {
         setWeekPickerOpen(false);
       }
@@ -299,7 +299,7 @@ function SiteStatusPanel({
   }, [weekPickerOpen]);
 
   const effectiveStatusAt = (weekIso: string): ProjectStatus => {
-    const applicable = transitions.filter((t) => t.weekStartIso <= weekIso);
+    const applicable = transitions.filter((tr) => tr.weekStartIso <= weekIso);
     return applicable.length > 0 ? applicable[applicable.length - 1]!.status : "planned";
   };
 
@@ -311,7 +311,6 @@ function SiteStatusPanel({
     getSuperStatus(currentEffective) === "completed" &&
     getSuperStatus(pickedStatus) === "ongoing";
 
-  // Set dropdown position imperatively to avoid inline style prop lint warning
   useLayoutEffect(() => {
     if (!dropdownRef.current || !dropdownPos) return;
     const el = dropdownRef.current;
@@ -338,7 +337,7 @@ function SiteStatusPanel({
     if (!selectedWeek || !pickedStatus) return 0;
     if (getSuperStatus(pickedStatus) !== "completed") return 0;
     return transitions.filter(
-      (t) => t.weekStartIso > selectedWeek && getSuperStatus(t.status) === "ongoing",
+      (tr) => tr.weekStartIso > selectedWeek && getSuperStatus(tr.status) === "ongoing",
     ).length;
   }, [selectedWeek, pickedStatus, transitions]);
 
@@ -358,7 +357,7 @@ function SiteStatusPanel({
     try {
       const result = await setSiteTransition(site.id, selectedWeek, pickedStatus, force);
       if ("blocked" in result) {
-        setBlockMsg(`"${STATUS_LABELS[pickedStatus]}" is not a valid transition from the current status.`);
+        setBlockMsg(`"${tStatus(pickedStatus)}" is not a valid transition from the current status.`);
         setWarnOngoing(false);
         setWarnOngoingAfter(false);
       } else if ("warn" in result) {
@@ -397,6 +396,8 @@ function SiteStatusPanel({
     }
   };
 
+  const applyingLabel = applying ? "Applying…" : t("applyTransition");
+
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} />
@@ -407,10 +408,10 @@ function SiteStatusPanel({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4 flex-shrink-0">
           <div>
-            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Status transitions</h2>
+            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("statusTransitions")}</h2>
             <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{site.name}</p>
           </div>
-          <button type="button" onClick={onClose} title="Close"
+          <button type="button" onClick={onClose} title={tCommon("close")}
             className="rounded-md p-1 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
             <CloseIcon />
           </button>
@@ -422,28 +423,28 @@ function SiteStatusPanel({
           {/* Existing transitions */}
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)] mb-2">
-              Recorded transitions
+              {t("recordedTransitions")}
             </p>
             {loading ? (
-              <p className="text-sm text-[var(--color-text-muted)]">Loading…</p>
+              <p className="text-sm text-[var(--color-text-muted)]">{t("loading")}</p>
             ) : transitions.length === 0 ? (
               <p className="text-xs text-[var(--color-text-faint)]">
-                No transitions set — defaults to <span className={`font-semibold ${STATUS_CHIP_TEXT.planned}`}>Planned</span>
+                {t("noTransitionsDefault")}
               </p>
             ) : (
               <div className="flex flex-col gap-1">
-                {transitions.map((t) => (
-                  <div key={t.weekStartIso}
+                {transitions.map((tr) => (
+                  <div key={tr.weekStartIso}
                     className="flex items-center gap-3 rounded-lg bg-[var(--color-bg-surface)] px-3 py-2">
                     <span className="flex-1 text-xs text-[var(--color-text-secondary)]">
-                      From {formatWeekLabel(t.weekStartIso)}
+                      {t("fromWeek", { week: formatWeekLabel(tr.weekStartIso) })}
                     </span>
-                    <StatusBadge status={t.status} />
+                    <StatusBadge status={tr.status} />
                     <button
                       type="button"
-                      title="Remove transition"
-                      disabled={deletingWeek === t.weekStartIso}
-                      onClick={() => void handleDelete(t.weekStartIso)}
+                      title={t("removeTransition")}
+                      disabled={deletingWeek === tr.weekStartIso}
+                      onClick={() => void handleDelete(tr.weekStartIso)}
                       className="rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-danger-text)] disabled:opacity-40"
                     >
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -461,7 +462,7 @@ function SiteStatusPanel({
           {/* Set transition */}
           <div className="flex flex-col gap-3">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-              Set transition
+              {t("setTransition")}
             </p>
 
             {/* Week picker trigger */}
@@ -472,7 +473,7 @@ function SiteStatusPanel({
               className="w-full flex items-center justify-between rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 py-2 text-sm text-left transition-colors hover:border-[var(--color-accent)] focus:outline-none focus:border-[var(--color-accent)]"
             >
               <span className={selectedWeek ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-faint)]"}>
-                {selectedWeek ? formatWeekLabel(selectedWeek) : "Select a week…"}
+                {selectedWeek ? formatWeekLabel(selectedWeek) : t("selectWeek")}
               </span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                 className={`text-[var(--color-text-muted)] transition-transform ${weekPickerOpen ? "rotate-180" : ""}`}>
@@ -484,15 +485,15 @@ function SiteStatusPanel({
             {currentEffective && (
               <div className="flex flex-col gap-2">
                 <p className="text-[11px] text-[var(--color-text-muted)]">
-                  Effective status: <StatusBadge status={currentEffective} />
-                  <span className="ml-1.5">→ transition to:</span>
+                  {t("effectiveStatus")} <StatusBadge status={currentEffective} />
+                  <span className="ml-1.5">{t("transitionTo")}</span>
                 </p>
                 <div className="flex flex-wrap gap-1.5">
                   {allowed.map((s) => {
                     const wouldAffectLater =
                       getSuperStatus(s) === "completed" &&
                       transitions.some(
-                        (t) => selectedWeek && t.weekStartIso > selectedWeek && getSuperStatus(t.status) === "ongoing",
+                        (tr) => selectedWeek && tr.weekStartIso > selectedWeek && getSuperStatus(tr.status) === "ongoing",
                       );
                     return (
                       <button
@@ -505,7 +506,7 @@ function SiteStatusPanel({
                             : "bg-[var(--color-bg-surface)] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
                         }`}
                       >
-                        {STATUS_LABELS[s]}
+                        {tStatus(s)}
                         {(getSuperStatus(currentEffective!) === "completed" && getSuperStatus(s) === "ongoing") || wouldAffectLater ? (
                           <span className="ml-1 text-[var(--color-warn-text)]">⚠</span>
                         ) : null}
@@ -534,20 +535,17 @@ function SiteStatusPanel({
                   <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
                 <div className="flex-1">
-                  <p className="text-xs font-semibold text-[var(--color-warn-text)]">Reverting a completed site to ongoing</p>
-                  <p className="mt-1 text-[11px] text-[var(--color-text-secondary)]">
-                    All transitions currently marked <strong>Done</strong> or <strong>Inactive</strong> will be reset to <strong>On hold</strong>.
-                    This cannot be undone automatically.
-                  </p>
+                  <p className="text-xs font-semibold text-[var(--color-warn-text)]">{t("warnRevertTitle")}</p>
+                  <p className="mt-1 text-[11px] text-[var(--color-text-secondary)]">{t("warnRevertBody")}</p>
                 </div>
                 <div className="flex flex-col gap-1.5 flex-shrink-0">
                   <button type="button" onClick={() => void handleApply(true)} disabled={applying}
                     className="rounded-lg bg-[var(--color-warn-text)] px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
-                    {applying ? "Applying…" : "Apply anyway"}
+                    {applying ? "Applying…" : t("applyAnyway")}
                   </button>
                   <button type="button" onClick={() => setWarnOngoing(false)}
                     className="rounded-lg px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] text-center">
-                    Cancel
+                    {tCommon("cancel")}
                   </button>
                 </div>
               </div>
@@ -561,23 +559,19 @@ function SiteStatusPanel({
                   <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
                 <div className="flex-1">
-                  <p className="text-xs font-semibold text-[var(--color-warn-text)]">
-                    Later ongoing transitions will be removed
-                  </p>
+                  <p className="text-xs font-semibold text-[var(--color-warn-text)]">{t("warnFutureTitle")}</p>
                   <p className="mt-1 text-[11px] text-[var(--color-text-secondary)]">
-                    {laterOngoingAffected} transition{laterOngoingAffected !== 1 ? "s" : ""} after this week{" "}
-                    {laterOngoingAffected !== 1 ? "are" : "is"} <strong>Active</strong> or <strong>On hold</strong> and would
-                    contradict the <strong>{STATUS_LABELS[pickedStatus]}</strong> state set here. They will be permanently deleted.
+                    {t("warnFutureBody", { count: laterOngoingAffected, status: tStatus(pickedStatus) })}
                   </p>
                 </div>
                 <div className="flex flex-col gap-1.5 flex-shrink-0">
                   <button type="button" onClick={() => void handleApply(true)} disabled={applying}
                     className="rounded-lg bg-[var(--color-warn-text)] px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
-                    {applying ? "Applying…" : "Apply anyway"}
+                    {applying ? "Applying…" : t("applyAnyway")}
                   </button>
                   <button type="button" onClick={() => setWarnOngoingAfter(false)}
                     className="rounded-lg px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] text-center">
-                    Cancel
+                    {tCommon("cancel")}
                   </button>
                 </div>
               </div>
@@ -590,13 +584,13 @@ function SiteStatusPanel({
           <div className="border-t border-[var(--color-border-subtle)] px-5 py-4 flex-shrink-0 flex items-center justify-between">
             <p className="text-[11px] text-[var(--color-text-faint)]">
               {transitions.length === 0
-                ? "No transitions — project is Planned by default"
-                : `${transitions.length} transition${transitions.length !== 1 ? "s" : ""} recorded`}
+                ? t("noTransitionsFallback")
+                : t("transitionCount", { count: transitions.length })}
             </p>
             <div className="flex gap-2">
               <button type="button" onClick={onClose}
                 className="rounded-lg px-4 py-2 text-xs text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
-                Close
+                {tCommon("close")}
               </button>
               <button
                 type="button"
@@ -604,20 +598,19 @@ function SiteStatusPanel({
                 disabled={!selectedWeek || !pickedStatus || applying}
                 className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-xs font-semibold text-white transition-opacity disabled:opacity-40 hover:opacity-90"
               >
-                {applying ? "Applying…" : "Apply transition"}
+                {applyingLabel}
               </button>
             </div>
           </div>
         )}
       </div>
 
-      {/* Week picker dropdown — fixed overlay, outside modal stacking context */}
+      {/* Week picker dropdown */}
       {weekPickerOpen && dropdownPos && (
         <div
           ref={dropdownRef}
           className="fixed z-[9999] flex flex-col rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] shadow-2xl overflow-hidden"
         >
-          {/* Load more above */}
           <button
             type="button"
             onClick={() => setWeeksBefore((n) => n + LOAD_STEP)}
@@ -626,15 +619,14 @@ function SiteStatusPanel({
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="18 15 12 9 6 15" />
             </svg>
-            Load {LOAD_STEP} more weeks
+            {t("loadMoreWeeks", { n: LOAD_STEP })}
           </button>
 
-          {/* Week list */}
           <div className="overflow-y-auto flex-1">
             {weeks.map((weekIso) => {
               const eff = effectiveStatusAt(weekIso);
               const isCurrent = weekIso === currentWeekIso;
-              const hasTransition = transitions.some((t) => t.weekStartIso === weekIso);
+              const hasTransition = transitions.some((tr) => tr.weekStartIso === weekIso);
               const isSelected = selectedWeek === weekIso;
               return (
                 <button
@@ -656,7 +648,6 @@ function SiteStatusPanel({
             })}
           </div>
 
-          {/* Load more below */}
           <button
             type="button"
             onClick={() => setWeeksAfter((n) => n + LOAD_STEP)}
@@ -665,7 +656,7 @@ function SiteStatusPanel({
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="6 9 12 15 18 9" />
             </svg>
-            Load {LOAD_STEP} more weeks
+            {t("loadMoreWeeks", { n: LOAD_STEP })}
           </button>
         </div>
       )}
@@ -691,6 +682,8 @@ function SiteListImportPanel({
   onImport: (items: ImportedSite[]) => void;
   importing: boolean;
 }) {
+  const t = useTranslations("Sites");
+  const tCommon = useTranslations("Common");
   const [text, setText] = useState("");
   const parsed: ImportedSite[] = text
     .split("\n")
@@ -710,10 +703,10 @@ function SiteListImportPanel({
       >
         <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4 flex-shrink-0">
           <div>
-            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Import from list</h2>
-            <p className="text-xs text-[var(--color-text-muted)] mt-0.5">One site name per line.</p>
+            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("fromList")}</h2>
+            <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{t("fromListHint")}</p>
           </div>
-          <button type="button" onClick={onClose} title="Close"
+          <button type="button" onClick={onClose} title={tCommon("close")}
             className="rounded-md p-1 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
             <CloseIcon />
           </button>
@@ -731,7 +724,7 @@ function SiteListImportPanel({
           {parsed.length > 0 && (
             <div className="flex flex-col gap-1.5">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-                Preview — {parsed.length} site{parsed.length !== 1 ? "s" : ""}
+                {t("previewCount", { count: parsed.length })}
               </p>
               <div className="max-h-48 overflow-y-auto rounded-lg border border-[var(--color-border-subtle)] divide-y divide-[#252429]">
                 {parsed.map((item, i) => (
@@ -745,12 +738,12 @@ function SiteListImportPanel({
         <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4 flex-shrink-0">
           <button type="button" onClick={onClose}
             className="rounded-lg px-4 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
-            Cancel
+            {tCommon("cancel")}
           </button>
           <button type="button" onClick={() => onImport(parsed)}
             disabled={parsed.length === 0 || importing}
             className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white transition-opacity disabled:opacity-40 hover:opacity-90">
-            {importing ? "Importing…" : `Import ${parsed.length || ""} site${parsed.length !== 1 ? "s" : ""}`}
+            {importing ? tCommon("importing") : t("importNCount", { count: parsed.length })}
           </button>
         </div>
       </div>
@@ -771,6 +764,8 @@ function SiteJsonImportPanel({
   parsed: ImportedSite[] | null;
   error: string | null;
 }) {
+  const t = useTranslations("Sites");
+  const tCommon = useTranslations("Common");
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
@@ -780,10 +775,10 @@ function SiteJsonImportPanel({
       >
         <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4 flex-shrink-0">
           <div>
-            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Import from JSON</h2>
-            <p className="text-xs text-[var(--color-text-muted)] mt-0.5">Import a previously exported sites file.</p>
+            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("fromJson")}</h2>
+            <p className="text-xs text-[var(--color-text-muted)] mt-0.5">{t("fromJsonHint")}</p>
           </div>
-          <button type="button" onClick={onClose} title="Close"
+          <button type="button" onClick={onClose} title={tCommon("close")}
             className="rounded-md p-1 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
             <CloseIcon />
           </button>
@@ -798,7 +793,7 @@ function SiteJsonImportPanel({
           {parsed && (
             <div className="flex flex-col gap-1.5">
               <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-                {parsed.length} site{parsed.length !== 1 ? "s" : ""} ready to import
+                {t("readyCount", { count: parsed.length })}
               </p>
               <div className="max-h-64 overflow-y-auto rounded-lg border border-[var(--color-border-subtle)] divide-y divide-[#252429]">
                 {parsed.map((item, i) => (
@@ -819,12 +814,12 @@ function SiteJsonImportPanel({
         <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4 flex-shrink-0">
           <button type="button" onClick={onClose}
             className="rounded-lg px-4 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
-            Cancel
+            {tCommon("cancel")}
           </button>
           <button type="button" onClick={onImport}
             disabled={!parsed || parsed.length === 0 || importing}
             className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white transition-opacity disabled:opacity-40 hover:opacity-90">
-            {importing ? "Importing…" : `Import ${parsed?.length ?? ""} site${(parsed?.length ?? 0) !== 1 ? "s" : ""}`}
+            {importing ? tCommon("importing") : t("importNCount", { count: parsed?.length ?? 0 })}
           </button>
         </div>
       </div>
@@ -836,6 +831,8 @@ function SiteJsonImportPanel({
 
 export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; managers: Manager[] }) {
   const router = useRouter();
+  const t = useTranslations("Sites");
+  const tCommon = useTranslations("Common");
   const [isPending, startTransition] = useTransition();
 
   const [navSidebarOpen, setNavSidebarOpen] = useState(false);
@@ -887,8 +884,8 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
   useEffect(() => {
     if (!importMenuOpen) return;
     const handler = (e: MouseEvent) => {
-      const t = e.target as Node;
-      if (!importMenuRef.current?.contains(t) && !importBtnRef.current?.contains(t)) {
+      const target = e.target as Node;
+      if (!importMenuRef.current?.contains(target) && !importBtnRef.current?.contains(target)) {
         setImportMenuOpen(false);
       }
     };
@@ -930,7 +927,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
         } else if (json && typeof json === "object" && Array.isArray((json as Record<string, unknown>).data)) {
           items = (json as Record<string, unknown>).data as unknown[];
         } else {
-          setJsonImportError("Invalid format. Expected an array or an exported JSON file.");
+          setJsonImportError(t("errorInvalidFormat"));
           setJsonImportParsed(null);
           return;
         }
@@ -947,14 +944,14 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
           })
           .filter((s) => s.name);
         if (valid.length === 0) {
-          setJsonImportError("No valid sites found in the file.");
+          setJsonImportError(t("errorNoValid"));
           setJsonImportParsed(null);
           return;
         }
         setJsonImportParsed(valid);
         setJsonImportError(null);
       } catch {
-        setJsonImportError("Could not parse file. Make sure it is valid JSON.");
+        setJsonImportError(t("errorParseFile"));
         setJsonImportParsed(null);
       }
     };
@@ -1047,6 +1044,15 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
 
   void isPending;
 
+  const tableColumns: [SiteSortKey, string][] = [
+    ["name", tCommon("name")],
+    ["status", "Status"],
+    ["startDate", tCommon("startDate")],
+    ["endDate", tCommon("endDate")],
+    ["manager", t("manager")],
+    ["description", t("description")],
+  ];
+
   return (
     <div className="flex h-dvh bg-[var(--color-bg-base)] text-[var(--color-text-primary)]">
       <Sidebar mobileOpen={navSidebarOpen} onMobileClose={() => setNavSidebarOpen(false)} />
@@ -1057,7 +1063,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
         <button
           type="button"
           onClick={() => setNavSidebarOpen(true)}
-          title="Open menu"
+          title={tCommon("openMenu")}
           className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)] lg:hidden"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1066,7 +1072,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
             <line x1="3" y1="18" x2="21" y2="18" />
           </svg>
         </button>
-        <h1 className="text-sm font-semibold text-[var(--color-text-primary)]">Building Sites</h1>
+        <h1 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("title")}</h1>
 
         <div className="ml-auto flex items-center gap-2">
           {/* Import dropdown */}
@@ -1082,7 +1088,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
                 <polyline points="17 8 12 3 7 8" />
                 <line x1="12" y1="3" x2="12" y2="15" />
               </svg>
-              Import
+              {tCommon("import")}
               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
                 className={`transition-transform ${importMenuOpen ? "rotate-180" : ""}`}>
                 <polyline points="6 9 12 15 18 9" />
@@ -1100,7 +1106,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
                     <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
                     <line x1="3" y1="6" x2="3.01" y2="6" /><line x1="3" y1="12" x2="3.01" y2="12" /><line x1="3" y1="18" x2="3.01" y2="18" />
                   </svg>
-                  Paste list
+                  {t("pasteList")}
                 </button>
                 <button type="button"
                   onClick={() => { jsonFileInputRef.current?.click(); setImportMenuOpen(false); }}
@@ -1109,7 +1115,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                     <polyline points="14 2 14 8 20 8" />
                   </svg>
-                  Import JSON
+                  {t("importJson")}
                 </button>
               </div>
             )}
@@ -1123,7 +1129,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            Export
+            {tCommon("export")}
           </button>
 
           {/* Add */}
@@ -1132,21 +1138,21 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            Add site
+            {t("addSite")}
           </button>
         </div>
 
-        <input ref={jsonFileInputRef} type="file" accept=".json,application/json" aria-label="Import JSON" className="hidden" onChange={handleJsonFile} />
+        <input ref={jsonFileInputRef} type="file" accept=".json,application/json" aria-label={t("importJson")} className="hidden" onChange={handleJsonFile} />
       </header>
 
       {/* Table */}
       <main className="flex-1 overflow-y-auto overflow-x-clip p-6">
         {sites.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--color-border-subtle)] py-20 text-center">
-            <p className="text-sm text-[var(--color-text-muted)]">No building sites yet</p>
+            <p className="text-sm text-[var(--color-text-muted)]">{t("noSites")}</p>
             <button type="button" onClick={openAdd}
               className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-xs font-medium text-white transition-opacity hover:opacity-90">
-              Add your first site
+              {t("addFirst")}
             </button>
           </div>
         ) : (
@@ -1154,14 +1160,14 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
             <table className="w-full min-w-[700px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-page)]">
-                  {([ ["name","Name"], ["status","Status"], ["startDate","Start date"], ["endDate","End date"], ["manager","Manager"], ["description","Description"] ] as [SiteSortKey, string][]).map(([key, label]) => (
+                  {tableColumns.map(([key, label]) => (
                     <th key={key} className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
                       <button type="button" onClick={() => handleSort(key)} className="flex items-center gap-0.5 transition-colors hover:text-[var(--color-text-primary)]">
                         {label}<SortIcon dir={sortKey === key ? sortDir : null} />
                       </button>
                     </th>
                   ))}
-                  <th className="w-24 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Actions</th>
+                  <th className="w-24 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -1180,7 +1186,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        <button type="button" onClick={() => setStatusSite(site)} title="Status transitions"
+                        <button type="button" onClick={() => setStatusSite(site)} title={t("statusTransitions")}
                           className="rounded-md p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
@@ -1188,14 +1194,14 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
                             <line x1="3" y1="10" x2="21" y2="10" />
                           </svg>
                         </button>
-                        <button type="button" onClick={() => openEdit(site)} title="Edit"
+                        <button type="button" onClick={() => openEdit(site)} title={tCommon("edit")}
                           className="rounded-md p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
                             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                           </svg>
                         </button>
-                        <button type="button" onClick={() => setDeleteTarget(site)} title="Delete"
+                        <button type="button" onClick={() => setDeleteTarget(site)} title={tCommon("delete")}
                           className="rounded-md p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[#3a1e1e] hover:text-[var(--color-danger-text)]">
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="3 6 5 6 21 6" />

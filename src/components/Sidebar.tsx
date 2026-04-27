@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { authClient } from "~/server/better-auth/client";
 import { Logo } from "~/components/Logo";
 
@@ -109,6 +110,7 @@ function NavLink({
 export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const t = useTranslations("Nav");
   const { data: session } = authClient.useSession();
   const isAdmin = session?.user?.role === "admin";
 
@@ -118,23 +120,22 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   }
 
   const baseItems: NavItem[] = [
-    { label: "Board", href: "/board", icon: <BoardIcon /> },
-    { label: "Employees", href: "/admin/employees", icon: <EmployeesIcon /> },
-    { label: "Sites", href: "/admin/sites", icon: <SitesIcon /> },
-    { label: "Statistics", href: "/stats", icon: <StatsIcon /> },
+    { label: t("board"),      href: "/board",           icon: <BoardIcon /> },
+    { label: t("employees"),  href: "/admin/employees", icon: <EmployeesIcon /> },
+    { label: t("sites"),      href: "/admin/sites",     icon: <SitesIcon /> },
+    { label: t("statistics"), href: "/stats",           icon: <StatsIcon /> },
   ];
 
   const adminItems: NavItem[] = isAdmin
-    ? [{ label: "Users", href: "/admin/users", icon: <UsersIcon /> }]
+    ? [{ label: t("users"), href: "/admin/users", icon: <UsersIcon /> }]
     : [];
 
   const navItems = [...baseItems, ...adminItems];
 
   return (
     <>
-      {/* Desktop sidebar — fixed overlay, icon-only by default, expands on hover */}
+      {/* Desktop sidebar */}
       <aside className="group fixed left-0 top-0 z-40 hidden h-full w-14 flex-col overflow-hidden border-r border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] transition-[width] duration-200 ease-in-out hover:w-52 lg:flex">
-        {/* Logo */}
         <div className="flex h-14 flex-shrink-0 items-center overflow-hidden border-b border-[var(--color-border-subtle)] px-3">
           <span className="flex-shrink-0"><Logo size={26} /></span>
           <span className="ml-2.5 whitespace-nowrap text-sm font-bold text-[var(--color-text-primary)] opacity-0 transition-opacity duration-150 group-hover:opacity-100">
@@ -142,7 +143,6 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           </span>
         </div>
 
-        {/* Nav */}
         <nav className="flex flex-1 flex-col gap-0.5 overflow-hidden p-2">
           {navItems.map((item) => (
             <NavLink
@@ -155,24 +155,23 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           ))}
         </nav>
 
-        {/* Bottom: Account + divider + Sign out */}
         <div className="flex flex-shrink-0 flex-col gap-0.5 border-t border-[var(--color-border-subtle)] p-2">
           <NavLink
             href="/profile"
             icon={<AccountIcon />}
-            label="Account"
+            label={t("account")}
             isActive={pathname === "/profile"}
           />
           <div className="mx-1 my-0.5 h-px bg-[var(--color-border-subtle)]" />
           <button
             type="button"
             onClick={() => void handleLogout()}
-            title="Sign out"
+            title={t("signOut")}
             className="flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-[var(--color-danger-text)] transition-colors hover:bg-[var(--color-danger-bg)] hover:text-[var(--color-danger-hover)]"
           >
             <span className="flex-shrink-0"><LogoutIcon /></span>
             <span className="whitespace-nowrap text-sm font-medium opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-              Sign out
+              {t("signOut")}
             </span>
           </button>
         </div>
@@ -180,10 +179,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
 
       {/* Mobile: backdrop */}
       {mobileOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/60 lg:hidden"
-          onClick={onMobileClose}
-        />
+        <div className="fixed inset-0 z-40 bg-black/60 lg:hidden" onClick={onMobileClose} />
       )}
 
       {/* Mobile: slide-in drawer */}
@@ -192,7 +188,6 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        {/* Mobile header */}
         <div className="flex h-14 flex-shrink-0 items-center justify-between border-b border-[var(--color-border-subtle)] px-4">
           <div className="flex items-center gap-2.5">
             <Logo size={26} />
@@ -201,7 +196,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           <button
             type="button"
             onClick={onMobileClose}
-            title="Close menu"
+            title={t("closeMenu")}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]"
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -211,7 +206,6 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           </button>
         </div>
 
-        {/* Mobile nav */}
         <nav className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2">
           {navItems.map((item) => (
             <NavLink
@@ -226,12 +220,11 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
           ))}
         </nav>
 
-        {/* Mobile bottom */}
         <div className="flex flex-shrink-0 flex-col gap-0.5 border-t border-[var(--color-border-subtle)] p-2">
           <NavLink
             href="/profile"
             icon={<AccountIcon />}
-            label="Account"
+            label={t("account")}
             isActive={pathname === "/profile"}
             onClick={onMobileClose}
             labelClass="text-sm font-medium"
@@ -243,7 +236,7 @@ export function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
             className="flex items-center gap-3 rounded-lg px-2.5 py-2.5 text-[var(--color-danger-text)] transition-colors hover:bg-[var(--color-danger-bg)] hover:text-[var(--color-danger-hover)]"
           >
             <LogoutIcon />
-            <span className="text-sm font-medium">Sign out</span>
+            <span className="text-sm font-medium">{t("signOut")}</span>
           </button>
         </div>
       </aside>

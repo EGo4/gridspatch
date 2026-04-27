@@ -2,6 +2,8 @@ import "~/styles/globals.css";
 
 import { type Metadata } from "next";
 import { Geist } from "next/font/google";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import { getSession } from "~/server/better-auth/server";
 import { getUserPreferences } from "~/server/actions/preferences";
 
@@ -21,6 +23,8 @@ const geist = Geist({
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const locale = await getLocale();
+  const messages = await getMessages();
   const session = await getSession().catch(() => null);
   const prefs = session?.user?.id ? await getUserPreferences().catch(() => null) : null;
 
@@ -33,13 +37,17 @@ export default async function RootLayout({
   const theme = prefs?.theme ?? "dark";
 
   return (
-    <html lang="en" className={`${geist.variable}`} data-theme={theme}>
+    <html lang={locale} className={`${geist.variable}`} data-theme={theme}>
       {inlineVars && (
         <head>
           <style dangerouslySetInnerHTML={{ __html: inlineVars }} />
         </head>
       )}
-      <body suppressHydrationWarning>{children}</body>
+      <body suppressHydrationWarning>
+        <NextIntlClientProvider messages={messages}>
+          {children}
+        </NextIntlClientProvider>
+      </body>
     </html>
   );
 }

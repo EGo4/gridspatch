@@ -2,6 +2,7 @@
 
 import React, { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Sidebar } from "~/components/Sidebar";
 import {
   createUser,
@@ -46,18 +47,14 @@ const EMPTY_FORM: FormState = {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const ROLE_LABELS: Record<string, string> = {
-  construction_manager: "Manager",
-  admin: "Admin",
-};
-
 const ROLE_STYLES: Record<string, string> = {
   construction_manager: "bg-[var(--color-status-planned-bg)] text-[var(--color-status-planned-txt)] border border-[var(--color-border-subtle)]",
   admin:                "bg-[var(--color-status-done-bg)] text-[var(--color-status-done-txt)] border border-[var(--color-border-subtle)]",
 };
 
 function RoleBadge({ role }: { role: string }) {
-  const label = ROLE_LABELS[role] ?? role;
+  const t = useTranslations("Users");
+  const label = role === "admin" ? t("roleAdmin") : role === "construction_manager" ? t("roleManager") : role;
   const style = ROLE_STYLES[role] ?? "bg-[var(--color-bg-raised)] text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]";
   return (
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${style}`}>
@@ -66,7 +63,7 @@ function RoleBadge({ role }: { role: string }) {
   );
 }
 
-// ── Photo picker (same as employees) ─────────────────────────────────────────
+// ── Photo picker ──────────────────────────────────────────────────────────────
 
 function PhotoPicker({
   image,
@@ -77,6 +74,7 @@ function PhotoPicker({
   pendingFile: File | null;
   onChange: (image: string, pendingFile: File | null) => void;
 }) {
+  const tCommon = useTranslations("Common");
   const inputRef = useRef<HTMLInputElement>(null);
   const previewSrc = pendingFile ? URL.createObjectURL(pendingFile) : image || null;
 
@@ -101,7 +99,7 @@ function PhotoPicker({
           onClick={() => inputRef.current?.click()}
           className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-text-primary)]"
         >
-          {previewSrc ? "Change photo" : "Upload photo"}
+          {previewSrc ? tCommon("changePhoto") : tCommon("uploadPhoto")}
         </button>
         {previewSrc && (
           <button
@@ -109,10 +107,10 @@ function PhotoPicker({
             onClick={() => onChange("", null)}
             className="text-left text-xs text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-danger-text)]"
           >
-            Remove
+            {tCommon("remove")}
           </button>
         )}
-        <p className="text-[11px] text-[var(--color-text-faint)]">JPEG, PNG, WebP · max 5 MB</p>
+        <p className="text-[11px] text-[var(--color-text-faint)]">{tCommon("photoHint")}</p>
       </div>
       <input
         ref={inputRef}
@@ -141,6 +139,8 @@ function UserFormPanel({
   onChange: (f: FormState) => void;
   onSave: () => void;
 }) {
+  const t = useTranslations("Users");
+  const tCommon = useTranslations("Common");
   const isEdit = Boolean(form.id);
 
   const field = (label: string, node: React.ReactNode) => (
@@ -170,12 +170,12 @@ function UserFormPanel({
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
           <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">
-            {isEdit ? "Edit user" : "New user"}
+            {isEdit ? t("editUser") : t("newUser")}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            title="Close"
+            title={tCommon("close")}
             className="rounded-md p-1 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -188,7 +188,7 @@ function UserFormPanel({
         {/* Form */}
         <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-6">
           {field(
-            "Photo",
+            tCommon("photo"),
             <PhotoPicker
               image={form.image}
               pendingFile={form.pendingFile}
@@ -197,7 +197,7 @@ function UserFormPanel({
           )}
 
           {field(
-            "Name *",
+            t("nameRequired"),
             <input
               type="text"
               value={form.name}
@@ -209,7 +209,7 @@ function UserFormPanel({
           )}
 
           {field(
-            "Email *",
+            t("emailRequired"),
             <input
               type="email"
               value={form.email}
@@ -220,25 +220,25 @@ function UserFormPanel({
           )}
 
           {field(
-            "Role",
+            tCommon("role"),
             <select
               value={form.role}
-              title="Role"
+              title={tCommon("role")}
               onChange={(e) => onChange({ ...form, role: e.target.value as UserRole })}
               className={inputCls}
             >
-              <option value="construction_manager">Construction Manager</option>
-              <option value="admin">Admin</option>
+              <option value="construction_manager">{t("roleManager")}</option>
+              <option value="admin">{t("roleAdmin")}</option>
             </select>,
           )}
 
           {field(
-            isEdit ? "New password (leave blank to keep current)" : "Password *",
+            isEdit ? t("newPasswordLabel") : t("password"),
             <input
               type="password"
               value={form.password}
               onChange={(e) => onChange({ ...form, password: e.target.value })}
-              placeholder={isEdit ? "Enter to change…" : "Min. 8 characters"}
+              placeholder={isEdit ? t("newPasswordPlaceholder") : t("passwordHint")}
               className={inputCls}
               autoComplete="new-password"
             />,
@@ -247,29 +247,27 @@ function UserFormPanel({
           {isEdit && (
             <>
               {field(
-                "Your admin password",
+                t("adminPassword"),
                 <input
                   type="password"
                   value={form.adminPassword}
                   onChange={(e) => onChange({ ...form, adminPassword: e.target.value })}
-                  placeholder="Required to change this user's password"
+                  placeholder={t("adminPasswordHintEdit")}
                   className={inputCls}
                   autoComplete="current-password"
                 />,
               )}
               <p className="text-[11px] text-[var(--color-text-muted)]">
-                Required only when setting a new password for this user.
+                {t("adminPasswordHintCreate")}
               </p>
             </>
           )}
 
           {newPasswordTooShort && (
-            <p className="text-[11px] text-[var(--color-danger-text)]">Password must be at least 8 characters.</p>
+            <p className="text-[11px] text-[var(--color-danger-text)]">{t("errorPasswordShort")}</p>
           )}
           {adminPasswordRequired && (
-            <p className="text-[11px] text-[var(--color-danger-text)]">
-              Your admin password is required to change another user&apos;s password.
-            </p>
+            <p className="text-[11px] text-[var(--color-danger-text)]">{t("errorAdminRequired")}</p>
           )}
         </div>
 
@@ -280,7 +278,7 @@ function UserFormPanel({
             onClick={onClose}
             className="rounded-lg px-4 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
           >
-            Cancel
+            {tCommon("cancel")}
           </button>
           <button
             type="button"
@@ -288,7 +286,7 @@ function UserFormPanel({
             disabled={!canSave || saving}
             className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-medium text-white transition-opacity disabled:opacity-40 hover:opacity-90"
           >
-            {saving ? "Saving…" : isEdit ? "Save changes" : "Create user"}
+            {saving ? tCommon("saving") : isEdit ? tCommon("saveChanges") : t("createUser")}
           </button>
         </div>
       </div>
@@ -309,14 +307,15 @@ function DeleteConfirmPanel({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  const t = useTranslations("Users");
+  const tCommon = useTranslations("Common");
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
       <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] p-6 shadow-2xl">
-        <h2 className="mb-2 text-sm font-semibold text-[var(--color-text-primary)]">Delete user?</h2>
+        <h2 className="mb-2 text-sm font-semibold text-[var(--color-text-primary)]">{t("deleteTitle")}</h2>
         <p className="mb-5 text-xs text-[var(--color-text-secondary)]">
-          <span className="font-medium text-[var(--color-text-primary)]">{user.name}</span> ({user.email}) will be
-          permanently deleted including all their sessions and login data.
+          <span className="font-medium text-[var(--color-text-primary)]">{user.name}</span> {t("deleteBody", { email: user.email })}
         </p>
         <div className="flex justify-end gap-2">
           <button
@@ -324,7 +323,7 @@ function DeleteConfirmPanel({
             onClick={onClose}
             className="rounded-lg px-4 py-2 text-sm text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
           >
-            Cancel
+            {tCommon("cancel")}
           </button>
           <button
             type="button"
@@ -332,7 +331,7 @@ function DeleteConfirmPanel({
             disabled={deleting}
             className="rounded-lg bg-[#5c1e1e] px-4 py-2 text-sm font-medium text-[var(--color-danger-text)] transition-opacity disabled:opacity-40 hover:bg-[#6e2424]"
           >
-            {deleting ? "Deleting…" : "Delete"}
+            {deleting ? tCommon("deleting") : tCommon("delete")}
           </button>
         </div>
       </div>
@@ -344,6 +343,8 @@ function DeleteConfirmPanel({
 
 export function UsersClient({ users: initialUsers }: { users: User[] }) {
   const router = useRouter();
+  const t = useTranslations("Users");
+  const tCommon = useTranslations("Common");
   const [, startTransition] = useTransition();
 
   const [navSidebarOpen, setNavSidebarOpen] = useState(false);
@@ -421,7 +422,7 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
       setFormOpen(false);
       startTransition(() => router.refresh());
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
+      setError(e instanceof Error ? e.message : t("errorGeneric"));
     } finally {
       setSaving(false);
     }
@@ -449,7 +450,7 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
         <button
           type="button"
           onClick={() => setNavSidebarOpen(true)}
-          title="Open menu"
+          title={tCommon("openMenu")}
           className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)] lg:hidden"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -458,7 +459,7 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
             <line x1="3" y1="18" x2="21" y2="18" />
           </svg>
         </button>
-        <h1 className="text-sm font-semibold text-[var(--color-text-primary)]">Users</h1>
+        <h1 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("title")}</h1>
 
         <button
           type="button"
@@ -469,7 +470,7 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
           </svg>
-          Add user
+          {t("addUser")}
         </button>
       </header>
 
@@ -484,14 +485,14 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
       <main className="flex-1 overflow-y-auto overflow-x-clip p-6">
         {initialUsers.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--color-border-subtle)] py-20 text-center">
-            <p className="text-sm text-[var(--color-text-muted)]">No users yet</p>
-            <p className="text-xs text-[var(--color-text-faint)]">The first user you create will become the admin.</p>
+            <p className="text-sm text-[var(--color-text-muted)]">{t("noUsers")}</p>
+            <p className="text-xs text-[var(--color-text-faint)]">{t("firstUserHint")}</p>
             <button
               type="button"
               onClick={openAdd}
               className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-xs font-medium text-white transition-opacity hover:opacity-90"
             >
-              Create first user
+              {t("createFirst")}
             </button>
           </div>
         ) : (
@@ -499,10 +500,10 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
             <table className="w-full min-w-[480px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-page)]">
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Name</th>
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Email</th>
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">Role</th>
-                  <th scope="col" className="w-20 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-transparent">Actions</th>
+                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{tCommon("name")}</th>
+                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("email")}</th>
+                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{tCommon("role")}</th>
+                  <th scope="col" className="w-20 px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-transparent">{t("actions")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -538,7 +539,7 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
                         <button
                           type="button"
                           onClick={() => openEdit(user)}
-                          title="Edit"
+                          title={tCommon("edit")}
                           className="rounded-md p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -549,7 +550,7 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
                         <button
                           type="button"
                           onClick={() => setDeleteTarget(user)}
-                          title="Delete"
+                          title={tCommon("delete")}
                           className="rounded-md p-1.5 text-[var(--color-text-muted)] transition-colors hover:bg-[#3a1e1e] hover:text-[var(--color-danger-text)]"
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

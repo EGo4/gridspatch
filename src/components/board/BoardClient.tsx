@@ -3,6 +3,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { DragDropContext, Droppable } from "@hello-pangea/dnd";
 import type { DragStart, DropResult } from "@hello-pangea/dnd";
 
@@ -97,9 +98,6 @@ const COLLAPSED_LS_KEY  = "gridspatch:collapsed-rows";
 const FILTER_MANAGER_KEY = "gridspatch:filter-manager";
 const PAST_WEEK_MUTE_KEY = "gridspatch:past-week-mute-until";
 
-const STATUS_LABELS: Record<ProjectStatus, string> = {
-  planned: "Planned", active: "Active", on_hold: "On hold", done: "Done", inactive: "Inactive",
-};
 
 const STATUS_CHIP: Record<ProjectStatus, string> = {
   planned:  "bg-[var(--color-status-planned-bg)] text-[var(--color-status-planned-txt)]",
@@ -112,6 +110,7 @@ const STATUS_CHIP: Record<ProjectStatus, string> = {
 // ── Theme toggle ──────────────────────────────────────────────────────────────
 
 function ThemeToggle() {
+  const t = useTranslations("Board");
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [theme, setTheme] = useState<"dark" | "light">("dark");
@@ -132,7 +131,7 @@ function ThemeToggle() {
     <button
       type="button"
       onClick={() => void toggle()}
-      title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+      title={theme === "dark" ? t("switchToLight") : t("switchToDark")}
       className="flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]"
     >
       {theme === "dark" ? (
@@ -164,6 +163,8 @@ export function BoardClient({
   weeks,
 }: BoardClientProps) {
   const router = useRouter();
+  const t = useTranslations("Board");
+  const tStatus = useTranslations("Status");
   const [navSidebarOpen, setNavSidebarOpen] = useState(false);
   const [assignmentsState, setAssignmentsState] = useState<Record<string, EmployeeEntry[]>>({});
   const [activeDay, setActiveDay] = useState("Monday");
@@ -1182,7 +1183,7 @@ export function BoardClient({
                       <button
                         type="button"
                         onClick={() => toggleCollapsed(project.id)}
-                        title={isCollapsed ? "Expand" : "Collapse"}
+                        title={isCollapsed ? t("expand") : t("collapse")}
                         className="flex-shrink-0 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
                       >
                         <svg
@@ -1219,12 +1220,12 @@ export function BoardClient({
                           }}
                           className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-opacity hover:opacity-80 disabled:opacity-40 ${STATUS_CHIP[es]}`}
                         >
-                          {STATUS_LABELS[es]}
+                          {tStatus(es)}
                         </button>
                         {statusPopoverProjectId === project.id && (
                           <div className="absolute left-0 top-full z-30 mt-1 min-w-[130px] overflow-hidden rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] py-1 shadow-xl">
                             <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-                              Transition to
+                              {t("transitionTo")}
                             </div>
                             {ALLOWED_TRANSITIONS[es].map((toStatus) => {
                               const isCompleting = getSuperStatus(toStatus) === "completed";
@@ -1236,7 +1237,7 @@ export function BoardClient({
                                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
                                 >
                                   <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${STATUS_CHIP[toStatus].split(" ")[1] ?? ""}`} />
-                                  {STATUS_LABELS[toStatus]}
+                                  {tStatus(toStatus)}
                                   {isCompleting && <span className="ml-auto text-[var(--color-warn-text)]">⚠</span>}
                                 </button>
                               );
@@ -1290,12 +1291,12 @@ export function BoardClient({
                           }}
                           className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-opacity hover:opacity-80 disabled:opacity-40 ${STATUS_CHIP[es]}`}
                         >
-                          {STATUS_LABELS[es]}
+                          {tStatus(es)}
                         </button>
                         {statusPopoverProjectId === project.id && (
                           <div className="absolute left-0 top-full z-30 mt-1 min-w-[130px] overflow-hidden rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] py-1 shadow-xl">
                             <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-                              Transition to
+                              {t("transitionTo")}
                             </div>
                             {ALLOWED_TRANSITIONS[es].map((toStatus) => {
                               const isCompleting = getSuperStatus(toStatus) === "completed";
@@ -1307,7 +1308,7 @@ export function BoardClient({
                                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
                                 >
                                   <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${STATUS_CHIP[toStatus].split(" ")[1] ?? ""}`} />
-                                  {STATUS_LABELS[toStatus]}
+                                  {tStatus(toStatus)}
                                   {isCompleting && <span className="ml-auto text-[var(--color-warn-text)]">⚠</span>}
                                 </button>
                               );
@@ -1366,7 +1367,7 @@ export function BoardClient({
                             key={employee.id}
                             type="button"
                             onClick={() => clearAvailability(employee.id, day)}
-                            title="Click to remove status"
+                            title={t("clickToRemoveStatus")}
                             className="flex w-full min-w-max cursor-pointer items-center gap-2 rounded-full border border-[var(--color-avail-border)] bg-[var(--color-avail-bg)] p-1.5 text-sm transition-colors hover:border-[var(--color-avail-hover)]"
                           >
                             <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-full bg-[var(--color-avatar-bg)]">
@@ -1436,7 +1437,7 @@ export function BoardClient({
                     }`}
                   >
                     <FilterIcon size={12} />
-                    {activeManagerName ?? "Filter"}
+                    {activeManagerName ?? t("filter")}
                   </button>
 
                   {/* Reset — only when a filter is active */}
@@ -1444,7 +1445,7 @@ export function BoardClient({
                     <button
                       type="button"
                       onClick={() => setFilterManagerId(null)}
-                      title="Clear filter"
+                      title={t("clearFilter")}
                       className="flex items-center rounded-lg p-2 bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
                     >
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1459,7 +1460,7 @@ export function BoardClient({
               <button
                 type="button"
                 onClick={() => setSideMenuOpen((o) => !o)}
-                title={sideMenuOpen ? "Close menu" : "Open menu"}
+                title={sideMenuOpen ? t("closeMenu") : t("openMenu")}
                 className={`flex items-center justify-center rounded-lg w-8 h-9 transition-colors ${
                   filterManagerId
                     ? "bg-accent text-white shadow-lg"
@@ -1591,7 +1592,7 @@ export function BoardClient({
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
-            <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Copy previous week</h3>
+            <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("copyWeekTitle")}</h3>
             <button
               type="button"
               onClick={() => setCopyWeekModalOpen(false)}
@@ -1607,10 +1608,7 @@ export function BoardClient({
           {/* Body */}
           <div className="px-5 py-4 flex flex-col gap-3">
             <p className="text-sm text-[var(--color-text-secondary)]">
-              Copy all assignments from{" "}
-              <span className="font-semibold text-[var(--color-text-primary)]">{previousWeek.label}</span>{" "}
-              into{" "}
-              <span className="font-semibold text-[var(--color-text-primary)]">{selectedWeek.label}</span>?
+              {t("copyWeekBody", { from: previousWeek.label, to: selectedWeek.label })}
             </p>
 
             {targetWeekHasAssignments && (
@@ -1619,12 +1617,12 @@ export function BoardClient({
                   <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                   <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
-                This week already has assignments. They will be overwritten.
+                {t("copyWeekWarn")}
               </div>
             )}
 
             <p className="text-xs text-[var(--color-text-muted)]">
-              Sick and vacation days are not copied — affected employees will appear in the pool.
+              {t("copyWeekNote")}
             </p>
           </div>
 
@@ -1635,14 +1633,14 @@ export function BoardClient({
               onClick={() => setCopyWeekModalOpen(false)}
               className="rounded-lg px-4 py-2 text-xs font-semibold text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
             >
-              Cancel
+              {t("cancel")}
             </button>
             <button
               type="button"
               onClick={() => void copyPreviousWeek()}
               className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white transition-colors hover:opacity-90"
             >
-              Copy
+              {t("copy")}
             </button>
           </div>
         </div>
@@ -1665,7 +1663,7 @@ export function BoardClient({
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
-            <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Filters</h3>
+            <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("filtersTitle")}</h3>
             <button
               type="button"
               onClick={() => setFilterModalOpen(false)}
@@ -1681,7 +1679,7 @@ export function BoardClient({
           {/* Section: Construction manager */}
           <div className="px-5 py-4">
             <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-              Construction manager
+              {t("filterManager")}
             </div>
             <div className="flex flex-col gap-1">
               <button
@@ -1693,10 +1691,10 @@ export function BoardClient({
                     : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]"
                 }`}
               >
-                All managers
+                {t("allManagers")}
               </button>
               {managersWithSites.length === 0 ? (
-                <p className="px-3 py-2 text-sm text-[var(--color-text-faint)]">No managers assigned yet</p>
+                <p className="px-3 py-2 text-sm text-[var(--color-text-faint)]">{t("noManagers")}</p>
               ) : (
                 managersWithSites.map((m) => (
                   <button
@@ -1726,14 +1724,14 @@ export function BoardClient({
               onClick={() => setPendingManagerId(null)}
               className="text-xs text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-secondary)]"
             >
-              Clear all
+              {t("clearAll")}
             </button>
             <button
               type="button"
               onClick={() => { setFilterManagerId(pendingManagerId); setFilterModalOpen(false); }}
               className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white transition-colors hover:opacity-90"
             >
-              Apply
+              {t("apply")}
             </button>
           </div>
         </div>
@@ -1751,7 +1749,7 @@ export function BoardClient({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
-              <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Put site on hold?</h3>
+              <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("holdTitle")}</h3>
               <button type="button" title="Close" onClick={() => setHoldingTransition(null)}
                 className="flex items-center rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -1761,25 +1759,24 @@ export function BoardClient({
             </div>
             <div className="px-5 py-4 flex flex-col gap-3">
               <p className="text-sm text-[var(--color-text-secondary)]">
-                <span className="font-semibold text-[var(--color-text-primary)]">{project?.name}</span> will be moved
-                to on hold starting this week.
+                {t("holdBody", { name: project?.name ?? "" })}
               </p>
               <div className="flex items-start gap-2 rounded-lg border border-[var(--color-warn-border)] bg-[var(--color-warn-bg)] px-3 py-2.5 text-xs text-[var(--color-warn-text)]">
                 <svg className="mt-0.5 flex-shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                   <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
                 </svg>
-                {holdingTransition.assignmentCount} assignment{holdingTransition.assignmentCount !== 1 ? "s" : ""} this week will be removed.
+                {t("holdWarn", { count: holdingTransition.assignmentCount })}
               </div>
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4">
               <button type="button" onClick={() => setHoldingTransition(null)}
                 className="rounded-lg px-4 py-2 text-xs font-semibold text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]">
-                Cancel
+                {t("cancel")}
               </button>
               <button type="button" onClick={() => void handleConfirmHold()} disabled={applyingStatusChange}
                 className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
-                {applyingStatusChange ? "Applying…" : "Put on hold"}
+                {applyingStatusChange ? t("applying") : t("putOnHold")}
               </button>
             </div>
           </div>
@@ -1799,7 +1796,7 @@ export function BoardClient({
           >
             <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
               <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
-                Mark as {STATUS_LABELS[completingTransition.status]}?
+                {t("markAsTitle", { status: tStatus(completingTransition.status) })}
               </h3>
               <button type="button" title="Close" onClick={() => setCompletingTransition(null)}
                 className="flex items-center rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]">
@@ -1810,8 +1807,7 @@ export function BoardClient({
             </div>
             <div className="px-5 py-4 flex flex-col gap-3">
               <p className="text-sm text-[var(--color-text-secondary)]">
-                <span className="font-semibold text-[var(--color-text-primary)]">{project?.name}</span> will be removed
-                from the board starting this week.
+                {t("completeBody", { name: project?.name ?? "" })}
               </p>
               {completingTransition.assignmentCount > 0 && (
                 <div className="flex items-start gap-2 rounded-lg border border-[var(--color-warn-border)] bg-[var(--color-warn-bg)] px-3 py-2.5 text-xs text-[var(--color-warn-text)]">
@@ -1819,18 +1815,18 @@ export function BoardClient({
                     <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                     <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
                   </svg>
-                  {completingTransition.assignmentCount} assignment{completingTransition.assignmentCount !== 1 ? "s" : ""} this week will be removed.
+                  {t("completeWarn", { count: completingTransition.assignmentCount })}
                 </div>
               )}
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4">
               <button type="button" onClick={() => setCompletingTransition(null)}
                 className="rounded-lg px-4 py-2 text-xs font-semibold text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]">
-                Cancel
+                {t("cancel")}
               </button>
               <button type="button" onClick={() => void handleConfirmComplete()} disabled={applyingStatusChange}
                 className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
-                {applyingStatusChange ? "Applying…" : "Apply"}
+                {applyingStatusChange ? t("applying") : t("apply")}
               </button>
             </div>
           </div>
@@ -1847,23 +1843,23 @@ export function BoardClient({
               <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
               <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
             </svg>
-            Editing a past week
+            {t("pastWeekTitle")}
           </div>
           <p className="mb-5 text-xs text-[var(--color-text-secondary)]">
-            You are about to modify historical data. This change will be recorded in a past week.
+            {t("pastWeekBody")}
           </p>
           <div className="flex flex-col gap-2">
             <button type="button" onClick={() => executePending(false)}
               className="w-full rounded-lg bg-[var(--color-warn-text)] px-4 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90">
-              Yes, change assignment
+              {t("pastWeekConfirm")}
             </button>
             <button type="button" onClick={() => executePending(true)}
               className="w-full rounded-lg border border-[var(--color-warn-border)] bg-[var(--color-warn-bg)] px-4 py-2 text-xs font-medium text-[var(--color-warn-text)] transition-colors hover:opacity-90">
-              Yes, and mute this message for 5 minutes
+              {t("pastWeekMute")}
             </button>
             <button type="button" onClick={() => { setShowPastWeekModal(false); setPendingAction(null); }}
               className="w-full rounded-lg px-4 py-2 text-xs text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
-              Cancel
+              {t("cancel")}
             </button>
           </div>
         </div>

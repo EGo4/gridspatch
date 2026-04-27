@@ -2,12 +2,14 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { authClient } from "~/server/better-auth/client";
 import { findEmailByUsername } from "~/server/actions/users";
 import { Logo } from "~/components/Logo";
 
 export default function LoginPage() {
   const router = useRouter();
+  const t = useTranslations("Login");
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +25,7 @@ export default function LoginPage() {
       if (!email.includes("@")) {
         const found = await findEmailByUsername(email);
         if (!found) {
-          setError("No account found with that username.");
+          setError(t("errorNoAccount"));
           return;
         }
         email = found;
@@ -31,12 +33,12 @@ export default function LoginPage() {
 
       const result = await authClient.signIn.email({ email, password });
       if (result.error) {
-        setError(result.error.message ?? "Sign in failed");
+        setError(result.error.message ?? t("errorFailed"));
         return;
       }
       router.push("/board");
     } catch {
-      setError("Sign in failed. Check your credentials and try again.");
+      setError(t("errorGeneric"));
     } finally {
       setLoading(false);
     }
@@ -54,7 +56,7 @@ export default function LoginPage() {
           onSubmit={handleSubmit}
           className="bg-[var(--color-bg-surface)] rounded-xl border border-[var(--color-border-muted)] p-6 flex flex-col gap-4"
         >
-          <h2 className="text-[var(--color-text-primary)] font-medium text-sm">Sign in</h2>
+          <h2 className="text-[var(--color-text-primary)] font-medium text-sm">{t("signIn")}</h2>
 
           {error && (
             <p className="text-xs text-red-400 bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-2">
@@ -64,7 +66,7 @@ export default function LoginPage() {
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs text-[var(--color-text-secondary)]" htmlFor="identifier">
-              Username or email
+              {t("usernameOrEmail")}
             </label>
             <input
               id="identifier"
@@ -74,13 +76,13 @@ export default function LoginPage() {
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               className="rounded-lg bg-[var(--color-bg-page)] border border-[var(--color-border-muted)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] outline-none focus:border-[var(--color-border-strong)] transition-colors"
-              placeholder="John or you@example.com"
+              placeholder={t("usernamePlaceholder")}
             />
           </div>
 
           <div className="flex flex-col gap-1.5">
             <label className="text-xs text-[var(--color-text-secondary)]" htmlFor="password">
-              Password
+              {t("password")}
             </label>
             <input
               id="password"
@@ -99,7 +101,7 @@ export default function LoginPage() {
             disabled={loading}
             className="mt-1 rounded-lg bg-[var(--color-bg-active)] px-4 py-2 text-sm font-medium text-[var(--color-text-primary)] hover:bg-[var(--color-border-strong)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? "Signing in…" : "Sign in"}
+            {loading ? t("signingIn") : t("signIn")}
           </button>
         </form>
       </div>
