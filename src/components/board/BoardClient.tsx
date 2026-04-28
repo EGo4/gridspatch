@@ -3,7 +3,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { DragDropContext, Droppable } from "@hello-pangea/dnd";
 import type { DragStart, DropResult } from "@hello-pangea/dnd";
 
@@ -165,6 +165,7 @@ export function BoardClient({
   const router = useRouter();
   const t = useTranslations("Board");
   const tStatus = useTranslations("Status");
+  const locale = useLocale();
   const [navSidebarOpen, setNavSidebarOpen] = useState(false);
   const [assignmentsState, setAssignmentsState] = useState<Record<string, EmployeeEntry[]>>({});
   const [activeDay, setActiveDay] = useState("Monday");
@@ -232,6 +233,10 @@ export function BoardClient({
   };
 
   const weekDates = getWeekDateMap(selectedWeek.startDateIso);
+  const dayLabel = (day: string) =>
+    new Intl.DateTimeFormat(locale, { weekday: "long", timeZone: "UTC" }).format(
+      new Date(weekDates[day as keyof typeof weekDates] ?? "1970-01-05"),
+    );
 
   // ── Close day dropdown on outside click or Escape ────────────────────────
   useEffect(() => {
@@ -882,7 +887,7 @@ export function BoardClient({
                   }`}
                 >
                   {showHalfSection && (
-                    <div className="text-[9px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">AM</div>
+                    <div className="text-[9px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">{t("am")}</div>
                   )}
                   {(assignmentsState[preId] ?? []).map((entry, index) => (
                     <EmployeeCard
@@ -929,7 +934,7 @@ export function BoardClient({
                   }`}
                 >
                   {showHalfSection && (
-                    <div className="text-[9px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">PM</div>
+                    <div className="text-[9px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">{t("pm")}</div>
                   )}
                   {(assignmentsState[postId] ?? []).map((entry, index) => (
                     <EmployeeCard
@@ -1003,7 +1008,7 @@ export function BoardClient({
                         : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
                     }`}
                   >
-                    {day}
+                    {dayLabel(day)}
                   </button>
                 ))}
               </div>
@@ -1129,7 +1134,7 @@ export function BoardClient({
                       : "bg-[var(--color-bg-surface)]"
                   }`}
                 >
-                  <span>{day}</span>
+                  <span>{dayLabel(day)}</span>
                   {!draggingDay && (
                     <button
                       type="button"
@@ -1137,7 +1142,7 @@ export function BoardClient({
                         e.stopPropagation();
                         setCopyPopoverDay(copyPopoverDay === day ? null : day);
                       }}
-                      title={`Copy assignments to ${day}`}
+                      title={t("copyAssignmentsTo", { day: dayLabel(day) })}
                       className="flex items-center rounded bg-[var(--color-copy-btn)] p-1.5 text-[var(--color-copy-btn-text)] transition-colors hover:bg-[var(--color-copy-btn-hover)] hover:text-[var(--color-text-primary)]"
                     >
                       <CopyIcon size={14} />
@@ -1146,7 +1151,7 @@ export function BoardClient({
                   {copyPopoverDay === day && (
                     <div className="absolute top-full left-0 z-50 mt-1 min-w-[140px] rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] p-2 shadow-xl">
                       <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-                        Copy from
+                        {t("copyFrom")}
                       </div>
                       {DAYS.filter((d) => d !== day).map((sourceDay) => (
                         <button
@@ -1158,7 +1163,7 @@ export function BoardClient({
                           }}
                           className="block w-full rounded px-2 py-1.5 text-left text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
                         >
-                          {sourceDay}
+                          {dayLabel(sourceDay)}
                         </button>
                       ))}
                     </div>
@@ -1337,7 +1342,7 @@ export function BoardClient({
                 >
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
-                Sick &amp; Vacation
+                {t("sickVacation")}
               </button>
 
               {!(collapsedRows ?? new Set()).has("sick-vacation") && (
@@ -1422,7 +1427,7 @@ export function BoardClient({
                         <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                       </svg>
-                      Copy prev. week
+                      {t("copyPrevWeek")}
                     </button>
                   )}
 
@@ -1488,7 +1493,7 @@ export function BoardClient({
             >
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
             </svg>
-            Pool (Available)
+            {t("pool")}
           </button>
           {!(collapsedRows ?? new Set()).has("pool") && <div className="flex gap-4 items-stretch">
             {DAYS.map((day) => {

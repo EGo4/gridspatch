@@ -213,7 +213,13 @@
     "pastWeekBody": "You are about to modify historical data. This change will be recorded in a past week.",
     "pastWeekConfirm": "Yes, change assignment",
     "pastWeekMute": "Yes, and mute this message for 5 minutes",
-    "transitionTo": "Transition to"
+    "transitionTo": "Transition to",
+    "copyFrom": "Copy from",
+    "copyAssignmentsTo": "Copy assignments to {day}",
+    "sickVacation": "Sick & Vacation",
+    "pool": "Pool (Available)",
+    "am": "AM",
+    "pm": "PM"
   },
   "Profile": {
     "title": "Account",

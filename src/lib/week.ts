@@ -59,13 +59,13 @@ export const getDayNameFromDate = (
   return DAYS.find((day) => toDateParam(weekDates[day]) === targetParam) ?? null;
 };
 
-export const formatWeekLabel = (weekStart: Date | string) => {
+export const formatWeekLabel = (weekStart: Date | string, locale = "en-GB") => {
   const start = normalizeWeekStart(weekStart);
   const end = getWeekEnd(start);
 
-  const dayFmt   = new Intl.DateTimeFormat("en-GB", { day: "numeric",            timeZone: "UTC" });
-  const monthFmt = new Intl.DateTimeFormat("en-GB", { month: "short",            timeZone: "UTC" });
-  const yearFmt  = new Intl.DateTimeFormat("en-GB", { year: "2-digit",           timeZone: "UTC" });
+  const dayFmt   = new Intl.DateTimeFormat(locale, { day: "numeric",  timeZone: "UTC" });
+  const monthFmt = new Intl.DateTimeFormat(locale, { month: "short",  timeZone: "UTC" });
+  const yearFmt  = new Intl.DateTimeFormat(locale, { year: "2-digit", timeZone: "UTC" });
 
   const startDay   = dayFmt.format(start);
   const endDay     = dayFmt.format(end);

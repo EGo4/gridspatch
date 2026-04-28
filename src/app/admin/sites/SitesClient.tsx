@@ -2,7 +2,7 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Sidebar } from "~/components/Sidebar";
 import type { ProjectStatus } from "~/types";
 import { getSuperStatus, ALLOWED_TRANSITIONS } from "~/types";
@@ -249,6 +249,7 @@ function SiteStatusPanel({
   const t = useTranslations("Sites");
   const tCommon = useTranslations("Common");
   const tStatus = useTranslations("Status");
+  const locale = useLocale();
 
   const [transitions, setTransitions] = useState<TransitionEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -437,7 +438,7 @@ function SiteStatusPanel({
                   <div key={tr.weekStartIso}
                     className="flex items-center gap-3 rounded-lg bg-[var(--color-bg-surface)] px-3 py-2">
                     <span className="flex-1 text-xs text-[var(--color-text-secondary)]">
-                      {t("fromWeek", { week: formatWeekLabel(tr.weekStartIso) })}
+                      {t("fromWeek", { week: formatWeekLabel(tr.weekStartIso, locale) })}
                     </span>
                     <StatusBadge status={tr.status} />
                     <button
@@ -473,7 +474,7 @@ function SiteStatusPanel({
               className="w-full flex items-center justify-between rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 py-2 text-sm text-left transition-colors hover:border-[var(--color-accent)] focus:outline-none focus:border-[var(--color-accent)]"
             >
               <span className={selectedWeek ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-faint)]"}>
-                {selectedWeek ? formatWeekLabel(selectedWeek) : t("selectWeek")}
+                {selectedWeek ? formatWeekLabel(selectedWeek, locale) : t("selectWeek")}
               </span>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                 className={`text-[var(--color-text-muted)] transition-transform ${weekPickerOpen ? "rotate-180" : ""}`}>
@@ -636,7 +637,7 @@ function SiteStatusPanel({
                   className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-left transition-colors hover:bg-[var(--color-bg-surface)] ${isSelected ? "bg-[var(--color-bg-surface)]" : ""}`}
                 >
                   <span className={`flex-1 ${isCurrent ? "font-semibold text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)]"}`}>
-                    {formatWeekLabel(weekIso)}
+                    {formatWeekLabel(weekIso, locale)}
                     {isCurrent && <span className="ml-1.5 text-[var(--color-text-faint)]">(current)</span>}
                   </span>
                   {hasTransition && (

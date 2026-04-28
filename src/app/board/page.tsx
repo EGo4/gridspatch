@@ -1,3 +1,4 @@
+import { getLocale } from "next-intl/server";
 import { BoardClient } from "~/components/board/BoardClient";
 import { db } from "~/server/db";
 import { getBoardPageData, type BoardDb } from "~/server/services/board";
@@ -13,7 +14,8 @@ export default async function BoardPage({ searchParams }: BoardPageProps) {
   const selectedWeekParam = Array.isArray(resolvedSearchParams?.week)
     ? resolvedSearchParams.week[0]
     : resolvedSearchParams?.week;
-  const boardData = await getBoardPageData(db as unknown as BoardDb, selectedWeekParam);
+  const locale = await getLocale();
+  const boardData = await getBoardPageData(db as unknown as BoardDb, selectedWeekParam, locale);
 
   return <BoardClient {...boardData} />;
 }

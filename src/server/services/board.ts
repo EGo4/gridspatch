@@ -68,16 +68,16 @@ export type BoardWeek = {
   isCurrent: boolean;
 };
 
-const toBoardWeek = (week: WeekRecord): BoardWeek => ({
+const toBoardWeek = (week: WeekRecord, locale: string): BoardWeek => ({
   id: week.id,
   startDateIso: toDateIso(week.startDate),
   endDateIso: toDateIso(week.endDate),
   param: toDateParam(week.startDate),
-  label: formatWeekLabel(week.startDate),
+  label: formatWeekLabel(week.startDate, locale),
   isCurrent: week.isCurrent,
 });
 
-export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: string) => {
+export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: string, locale = "en-GB") => {
   const requestedWeek = parseWeekParam(requestedWeekParam) ?? getCurrentWeekStart();
   const weekStart = normalizeWeekStart(requestedWeek);
   const weekEnd = getWeekEnd(weekStart);
@@ -149,7 +149,7 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
     dbEmployees: employees,
     dbProjects: projects,
     weekStatusMap,
-    selectedWeek: toBoardWeek(selectedWeek),
-    weeks: weeks.map(toBoardWeek),
+    selectedWeek: toBoardWeek(selectedWeek, locale),
+    weeks: weeks.map((w) => toBoardWeek(w, locale)),
   };
 };

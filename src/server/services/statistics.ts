@@ -110,12 +110,13 @@ export const getStatsPageData = async (
   database: StatsDb,
   fromParam?: string,
   toParam?: string,
+  locale = "en-GB",
 ): Promise<StatsPageData> => {
   const allWeekRecords = await database.week.findMany({ orderBy: { startDate: "asc" } });
 
   const allWeeks: WeekOption[] = allWeekRecords.map((w) => ({
     param: toDateParam(w.startDate),
-    label: formatWeekLabel(w.startDate),
+    label: formatWeekLabel(w.startDate, locale),
   }));
 
   const empty: StatsPageData = {
@@ -292,7 +293,7 @@ export const getStatsPageData = async (
       .filter((w) => wkMap.has(w.id))
       .map((w) => ({
         weekParam:   toDateParam(w.startDate),
-        weekLabel:   formatWeekLabel(w.startDate),
+        weekLabel:   formatWeekLabel(w.startDate, locale),
         employeeDays: round1(wkMap.get(w.id) ?? 0),
       }));
   }
@@ -318,7 +319,7 @@ export const getStatsPageData = async (
       .filter((w) => wkMap.has(w.id))
       .map((w) => ({
         weekParam:   toDateParam(w.startDate),
-        weekLabel:   formatWeekLabel(w.startDate),
+        weekLabel:   formatWeekLabel(w.startDate, locale),
         employeeDays: round1(wkMap.get(w.id) ?? 0),
       }));
   }
