@@ -98,6 +98,10 @@ const poolFullDayId = (day: string) => `pool-${day}`;
 const COLLAPSED_LS_KEY  = "gridspatch:collapsed-rows";
 const FILTER_MANAGER_KEY = "gridspatch:filter-manager";
 const PAST_WEEK_MUTE_KEY = "gridspatch:past-week-mute-until";
+const POOL_HEIGHT_LS_KEY = "gridspatch:pool-height";
+const POOL_DEFAULT_HEIGHT = 200;
+const POOL_MIN_HEIGHT = 60;
+const POOL_MAX_HEIGHT = 600;
 
 
 const STATUS_CHIP: Record<ProjectStatus, string> = {
@@ -192,6 +196,8 @@ export function BoardClient({
   const [pendingManagerId, setPendingManagerId] = useState<string | null>(null);
   const [copyWeekModalOpen, setCopyWeekModalOpen] = useState(false);
   const sitePickerRef = useRef<HTMLDivElement>(null);
+  const poolOverlayRef = useRef<HTMLDivElement>(null);
+  const poolHeightRef = useRef(POOL_DEFAULT_HEIGHT);
   const [statusPopoverProjectId, setStatusPopoverProjectId] = useState<string | null>(null);
   const [completingTransition, setCompletingTransition] = useState<{
     projectId: string; status: ProjectStatus; assignmentCount: number;
@@ -403,6 +409,39 @@ export function BoardClient({
       localStorage.removeItem(FILTER_MANAGER_KEY);
     }
   }, [filterManagerId]);
+
+  // ── Pool height — hydrate from localStorage ───────────────────────────────
+  useEffect(() => {
+    const stored = localStorage.getItem(POOL_HEIGHT_LS_KEY);
+    if (stored) {
+      const h = Number(stored);
+      if (!isNaN(h) && h >= POOL_MIN_HEIGHT && h <= POOL_MAX_HEIGHT) {
+        poolHeightRef.current = h;
+        if (poolOverlayRef.current) poolOverlayRef.current.style.maxHeight = `${h}px`;
+      }
+    }
+  }, []);
+
+  const handlePoolResizeStart = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const startH = poolHeightRef.current;
+
+    const onMove = (ev: PointerEvent) => {
+      const h = Math.min(POOL_MAX_HEIGHT, Math.max(POOL_MIN_HEIGHT, startH + (startY - ev.clientY)));
+      poolHeightRef.current = h;
+      if (poolOverlayRef.current) poolOverlayRef.current.style.maxHeight = `${h}px`;
+    };
+
+    const onUp = () => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      localStorage.setItem(POOL_HEIGHT_LS_KEY, String(poolHeightRef.current));
+    };
+
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  };
 
   // ── Close fly-out side menu on outside click or Escape ───────────────────
   useEffect(() => {
@@ -1650,8 +1689,21 @@ export function BoardClient({
             </div>
           </div>
 
+          {/* Pool resize handle — desktop only */}
+          <div
+            className="hidden lg:flex h-3 shrink-0 cursor-ns-resize items-center justify-center gap-1 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] transition-colors hover:bg-[var(--color-bg-surface)] group select-none"
+            onPointerDown={handlePoolResizeStart}
+          >
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-1 w-1 rounded-full bg-[var(--color-border-muted)] transition-colors group-hover:bg-accent/50" />
+            ))}
+          </div>
+
           {/* Pool — always visible at the bottom of the content column, scrolls independently */}
-          <div className="pool-overlay flex flex-col gap-2 bg-[var(--color-bg-page)] border-t border-[var(--color-border-subtle)] px-4 pt-3 pb-4">
+          <div
+            ref={poolOverlayRef}
+            className="pool-overlay flex flex-col gap-2 bg-[var(--color-bg-page)] border-t border-[var(--color-border-subtle)] lg:border-t-0 px-4 pt-3 pb-4"
+          >
           <button
             type="button"
             onClick={() => toggleCollapsed("pool")}
