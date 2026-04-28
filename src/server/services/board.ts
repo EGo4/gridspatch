@@ -148,7 +148,7 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
     }));
 
   const dbHolidays = rawHolidays.map((h) => ({
-    dateIso: toDateParam(h.date),
+    dateIso: toDateIso(h.date),
     type: h.type as "public_holiday" | "company_holiday",
   }));
 
