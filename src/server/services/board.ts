@@ -27,6 +27,9 @@ export type BoardDb = {
   employee: {
     findMany: () => Promise<Array<Employee & { startDate: Date | null; endDate: Date | null }>>;
   };
+  holiday: {
+    findMany: (args: { where: { date: { gte: Date; lte: Date } } }) => Promise<Array<{ date: Date; type: string }>>;
+  };
   project: {
     findMany: (args?: {
       orderBy?: { name: "asc" | "desc" };
@@ -93,7 +96,7 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
     },
   });
 
-  const [weeks, rawProjects, rawEmployees, assignments, availabilities, allTransitions] = await Promise.all([
+  const [weeks, rawProjects, rawEmployees, assignments, availabilities, allTransitions, rawHolidays] = await Promise.all([
     database.week.findMany({ orderBy: { startDate: "desc" } }),
     database.project.findMany({
       orderBy: { name: "asc" },
@@ -103,6 +106,7 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
     database.assignment.findMany({ where: { weekId: selectedWeek.id } }),
     database.availability.findMany({ where: { weekId: selectedWeek.id } }),
     database.projectStatusTransition.findMany({ orderBy: { weekStartDate: "asc" } }),
+    database.holiday.findMany({ where: { date: { gte: weekStart, lte: weekEnd } } }),
   ]);
 
   const employees: Employee[] = rawEmployees.filter((emp) => {
@@ -143,11 +147,17 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
       constructionManagerName: p.constructionManager?.name ?? null,
     }));
 
+  const dbHolidays = rawHolidays.map((h) => ({
+    dateIso: toDateParam(h.date),
+    type: h.type as "public_holiday" | "company_holiday",
+  }));
+
   return {
     dbAssignments: assignments,
     dbAvailability: availabilities,
     dbEmployees: employees,
     dbProjects: projects,
+    dbHolidays,
     weekStatusMap,
     selectedWeek: toBoardWeek(selectedWeek, locale),
     weeks: weeks.map((w) => toBoardWeek(w, locale)),

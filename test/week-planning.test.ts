@@ -114,6 +114,9 @@ await run(
         availability: {
           findMany: async () => [],
         },
+        holiday: {
+          findMany: async () => [],
+        },
         projectStatusTransition: {
           findMany: async () => [],
         },

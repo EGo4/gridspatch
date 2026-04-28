@@ -219,7 +219,13 @@
     "sickVacation": "Sick & Vacation",
     "pool": "Pool (Available)",
     "am": "AM",
-    "pm": "PM"
+    "pm": "PM",
+    "publicHoliday": "Public holiday",
+    "companyHoliday": "Company holiday",
+    "holidaySettings": "Day settings",
+    "setPublicHoliday": "Set as public holiday",
+    "setCompanyHoliday": "Set as company holiday",
+    "clearHoliday": "Remove holiday"
   },
   "Profile": {
     "title": "Account",

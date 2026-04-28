@@ -52,6 +52,13 @@ export type Availability = {
   status: string;
 };
 
+export type HolidayType = "public_holiday" | "company_holiday";
+
+export type Holiday = {
+  dateIso: string;
+  type: HolidayType;
+};
+
 export type BoardWeek = {
   id: string;
   startDateIso: string;

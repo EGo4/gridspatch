@@ -219,7 +219,13 @@
     "sickVacation": "Krank & Urlaub",
     "pool": "Pool (Verfügbar)",
     "am": "Vormittag",
-    "pm": "Nachmittag"
+    "pm": "Nachmittag",
+    "publicHoliday": "Feiertag",
+    "companyHoliday": "Betriebsurlaub",
+    "holidaySettings": "Tag-Einstellungen",
+    "setPublicHoliday": "Als Feiertag markieren",
+    "setCompanyHoliday": "Als Betriebsurlaub markieren",
+    "clearHoliday": "Feiertag entfernen"
   },
   "Profile": {
     "title": "Konto",

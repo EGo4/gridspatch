@@ -8,9 +8,9 @@ import { DragDropContext, Droppable } from "@hello-pangea/dnd";
 import type { DragStart, DropResult } from "@hello-pangea/dnd";
 
 import { EmployeeCard } from "./EmployeeCard";
-import { SyringeIcon, PalmTreeIcon, CopyIcon, AssignSiteIcon, FilterIcon } from "~/components/icons";
+import { SyringeIcon, PalmTreeIcon, CopyIcon, AssignSiteIcon, FilterIcon, GearIcon } from "~/components/icons";
 import { Sidebar } from "~/components/Sidebar";
-import { updateAssignment, splitAssignment, mergeAssignment, copyDayAssignments, copyWeekAssignments, setAvailability as persistAvailability, clearAvailability as unpersistAvailability, clearProjectAssignmentsForWeek } from "~/server/actions/board";
+import { updateAssignment, splitAssignment, mergeAssignment, copyDayAssignments, copyWeekAssignments, setAvailability as persistAvailability, clearAvailability as unpersistAvailability, clearProjectAssignmentsForWeek, setHoliday as persistHoliday, clearHoliday as unpersistHoliday } from "~/server/actions/board";
 import { DAYS } from "~/lib/constants";
 import {
   getCurrentWeekStart,
@@ -20,7 +20,7 @@ import {
   getWeekDateMap,
   toDateParam,
 } from "~/lib/week";
-import type { Assignment, Availability, BoardWeek, DayPart, Employee, Project, ProjectStatus } from "~/types";
+import type { Assignment, Availability, BoardWeek, DayPart, Employee, Holiday, HolidayType, Project, ProjectStatus } from "~/types";
 import { ALLOWED_TRANSITIONS, getSuperStatus } from "~/types";
 import { setSiteTransition } from "~/server/actions/sites";
 import { saveThemePreference } from "~/server/actions/preferences";
@@ -39,6 +39,7 @@ interface BoardClientProps {
   dbEmployees: Employee[];
   dbAssignments: Assignment[];
   dbAvailability: Availability[];
+  dbHolidays: Holiday[];
   weekStatusMap: Record<string, string>;
   selectedWeek: BoardWeek;
   weeks: BoardWeek[];
@@ -158,6 +159,7 @@ export function BoardClient({
   dbEmployees,
   dbAssignments,
   dbAvailability,
+  dbHolidays,
   weekStatusMap,
   selectedWeek,
   weeks,
@@ -238,6 +240,87 @@ export function BoardClient({
       new Date(weekDates[day as keyof typeof weekDates] ?? "1970-01-05"),
     );
 
+  // ── Holiday state ─────────────────────────────────────────────────────────
+
+  const [holidays, setHolidays] = useState<Record<string, HolidayType>>(() => {
+    const map: Record<string, HolidayType> = {};
+    for (const h of dbHolidays) map[h.dateIso] = h.type;
+    return map;
+  });
+  const [holidayPopoverDay, setHolidayPopoverDay] = useState<string | null>(null);
+
+  const getHolidayType = (day: string): HolidayType | null => {
+    const dateIso = weekDates[day as keyof typeof weekDates];
+    return dateIso ? (holidays[dateIso] ?? null) : null;
+  };
+  const isPublicHoliday = (day: string) => getHolidayType(day) === "public_holiday";
+
+  const applyHoliday = async (day: string, type: HolidayType) => {
+    const dateIso = weekDates[day as keyof typeof weekDates];
+    if (!dateIso) return;
+
+    setHolidays((prev) => ({ ...prev, [dateIso]: type }));
+
+    if (type === "company_holiday") {
+      // Clear all project assignments for this day + move everyone to vacation
+      setAssignmentsState((prev) => {
+        const next = { ...prev };
+        for (const key of Object.keys(next)) {
+          if (key.includes(`-${day}`) && !key.startsWith("pool-")) next[key] = [];
+        }
+        next[poolFullDayId(day)] = [];
+        return next;
+      });
+      setAvailability((prev) => {
+        const next = { ...prev };
+        for (const emp of dbEmployees) next[`${emp.id}-${day}`] = "vacation";
+        return next;
+      });
+      await persistHoliday(dateIso, selectedWeek.id, type, dbEmployees.map((e) => e.id));
+    } else {
+      // public_holiday: clear assignments + availability for this day
+      setAssignmentsState((prev) => {
+        const next = { ...prev };
+        for (const key of Object.keys(next)) {
+          if (key.includes(`-${day}`)) next[key] = [];
+        }
+        return next;
+      });
+      setAvailability((prev) => {
+        const next = { ...prev };
+        for (const key of Object.keys(next)) {
+          if (key.endsWith(`-${day}`)) delete next[key];
+        }
+        return next;
+      });
+      await persistHoliday(dateIso, selectedWeek.id, type, []);
+    }
+
+    router.refresh();
+  };
+
+  const removeHoliday = async (day: string) => {
+    const dateIso = weekDates[day as keyof typeof weekDates];
+    if (!dateIso) return;
+    const previousType = holidays[dateIso];
+    if (!previousType) return;
+
+    setHolidays((prev) => { const next = { ...prev }; delete next[dateIso]; return next; });
+
+    if (previousType === "company_holiday") {
+      setAvailability((prev) => {
+        const next = { ...prev };
+        for (const key of Object.keys(next)) {
+          if (key.endsWith(`-${day}`)) delete next[key];
+        }
+        return next;
+      });
+    }
+
+    await unpersistHoliday(dateIso, previousType);
+    router.refresh();
+  };
+
   // ── Close day dropdown on outside click or Escape ────────────────────────
   useEffect(() => {
     if (!dayDropdownOpen) return;
@@ -250,6 +333,19 @@ export function BoardClient({
       document.removeEventListener("keydown", handleKey);
     };
   }, [dayDropdownOpen]);
+
+  // ── Close holiday popover on outside click or Escape ─────────────────────
+  useEffect(() => {
+    if (!holidayPopoverDay) return;
+    const handleClick = () => setHolidayPopoverDay(null);
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") setHolidayPopoverDay(null); };
+    document.addEventListener("click", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("click", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [holidayPopoverDay]);
 
   // ── Close copy popover on outside click or Escape ─────────────────────────
   useEffect(() => {
@@ -806,6 +902,7 @@ export function BoardClient({
     const isDraggingAmHere   = draggingDay === day && draggingDayPart === "pre_lunch";
     const isDraggingPmHere   = draggingDay === day && draggingDayPart === "after_lunch";
     const isDraggingHalfHere = isDraggingAmHere || isDraggingPmHere;
+    const isPubHoliday = isPublicHoliday(day);
 
     const hasAm = (assignmentsState[preId]  ?? []).length > 0;
     const hasPm = (assignmentsState[postId] ?? []).length > 0;
@@ -821,11 +918,13 @@ export function BoardClient({
         className={`day-cell w-full lg:min-w-max lg:flex-1 flex flex-col rounded-md border transition-opacity duration-150 overflow-hidden ${
           day === activeDay ? "" : "hidden"
         } lg:flex lg:flex-col ${
-          isDimmed ? "opacity-30 border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]" : "border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]"
+          isDimmed ? "opacity-30 border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]"
+          : isPubHoliday ? "opacity-50 border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]"
+          : "border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]"
         }`}
       >
         {/* Full-day section */}
-        <Droppable droppableId={fdId} type={day}>
+        <Droppable droppableId={fdId} type={day} isDropDisabled={isPubHoliday}>
           {(provided, snapshot) => (
             <div
               ref={provided.innerRef}
@@ -869,7 +968,7 @@ export function BoardClient({
           <Droppable
             droppableId={preId}
             type={`${day}-half`}
-            isDropDisabled={draggingDayPart === "after_lunch"}
+            isDropDisabled={isPubHoliday || draggingDayPart === "after_lunch"}
           >
             {(provided, snapshot) => {
               return (
@@ -916,7 +1015,7 @@ export function BoardClient({
           <Droppable
             droppableId={postId}
             type={`${day}-half`}
-            isDropDisabled={draggingDayPart === "pre_lunch"}
+            isDropDisabled={isPubHoliday || draggingDayPart === "pre_lunch"}
           >
             {(provided, snapshot) => {
               return (
@@ -1120,56 +1219,127 @@ export function BoardClient({
 
             {/* Day headers — sticky so column labels stay visible while scrolling */}
             <div className="sticky top-0 z-20 hidden lg:flex gap-4 bg-[var(--color-bg-page)] -mt-4 pt-4 pb-2 shadow-[0_6px_0_6px_var(--color-bg-page)]">
-              {DAYS.map((day) => (
-                <div
-                  key={day}
-                  onClick={(e) => e.stopPropagation()}
-                  className={`relative w-full lg:min-w-max lg:flex-1 rounded-md p-2.5 font-semibold text-sm transition-opacity duration-150 ${
-                    day === activeDay ? "flex" : "hidden"
-                  } lg:flex items-center justify-between ${
-                    draggingDay && day === draggingDay
-                      ? "bg-[var(--color-day-drag-bg)] text-accent/80 ring-1 ring-inset ring-accent/40"
-                      : draggingDay
-                      ? "bg-[var(--color-bg-surface)] opacity-30"
-                      : "bg-[var(--color-bg-surface)]"
-                  }`}
-                >
-                  <span>{dayLabel(day)}</span>
-                  {!draggingDay && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setCopyPopoverDay(copyPopoverDay === day ? null : day);
-                      }}
-                      title={t("copyAssignmentsTo", { day: dayLabel(day) })}
-                      className="flex items-center rounded bg-[var(--color-copy-btn)] p-1.5 text-[var(--color-copy-btn-text)] transition-colors hover:bg-[var(--color-copy-btn-hover)] hover:text-[var(--color-text-primary)]"
-                    >
-                      <CopyIcon size={14} />
-                    </button>
-                  )}
-                  {copyPopoverDay === day && (
-                    <div className="absolute top-full left-0 z-50 mt-1 min-w-[140px] rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] p-2 shadow-xl">
-                      <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-                        {t("copyFrom")}
-                      </div>
-                      {DAYS.filter((d) => d !== day).map((sourceDay) => (
+              {DAYS.map((day) => {
+                const holidayType = getHolidayType(day);
+                const pubHoliday = holidayType === "public_holiday";
+                return (
+                  <div
+                    key={day}
+                    onClick={(e) => e.stopPropagation()}
+                    className={`relative w-full lg:min-w-max lg:flex-1 rounded-md p-2.5 font-semibold text-sm transition-opacity duration-150 ${
+                      day === activeDay ? "flex" : "hidden"
+                    } lg:flex items-center justify-between gap-2 ${
+                      draggingDay && day === draggingDay
+                        ? "bg-[var(--color-day-drag-bg)] text-accent/80 ring-1 ring-inset ring-accent/40"
+                        : draggingDay
+                        ? "bg-[var(--color-bg-surface)] opacity-30"
+                        : pubHoliday
+                        ? "bg-[var(--color-bg-surface)] opacity-50"
+                        : "bg-[var(--color-bg-surface)]"
+                    }`}
+                  >
+                    {/* Left: day label + optional holiday badge */}
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 flex-1">
+                      <span className="whitespace-nowrap">{dayLabel(day)}</span>
+                      {holidayType && (
+                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                          pubHoliday
+                            ? "bg-red-500/15 text-red-600 dark:text-red-400"
+                            : "bg-blue-500/15 text-blue-600 dark:text-blue-400"
+                        }`}>
+                          {pubHoliday ? t("publicHoliday") : t("companyHoliday")}
+                        </span>
+                      )}
+                    </div>
+                    {/* Right: action buttons */}
+                    {!draggingDay && (
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {!pubHoliday && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setCopyPopoverDay(copyPopoverDay === day ? null : day);
+                            }}
+                            title={t("copyAssignmentsTo", { day: dayLabel(day) })}
+                            className="flex items-center rounded bg-[var(--color-copy-btn)] p-1.5 text-[var(--color-copy-btn-text)] transition-colors hover:bg-[var(--color-copy-btn-hover)] hover:text-[var(--color-text-primary)]"
+                          >
+                            <CopyIcon size={14} />
+                          </button>
+                        )}
                         <button
-                          key={sourceDay}
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            copyDay(sourceDay, day);
+                            setHolidayPopoverDay(holidayPopoverDay === day ? null : day);
                           }}
-                          className="block w-full rounded px-2 py-1.5 text-left text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
+                          title={t("holidaySettings")}
+                          className={`flex items-center rounded p-1.5 transition-colors ${
+                            holidayType
+                              ? "text-amber-500 hover:bg-amber-500/10"
+                              : "bg-[var(--color-copy-btn)] text-[var(--color-copy-btn-text)] hover:bg-[var(--color-copy-btn-hover)] hover:text-[var(--color-text-primary)]"
+                          }`}
                         >
-                          {dayLabel(sourceDay)}
+                          <GearIcon size={14} />
                         </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
+                      </div>
+                    )}
+                    {copyPopoverDay === day && (
+                      <div className="absolute top-full left-0 z-50 mt-1 min-w-[140px] rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] p-2 shadow-xl">
+                        <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+                          {t("copyFrom")}
+                        </div>
+                        {DAYS.filter((d) => d !== day).map((sourceDay) => (
+                          <button
+                            key={sourceDay}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              copyDay(sourceDay, day);
+                            }}
+                            className="block w-full rounded px-2 py-1.5 text-left text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
+                          >
+                            {dayLabel(sourceDay)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {holidayPopoverDay === day && (
+                      <div className="absolute top-full right-0 z-50 mt-1 min-w-[200px] rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] p-2 shadow-xl">
+                        <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+                          {t("holidaySettings")}
+                        </div>
+                        {!holidayType ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setHolidayPopoverDay(null); void applyHoliday(day, "public_holiday"); }}
+                              className="block w-full rounded px-2 py-1.5 text-left text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
+                            >
+                              {t("setPublicHoliday")}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setHolidayPopoverDay(null); void applyHoliday(day, "company_holiday"); }}
+                              className="block w-full rounded px-2 py-1.5 text-left text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
+                            >
+                              {t("setCompanyHoliday")}
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); setHolidayPopoverDay(null); void removeHoliday(day); }}
+                            className="block w-full rounded px-2 py-1.5 text-left text-xs font-medium text-red-500 transition-colors hover:bg-red-500/10"
+                          >
+                            {t("clearHoliday")}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {/* Project swimlanes — active / planned */}
@@ -1363,9 +1533,9 @@ export function BoardClient({
                     return (
                       <div
                         key={day}
-                        className={`w-full lg:min-w-max lg:flex-1 min-h-[60px] rounded-md p-2.5 flex-col gap-2 border border-dashed border-[var(--color-avail-border)] ${
+                        className={`w-full lg:min-w-max lg:flex-1 min-h-[60px] rounded-md p-2.5 flex-col gap-2 border border-dashed border-[var(--color-avail-border)] transition-opacity duration-150 ${
                           day === activeDay ? "flex" : "hidden"
-                        } lg:flex`}
+                        } lg:flex ${isPublicHoliday(day) ? "opacity-50" : ""}`}
                       >
                         {entries.map(({ employee, status }) => (
                           <button
@@ -1500,6 +1670,7 @@ export function BoardClient({
               const fdId = poolFullDayId(day);
               const isDimmed = Boolean(draggingDay && day !== draggingDay);
               const isDraggingFullHere = draggingDay === day && draggingDayPart === "full_day";
+              const pubHoliday = isPublicHoliday(day);
 
               return (
                 <div
@@ -1507,10 +1678,12 @@ export function BoardClient({
                   className={`w-full lg:min-w-max lg:flex-1 flex flex-col rounded-md border border-dashed transition-opacity duration-150 ${
                     day === activeDay ? "" : "hidden"
                   } lg:block ${
-                    isDimmed ? "opacity-30 border-[var(--color-border-subtle)]" : "border-[var(--color-border-strong)]"
+                    isDimmed ? "opacity-30 border-[var(--color-border-subtle)]"
+                    : pubHoliday ? "opacity-50 border-[var(--color-border-subtle)]"
+                    : "border-[var(--color-border-strong)]"
                   }`}
                 >
-                  <Droppable droppableId={fdId} type={day}>
+                  <Droppable droppableId={fdId} type={day} isDropDisabled={pubHoliday}>
                     {(provided, snapshot) => (
                       <div
                         ref={provided.innerRef}
@@ -1530,11 +1703,12 @@ export function BoardClient({
                             index={index}
                             draggableId={getDraggableId(entry.employee.id, day, "full_day")}
                             dayPart="full_day"
+                            isDragDisabled={pubHoliday}
                             isOpen={openCardId === getDraggableId(entry.employee.id, day, "full_day")}
                             onToggle={() => toggleOpenCard(getDraggableId(entry.employee.id, day, "full_day"))}
-                            onMarkSick={() => markAvailability(entry.employee.id, day, "sick")}
-                            onMarkVacation={() => markAvailability(entry.employee.id, day, "vacation")}
-                            onAssignToSite={(anchor) => {
+                            onMarkSick={() => { if (!pubHoliday) markAvailability(entry.employee.id, day, "sick"); }}
+                            onMarkVacation={() => { if (!pubHoliday) markAvailability(entry.employee.id, day, "vacation"); }}
+                            onAssignToSite={pubHoliday ? undefined : (anchor) => {
                               setOpenCardId(null);
                               setSitePickerFor({ employeeId: entry.employee.id, day, ...anchor });
                             }}

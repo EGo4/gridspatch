@@ -18,7 +18,18 @@ type AvailabilityDb = {
       update: { status: string; weekId: string };
       create: { employeeId: string; date: Date; weekId: string; status: string };
     }) => Promise<unknown>;
-    deleteMany: (args: { where: { employeeId: string; date: Date } }) => Promise<unknown>;
+    deleteMany: (args: { where: unknown }) => Promise<unknown>;
+  };
+};
+
+type HolidayDb = {
+  holiday: {
+    upsert: (args: {
+      where: { date: Date };
+      update: { type: string };
+      create: { date: Date; type: string };
+    }) => Promise<unknown>;
+    delete: (args: { where: { date: Date } }) => Promise<unknown>;
   };
 };
 
@@ -225,6 +236,57 @@ export async function copyWeekAssignments(
 export async function clearProjectAssignmentsForWeek(projectId: string, weekId: string) {
   const assignmentDb = db as unknown as AssignmentDb;
   await assignmentDb.assignment.deleteMany({ where: { projectId, weekId } });
+  return { success: true };
+}
+
+export async function setHoliday(
+  dateIso: string,
+  weekId: string,
+  type: "public_holiday" | "company_holiday",
+  employeeIds: string[],
+) {
+  const date = new Date(dateIso);
+  const holidayDb = db as unknown as HolidayDb;
+  const assignmentDb = db as unknown as AssignmentDb;
+  const availDb = db as unknown as AvailabilityDb;
+
+  await holidayDb.holiday.upsert({
+    where: { date },
+    update: { type },
+    create: { date, type },
+  });
+
+  await assignmentDb.assignment.deleteMany({ where: { date } });
+
+  if (type === "company_holiday") {
+    for (const employeeId of employeeIds) {
+      await availDb.availability.upsert({
+        where: { employeeId_date: { employeeId, date } },
+        update: { status: "vacation", weekId },
+        create: { employeeId, date, weekId, status: "vacation" },
+      });
+    }
+  } else {
+    await availDb.availability.deleteMany({ where: { date } });
+  }
+
+  return { success: true };
+}
+
+export async function clearHoliday(
+  dateIso: string,
+  previousType: "public_holiday" | "company_holiday",
+) {
+  const date = new Date(dateIso);
+  const holidayDb = db as unknown as HolidayDb;
+  const availDb = db as unknown as AvailabilityDb;
+
+  await holidayDb.holiday.delete({ where: { date } });
+
+  if (previousType === "company_holiday") {
+    await availDb.availability.deleteMany({ where: { date } });
+  }
+
   return { success: true };
 }
 

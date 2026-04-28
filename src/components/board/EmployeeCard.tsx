@@ -21,6 +21,8 @@ interface EmployeeCardProps {
   onMergeDay?: () => void;
   /** Pool cards only: open the "assign to site" picker anchored to the button. */
   onAssignToSite?: (anchor: { left: number; top: number }) => void;
+  /** Prevents the card from being dragged (used on public holidays). */
+  isDragDisabled?: boolean;
 }
 
 export function EmployeeCard({
@@ -35,11 +37,12 @@ export function EmployeeCard({
   onSplitDay,
   onMergeDay,
   onAssignToSite,
+  isDragDisabled,
 }: EmployeeCardProps) {
   const isHalfDay = dayPart !== "full_day";
 
   return (
-    <Draggable draggableId={draggableId} index={index}>
+    <Draggable draggableId={draggableId} index={index} isDragDisabled={isDragDisabled}>
       {(provided, snapshot) => (
         <div
           ref={provided.innerRef}

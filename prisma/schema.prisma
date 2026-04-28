@@ -168,6 +168,13 @@ model Availability {
   @@index([weekId])
 }
 
+model Holiday {
+  id        String   @id @default(cuid())
+  date      DateTime @unique @db.Date
+  type      String   // "public_holiday" | "company_holiday"
+  createdAt DateTime @default(now())
+}
+
 model UserPreference {
   id          String  @id @default(cuid())
   userId      String  @unique
