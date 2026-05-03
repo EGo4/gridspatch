@@ -30,6 +30,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/scripts ./scripts
 COPY package.json ./
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
