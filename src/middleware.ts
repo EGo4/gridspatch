@@ -18,7 +18,7 @@ export async function middleware(request: NextRequest) {
   const { data: session } = await betterFetch<SessionResponse>(
     "/api/auth/get-session",
     {
-      baseURL: request.nextUrl.origin,
+      baseURL: `http://localhost:${process.env.PORT ?? "3000"}`,
       headers: { cookie: request.headers.get("cookie") ?? "" },
     },
   );
