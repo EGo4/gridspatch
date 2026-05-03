@@ -3,17 +3,12 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## Add days being public holidays and company holidays
+## Bulk editing for site status and manager
 
 Goal:
-Some days are public holidays. Add the option to mark certain days as company holidays or public holidays
+Allow selecting multiple sites in the admin table and applying a status or manager change to all of them at once.
 
-Idea:
+## Fix half-day drop target offset diverging from visual box
 
-* add gear icon for each day
-* Add the options to mark as public holiday or company holiday
-* For company holiday move everybody to vacation
-* For public holiday leave everybody unassigned and make the day immutable
-* Add the option the unmark it
-* Store information about public holiday in database
-* Make sure the public holiday is not reflected as unassigned in the statistics
+Goal:
+When the site list is long and the user scrolls down, the actual drop target for half-day assignments (pre_lunch / after_lunch) is visually offset from where the drop zone appears. The further down the list, the larger the gap. Fix the hit-test coordinates so the drop target always matches the visible box regardless of scroll position.
