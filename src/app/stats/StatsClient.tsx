@@ -25,7 +25,7 @@ const STATUS_BADGE: Record<string, { bgVar: string; txtVar: string }> = {
 
 const shortWeekLabel = (weekParam: string): string => {
   const [y, m, d] = weekParam.split("-").map(Number);
-  const date = new Date(Date.UTC(y!, m! - 1, d!));
+  const date = new Date(Date.UTC(y ?? 0, (m ?? 1) - 1, d ?? 1));
   const day   = date.getUTCDate();
   const month = date.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
   return `${day} ${month}`;

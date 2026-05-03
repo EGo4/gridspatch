@@ -279,7 +279,7 @@ function SiteStatusPanel({
   }, [weeksBefore, weeksAfter]);
 
   useEffect(() => {
-    getSiteTransitions(site.id)
+    void getSiteTransitions(site.id)
       .then(setTransitions)
       .finally(() => setLoading(false));
   }, [site.id]);
@@ -289,8 +289,8 @@ function SiteStatusPanel({
     const handler = (e: MouseEvent) => {
       const target = e.target as Node;
       if (
-        (!triggerRef.current || !triggerRef.current.contains(target)) &&
-        (!dropdownRef.current || !dropdownRef.current.contains(target))
+        !triggerRef.current?.contains(target) &&
+        !dropdownRef.current?.contains(target)
       ) {
         setWeekPickerOpen(false);
       }
@@ -508,7 +508,7 @@ function SiteStatusPanel({
                         }`}
                       >
                         {tStatus(s)}
-                        {(getSuperStatus(currentEffective!) === "completed" && getSuperStatus(s) === "ongoing") || wouldAffectLater ? (
+                        {(getSuperStatus(currentEffective) === "completed" && getSuperStatus(s) === "ongoing") || wouldAffectLater ? (
                           <span className="ml-1 text-[var(--color-warn-text)]">⚠</span>
                         ) : null}
                       </button>
@@ -854,9 +854,9 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
       let va: string | number = "";
       let vb: string | number = "";
       if (sortKey === "startDate" || sortKey === "endDate") {
-        va = a[sortKey] ? a[sortKey]!.getTime() : sortDir === "asc" ? Infinity : -Infinity;
-        vb = b[sortKey] ? b[sortKey]!.getTime() : sortDir === "asc" ? Infinity : -Infinity;
-        return sortDir === "asc" ? (va as number) - (vb as number) : (vb as number) - (va as number);
+        va = a[sortKey] ? a[sortKey].getTime() : sortDir === "asc" ? Infinity : -Infinity;
+        vb = b[sortKey] ? b[sortKey].getTime() : sortDir === "asc" ? Infinity : -Infinity;
+        return sortDir === "asc" ? va - vb : vb - va;
       }
       va = (sortKey === "manager" ? (a.constructionManagerName ?? "") : (a[sortKey as keyof Site] as string | null) ?? "").toLowerCase();
       vb = (sortKey === "manager" ? (b.constructionManagerName ?? "") : (b[sortKey as keyof Site] as string | null) ?? "").toLowerCase();

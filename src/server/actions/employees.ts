@@ -56,8 +56,8 @@ export async function createEmployee(input: {
     data: {
       name: input.name.trim(),
       initials: input.initials.trim().toUpperCase(),
-      img: input.img?.trim() || null,
-      role: input.role?.trim() || null,
+      img: input.img?.trim() ?? null,
+      role: input.role?.trim() ?? null,
       startDate: input.startDate ? new Date(input.startDate) : null,
       endDate: input.endDate ? new Date(input.endDate) : null,
     },
@@ -79,8 +79,8 @@ export async function updateEmployee(input: {
     data: {
       name: input.name.trim(),
       initials: input.initials.trim().toUpperCase(),
-      img: input.img?.trim() || null,
-      role: input.role?.trim() || null,
+      img: input.img?.trim() ?? null,
+      role: input.role?.trim() ?? null,
       startDate: input.startDate ? new Date(input.startDate) : null,
       endDate: input.endDate ? new Date(input.endDate) : null,
     },
@@ -104,7 +104,7 @@ export async function bulkCreateEmployees(
         data: {
           name: item.name.trim(),
           initials: item.initials.trim().toUpperCase(),
-          role: item.role?.trim() || null,
+          role: item.role?.trim() ?? null,
         },
       });
       created++;
