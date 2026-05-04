@@ -1,14 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { authClient } from "~/server/better-auth/client";
 import { findEmailByUsername } from "~/server/actions/users";
 import { Logo } from "~/components/Logo";
 
 export default function LoginPage() {
-  const router = useRouter();
   const t = useTranslations("Login");
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -36,7 +34,7 @@ export default function LoginPage() {
         setError(result.error.message ?? t("errorFailed"));
         return;
       }
-      router.push("/board");
+      window.location.href = "/board";
     } catch {
       setError(t("errorGeneric"));
     } finally {

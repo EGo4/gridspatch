@@ -1,10 +1,38 @@
 import { getRequestConfig } from "next-intl/server";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { auth } from "~/server/better-auth";
+import { db } from "~/server/db";
 import { defaultLocale, locales, type Locale } from "./config";
 
+type LocaleDb = {
+  userPreference: {
+    findUnique: (args: {
+      where: { userId: string };
+      select: { locale: true };
+    }) => Promise<{ locale: string | null } | null>;
+  };
+};
+
+const localeDb = db as unknown as LocaleDb;
+
 export default getRequestConfig(async () => {
-  const cookieStore = await cookies();
-  const raw = cookieStore.get("locale")?.value;
+  let raw: string | undefined;
+
+  const h = await headers();
+  const session = await auth.api.getSession({ headers: h });
+  if (session?.user?.id) {
+    const pref = await localeDb.userPreference.findUnique({
+      where: { userId: session.user.id },
+      select: { locale: true },
+    });
+    raw = pref?.locale ?? undefined;
+  }
+
+  if (!raw) {
+    const cookieStore = await cookies();
+    raw = cookieStore.get("locale")?.value;
+  }
+
   const locale: Locale = locales.includes(raw as Locale) ? (raw as Locale) : defaultLocale;
   return {
     locale,

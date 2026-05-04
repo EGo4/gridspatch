@@ -10,13 +10,14 @@ export type UserPrefs = {
   pmColor: string | null;
   uiScale: number | null;
   theme: string | null;
+  locale?: string | null;
 };
 
 type PrefDb = {
   userPreference: {
     findUnique: (args: {
       where: { userId: string };
-      select: { accentColor: true; amColor: true; pmColor: true; uiScale: true; theme: true };
+      select: { accentColor: true; amColor: true; pmColor: true; uiScale: true; theme: true; locale: true };
     }) => Promise<UserPrefs | null>;
     upsert: (args: {
       where: { userId: string };
@@ -35,7 +36,7 @@ export async function getUserPreferences(): Promise<UserPrefs | null> {
 
   return prefDb.userPreference.findUnique({
     where: { userId: session.user.id },
-    select: { accentColor: true, amColor: true, pmColor: true, uiScale: true, theme: true },
+    select: { accentColor: true, amColor: true, pmColor: true, uiScale: true, theme: true, locale: true },
   });
 }
 

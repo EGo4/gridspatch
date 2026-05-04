@@ -184,4 +184,5 @@ model UserPreference {
   pmColor     String? // PM hue, e.g. "#82aafa"
   uiScale     Float?  // e.g. 1.0
   theme       String? // "light" | "dark" | null (system default = dark)
+  locale      String? // e.g. "en" | "de"
 }
