@@ -6,7 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Sidebar } from "~/components/Sidebar";
 import type { ProjectStatus } from "~/types";
 import { getSuperStatus, ALLOWED_TRANSITIONS } from "~/types";
-import { createSite, updateSite, deleteSite, getSiteTransitions, setSiteTransition, deleteSiteTransition, bulkCreateSites } from "~/server/actions/sites";
+import { createSite, updateSite, deleteSite, getSiteTransitions, setSiteTransition, deleteSiteTransition, bulkCreateSites, bulkUpdateSites } from "~/server/actions/sites";
 import { addUtcDays, normalizeWeekStart, toDateParam, formatWeekLabel } from "~/lib/week";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -834,6 +834,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
   const router = useRouter();
   const t = useTranslations("Sites");
   const tCommon = useTranslations("Common");
+  const tStatus = useTranslations("Status");
   const [isPending, startTransition] = useTransition();
 
   const [navSidebarOpen, setNavSidebarOpen] = useState(false);
@@ -870,6 +871,10 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
   const [deleteTarget, setDeleteTarget] = useState<Site | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [statusSite, setStatusSite] = useState<Site | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkStatus, setBulkStatus] = useState<ProjectStatus | "">("");
+  const [bulkManagerId, setBulkManagerId] = useState<string>("");
+  const [bulkApplying, setBulkApplying] = useState(false);
 
   const [importMenuOpen, setImportMenuOpen] = useState(false);
   const [listImportOpen, setListImportOpen] = useState(false);
@@ -1043,6 +1048,51 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
     setSites((prev) => prev.map((s) => (s.id === id ? { ...s, status } : s)));
   };
 
+  const allVisible = sortedSites.length > 0 && sortedSites.every(s => selectedIds.has(s.id));
+
+  const toggleSelectAll = () => {
+    if (allVisible) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(sortedSites.map(s => s.id)));
+    }
+  };
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkApply = async () => {
+    if (selectedIds.size === 0 || (!bulkStatus && bulkManagerId === "")) return;
+    setBulkApplying(true);
+    try {
+      const updates: { status?: ProjectStatus; constructionManagerId?: string | null } = {};
+      if (bulkStatus) updates.status = bulkStatus;
+      if (bulkManagerId !== "") updates.constructionManagerId = bulkManagerId === "__none__" ? null : bulkManagerId;
+      await bulkUpdateSites([...selectedIds], updates);
+      setSites(prev => prev.map(s => {
+        if (!selectedIds.has(s.id)) return s;
+        const next = { ...s };
+        if (updates.status) next.status = updates.status;
+        if ("constructionManagerId" in updates) {
+          const mgrid = updates.constructionManagerId ?? null;
+          next.constructionManagerId = mgrid;
+          next.constructionManagerName = mgrid ? (managers.find(m => m.id === mgrid)?.name ?? null) : null;
+        }
+        return next;
+      }));
+      setSelectedIds(new Set());
+      setBulkStatus("");
+      setBulkManagerId("");
+    } finally {
+      setBulkApplying(false);
+    }
+  };
+
   void isPending;
 
   const tableColumns: [SiteSortKey, string][] = [
@@ -1148,6 +1198,52 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
 
       {/* Table */}
       <main className="flex-1 overflow-y-auto overflow-x-clip p-6">
+        {selectedIds.size > 0 && (
+          <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] px-4 py-3">
+            <span className="text-xs font-medium text-[var(--color-text-secondary)]">
+              {selectedIds.size} {selectedIds.size === 1 ? "site" : "sites"} selected
+            </span>
+            <div className="h-4 w-px bg-[var(--color-border-subtle)]" />
+            <select
+              value={bulkStatus}
+              onChange={e => setBulkStatus(e.target.value as ProjectStatus | "")}
+              aria-label="Bulk status"
+              className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-2 py-1 text-xs text-[var(--color-text-primary)] focus:outline-none"
+            >
+              <option value="">Status — no change</option>
+              {(["planned", "active", "on_hold", "done", "inactive"] as ProjectStatus[]).map(s => (
+                <option key={s} value={s}>{tStatus(s)}</option>
+              ))}
+            </select>
+            <select
+              value={bulkManagerId}
+              onChange={e => setBulkManagerId(e.target.value)}
+              aria-label="Bulk manager"
+              className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-2 py-1 text-xs text-[var(--color-text-primary)] focus:outline-none"
+            >
+              <option value="">Manager — no change</option>
+              <option value="__none__">— Remove manager</option>
+              {managers.map(m => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={bulkApplying || (!bulkStatus && bulkManagerId === "")}
+              onClick={() => void handleBulkApply()}
+              className="rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-white transition-opacity disabled:opacity-40 hover:opacity-90"
+            >
+              {bulkApplying ? "Applying…" : "Apply"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="ml-auto rounded-lg px-3 py-1.5 text-xs text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
+            >
+              {tCommon("cancel")}
+            </button>
+          </div>
+        )}
         {sites.length === 0 ? (
           <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-[var(--color-border-subtle)] py-20 text-center">
             <p className="text-sm text-[var(--color-text-muted)]">{t("noSites")}</p>
@@ -1161,6 +1257,15 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
             <table className="w-full min-w-[700px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-page)]">
+                  <th className="w-10 px-4 py-3">
+                    <input
+                      type="checkbox"
+                      checked={allVisible}
+                      onChange={toggleSelectAll}
+                      className="cursor-pointer accent-[var(--color-accent)]"
+                      aria-label="Select all"
+                    />
+                  </th>
                   {tableColumns.map(([key, label]) => (
                     <th key={key} className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
                       <button type="button" onClick={() => handleSort(key)} className="flex items-center gap-0.5 transition-colors hover:text-[var(--color-text-primary)]">
@@ -1175,6 +1280,15 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
                 {sortedSites.map((site, i) => (
                   <tr key={site.id}
                     className={`border-b border-[#252429] transition-colors hover:bg-[var(--color-bg-raised)] ${i === sortedSites.length - 1 ? "border-b-0" : ""}`}>
+                    <td className="px-4 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(site.id)}
+                        onChange={() => toggleSelectOne(site.id)}
+                        className="cursor-pointer accent-[var(--color-accent)]"
+                        aria-label={`Select ${site.name}`}
+                      />
+                    </td>
                     <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">{site.name}</td>
                     <td className="px-4 py-3"><StatusBadge status={site.status} /></td>
                     <td className="px-4 py-3 text-[var(--color-text-secondary)]">{formatDate(site.startDate)}</td>

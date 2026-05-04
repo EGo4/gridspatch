@@ -947,9 +947,13 @@ export function BoardClient({
     const hasPm = (assignmentsState[postId] ?? []).length > 0;
     const hasHalves = hasAm || hasPm;
 
-    // Show the half-section (horizontal divider + AM/PM area) whenever halves
-    // exist or a half-day card of this day is being dragged.
-    const showHalfSection = hasHalves || isDraggingHalfHere;
+    // showHalfSection drives LAYOUT (size/padding/divider/labels) and only
+    // toggles when halves actually exist — never on drag — so @hello-pangea/dnd's
+    // cached droppable positions don't go stale mid-drag from a layout shift.
+    // showDropHint surfaces the AM/PM zones during a half-day drag without
+    // resizing them: opacity + background only.
+    const showHalfSection = hasHalves;
+    const showDropHint = isDraggingHalfHere && !hasHalves;
 
     return (
       <div
@@ -1016,10 +1020,10 @@ export function BoardClient({
                   {...provided.droppableProps}
                   className={`half-day-col flex flex-col gap-2 transition-all ${
                     showHalfSection ? "p-2 pb-2.5 half-col-visible" : "half-col-collapsed"
-                  } ${showHalfSection ? "" : "opacity-0"} ${
+                  } ${showHalfSection || showDropHint ? "" : "opacity-0"} ${
                     snapshot.isDraggingOver
                       ? "bg-[var(--am-zone-active)]"
-                      : showHalfSection
+                      : showHalfSection || showDropHint
                         ? "bg-[var(--am-zone)]"
                         : ""
                   }`}
@@ -1063,10 +1067,10 @@ export function BoardClient({
                   {...provided.droppableProps}
                   className={`half-day-col flex flex-col gap-2 transition-all ${
                     showHalfSection ? "p-2 pb-2.5 half-col-visible" : "half-col-collapsed"
-                  } ${showHalfSection ? "" : "opacity-0"} ${
+                  } ${showHalfSection || showDropHint ? "" : "opacity-0"} ${
                     snapshot.isDraggingOver
                       ? "bg-[var(--pm-zone-active)]"
-                      : showHalfSection
+                      : showHalfSection || showDropHint
                         ? "bg-[var(--pm-zone)]"
                         : ""
                   }`}

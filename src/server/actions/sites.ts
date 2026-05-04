@@ -41,6 +41,7 @@ type SiteDb = {
         startDate?: Date | null;
         endDate?: Date | null;
         constructionManagerId?: string | null;
+        status?: string;
       };
     }) => Promise<{ id: string }>;
     delete: (args: { where: { id: string } }) => Promise<{ id: string }>;
@@ -263,6 +264,29 @@ export async function bulkCreateSites(
     }
   }
   return { created, errors };
+}
+
+export async function bulkUpdateSites(
+  ids: string[],
+  updates: { status?: ProjectStatus; constructionManagerId?: string | null },
+): Promise<{ updated: number; errors: number }> {
+  let updated = 0;
+  let errors = 0;
+  for (const id of ids) {
+    try {
+      await siteDb.project.update({
+        where: { id },
+        data: {
+          ...(updates.status !== undefined && { status: updates.status }),
+          ...("constructionManagerId" in updates && { constructionManagerId: updates.constructionManagerId }),
+        },
+      });
+      updated++;
+    } catch {
+      errors++;
+    }
+  }
+  return { updated, errors };
 }
 
 export async function deleteSiteTransition(
