@@ -272,15 +272,22 @@ export async function bulkUpdateSites(
 ): Promise<{ updated: number; errors: number }> {
   let updated = 0;
   let errors = 0;
+  const weekStart = normalizeWeekStart(toDateParam(new Date()));
   for (const id of ids) {
     try {
-      await siteDb.project.update({
-        where: { id },
-        data: {
-          ...(updates.status !== undefined && { status: updates.status }),
-          ...("constructionManagerId" in updates && { constructionManagerId: updates.constructionManagerId }),
-        },
-      });
+      if ("constructionManagerId" in updates) {
+        await siteDb.project.update({
+          where: { id },
+          data: { constructionManagerId: updates.constructionManagerId },
+        });
+      }
+      if (updates.status !== undefined) {
+        await transitionDb.projectStatusTransition.upsert({
+          where: { projectId_weekStartDate: { projectId: id, weekStartDate: weekStart } },
+          update: { status: updates.status },
+          create: { projectId: id, weekStartDate: weekStart, status: updates.status },
+        });
+      }
       updated++;
     } catch {
       errors++;
