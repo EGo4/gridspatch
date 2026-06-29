@@ -186,3 +186,15 @@ model UserPreference {
   theme       String? // "light" | "dark" | null (system default = dark)
   locale      String? // e.g. "en" | "de"
 }
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  action    String   // create | update | delete | upsert | createMany | updateMany | deleteMany
+  model     String   // Assignment | Employee | Project | …
+  path      String?  // HTTP referer (which page triggered the change)
+  payload   Json?    // prisma args at call time
+
+  @@index([createdAt(sort: Desc)])
+  @@index([model])
+}
