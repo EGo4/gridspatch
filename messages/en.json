@@ -226,7 +226,10 @@
     "holidaySettings": "Day settings",
     "setPublicHoliday": "Set as public holiday",
     "setCompanyHoliday": "Set as company holiday",
-    "clearHoliday": "Remove holiday"
+    "clearHoliday": "Remove holiday",
+    "syncSaving": "{count, plural, one {Saving # change…} other {Saving # changes…}}",
+    "syncRetrying": "{count, plural, one {# change not saved — retrying…} other {# changes not saved — retrying…}}",
+    "syncSaved": "All changes saved"
   },
   "Audit": {
     "title": "Audit Log",

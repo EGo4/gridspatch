@@ -226,7 +226,10 @@
     "holidaySettings": "Tag-Einstellungen",
     "setPublicHoliday": "Als Feiertag markieren",
     "setCompanyHoliday": "Als Betriebsurlaub markieren",
-    "clearHoliday": "Feiertag entfernen"
+    "clearHoliday": "Feiertag entfernen",
+    "syncSaving": "{count, plural, one {Speichere # Änderung…} other {Speichere # Änderungen…}}",
+    "syncRetrying": "{count, plural, one {# Änderung nicht gespeichert — erneuter Versuch…} other {# Änderungen nicht gespeichert — erneuter Versuch…}}",
+    "syncSaved": "Alle Änderungen gespeichert"
   },
   "Audit": {
     "title": "Änderungsprotokoll",

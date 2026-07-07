@@ -71,29 +71,34 @@ export async function updateAssignment(
   const date = new Date(dateIsoString);
   const assignmentDb = db as unknown as AssignmentDb;
 
-  if (!projectId) {
-    await assignmentDb.assignment.deleteMany({
-      where: { employeeId, date, dayPart },
+  try {
+    if (!projectId) {
+      await assignmentDb.assignment.deleteMany({
+        where: { employeeId, date, dayPart },
+      });
+      return { success: true };
+    }
+
+    // When creating a half-day assignment, remove any conflicting full_day assignment.
+    if (dayPart !== "full_day") {
+      await assignmentDb.assignment.deleteMany({
+        where: { employeeId, date, dayPart: "full_day" },
+      });
+    }
+
+    await assignmentDb.assignment.upsert({
+      where: {
+        employeeId_date_dayPart: { employeeId, date, dayPart },
+      },
+      update: { projectId, weekId },
+      create: { employeeId, projectId, date, weekId, dayPart },
     });
+
     return { success: true };
+  } catch (err) {
+    console.error("[action:updateAssignment]", { employeeId, projectId, dateIsoString, weekId, dayPart }, err);
+    throw err;
   }
-
-  // When creating a half-day assignment, remove any conflicting full_day assignment.
-  if (dayPart !== "full_day") {
-    await assignmentDb.assignment.deleteMany({
-      where: { employeeId, date, dayPart: "full_day" },
-    });
-  }
-
-  await assignmentDb.assignment.upsert({
-    where: {
-      employeeId_date_dayPart: { employeeId, date, dayPart },
-    },
-    update: { projectId, weekId },
-    create: { employeeId, projectId, date, weekId, dayPart },
-  });
-
-  return { success: true };
 }
 
 /**
@@ -109,26 +114,31 @@ export async function splitAssignment(
   const date = new Date(dateIsoString);
   const assignmentDb = db as unknown as AssignmentDb;
 
-  // Remove the full_day assignment.
-  await assignmentDb.assignment.deleteMany({
-    where: { employeeId, date, dayPart: "full_day" },
-  });
+  try {
+    // Remove the full_day assignment.
+    await assignmentDb.assignment.deleteMany({
+      where: { employeeId, date, dayPart: "full_day" },
+    });
 
-  if (!projectId) {
-    // Employee was in pool — splitting is purely client-side, nothing to persist yet.
+    if (!projectId) {
+      // Employee was in pool — splitting is purely client-side, nothing to persist yet.
+      return { success: true };
+    }
+
+    // Create both halves in the same project.
+    await assignmentDb.assignment.createMany({
+      data: [
+        { employeeId, projectId, date, weekId, dayPart: "pre_lunch" },
+        { employeeId, projectId, date, weekId, dayPart: "after_lunch" },
+      ],
+      skipDuplicates: true,
+    });
+
     return { success: true };
+  } catch (err) {
+    console.error("[action:splitAssignment]", { employeeId, projectId, dateIsoString, weekId }, err);
+    throw err;
   }
-
-  // Create both halves in the same project.
-  await assignmentDb.assignment.createMany({
-    data: [
-      { employeeId, projectId, date, weekId, dayPart: "pre_lunch" },
-      { employeeId, projectId, date, weekId, dayPart: "after_lunch" },
-    ],
-    skipDuplicates: true,
-  });
-
-  return { success: true };
 }
 
 /**
@@ -145,18 +155,23 @@ export async function mergeAssignment(
   const date = new Date(dateIsoString);
   const assignmentDb = db as unknown as AssignmentDb;
 
-  await assignmentDb.assignment.deleteMany({ where: { employeeId, date, dayPart: "pre_lunch" } });
-  await assignmentDb.assignment.deleteMany({ where: { employeeId, date, dayPart: "after_lunch" } });
+  try {
+    await assignmentDb.assignment.deleteMany({ where: { employeeId, date, dayPart: "pre_lunch" } });
+    await assignmentDb.assignment.deleteMany({ where: { employeeId, date, dayPart: "after_lunch" } });
 
-  if (!projectId) return { success: true };
+    if (!projectId) return { success: true };
 
-  await assignmentDb.assignment.upsert({
-    where: { employeeId_date_dayPart: { employeeId, date, dayPart: "full_day" } },
-    update: { projectId, weekId },
-    create: { employeeId, projectId, date, weekId, dayPart: "full_day" },
-  });
+    await assignmentDb.assignment.upsert({
+      where: { employeeId_date_dayPart: { employeeId, date, dayPart: "full_day" } },
+      update: { projectId, weekId },
+      create: { employeeId, projectId, date, weekId, dayPart: "full_day" },
+    });
 
-  return { success: true };
+    return { success: true };
+  } catch (err) {
+    console.error("[action:mergeAssignment]", { employeeId, projectId, dateIsoString, weekId }, err);
+    throw err;
+  }
 }
 
 /**
@@ -174,22 +189,32 @@ export async function setAvailability(
   const availDb = db as unknown as AvailabilityDb;
   const assignmentDb = db as unknown as AssignmentDb;
 
-  // Remove any assignments for this day — the employee is unavailable.
-  await assignmentDb.assignment.deleteMany({ where: { employeeId, date } });
+  try {
+    // Remove any assignments for this day — the employee is unavailable.
+    await assignmentDb.assignment.deleteMany({ where: { employeeId, date } });
 
-  await availDb.availability.upsert({
-    where: { employeeId_date: { employeeId, date } },
-    update: { status, weekId },
-    create: { employeeId, date, weekId, status },
-  });
-  return { success: true };
+    await availDb.availability.upsert({
+      where: { employeeId_date: { employeeId, date } },
+      update: { status, weekId },
+      create: { employeeId, date, weekId, status },
+    });
+    return { success: true };
+  } catch (err) {
+    console.error("[action:setAvailability]", { employeeId, dateIso, weekId, status }, err);
+    throw err;
+  }
 }
 
 export async function clearAvailability(employeeId: string, dateIso: string) {
   const date = new Date(dateIso);
   const availDb = db as unknown as AvailabilityDb;
-  await availDb.availability.deleteMany({ where: { employeeId, date } });
-  return { success: true };
+  try {
+    await availDb.availability.deleteMany({ where: { employeeId, date } });
+    return { success: true };
+  } catch (err) {
+    console.error("[action:clearAvailability]", { employeeId, dateIso }, err);
+    throw err;
+  }
 }
 
 /**
@@ -209,34 +234,44 @@ export async function copyWeekAssignments(
 
   const assignmentDb = db as unknown as AssignmentDb;
 
-  const sourceAssignments = await assignmentDb.assignment.findMany({
-    where: { weekId: sourceWeekId, NOT: { projectId: null } },
-  });
-
-  await assignmentDb.assignment.deleteMany({
-    where: { weekId: targetWeekId, NOT: { projectId: null } },
-  });
-
-  if (sourceAssignments.length > 0) {
-    await assignmentDb.assignment.createMany({
-      data: sourceAssignments.map((a) => ({
-        employeeId: a.employeeId,
-        projectId: a.projectId,
-        date: new Date(a.date.getTime() + offsetMs),
-        weekId: targetWeekId,
-        dayPart: a.dayPart,
-      })),
-      skipDuplicates: true,
+  try {
+    const sourceAssignments = await assignmentDb.assignment.findMany({
+      where: { weekId: sourceWeekId, NOT: { projectId: null } },
     });
-  }
 
-  return { success: true };
+    await assignmentDb.assignment.deleteMany({
+      where: { weekId: targetWeekId, NOT: { projectId: null } },
+    });
+
+    if (sourceAssignments.length > 0) {
+      await assignmentDb.assignment.createMany({
+        data: sourceAssignments.map((a) => ({
+          employeeId: a.employeeId,
+          projectId: a.projectId,
+          date: new Date(a.date.getTime() + offsetMs),
+          weekId: targetWeekId,
+          dayPart: a.dayPart,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error("[action:copyWeekAssignments]", { sourceWeekId, targetWeekId }, err);
+    throw err;
+  }
 }
 
 export async function clearProjectAssignmentsForWeek(projectId: string, weekId: string) {
   const assignmentDb = db as unknown as AssignmentDb;
-  await assignmentDb.assignment.deleteMany({ where: { projectId, weekId } });
-  return { success: true };
+  try {
+    await assignmentDb.assignment.deleteMany({ where: { projectId, weekId } });
+    return { success: true };
+  } catch (err) {
+    console.error("[action:clearProjectAssignmentsForWeek]", { projectId, weekId }, err);
+    throw err;
+  }
 }
 
 export async function setHoliday(
@@ -250,27 +285,32 @@ export async function setHoliday(
   const assignmentDb = db as unknown as AssignmentDb;
   const availDb = db as unknown as AvailabilityDb;
 
-  await holidayDb.holiday.upsert({
-    where: { date },
-    update: { type },
-    create: { date, type },
-  });
+  try {
+    await holidayDb.holiday.upsert({
+      where: { date },
+      update: { type },
+      create: { date, type },
+    });
 
-  await assignmentDb.assignment.deleteMany({ where: { date } });
+    await assignmentDb.assignment.deleteMany({ where: { date } });
 
-  if (type === "company_holiday") {
-    for (const employeeId of employeeIds) {
-      await availDb.availability.upsert({
-        where: { employeeId_date: { employeeId, date } },
-        update: { status: "vacation", weekId },
-        create: { employeeId, date, weekId, status: "vacation" },
-      });
+    if (type === "company_holiday") {
+      for (const employeeId of employeeIds) {
+        await availDb.availability.upsert({
+          where: { employeeId_date: { employeeId, date } },
+          update: { status: "vacation", weekId },
+          create: { employeeId, date, weekId, status: "vacation" },
+        });
+      }
+    } else {
+      await availDb.availability.deleteMany({ where: { date } });
     }
-  } else {
-    await availDb.availability.deleteMany({ where: { date } });
-  }
 
-  return { success: true };
+    return { success: true };
+  } catch (err) {
+    console.error("[action:setHoliday]", { dateIso, weekId, type }, err);
+    throw err;
+  }
 }
 
 export async function clearHoliday(
@@ -281,13 +321,18 @@ export async function clearHoliday(
   const holidayDb = db as unknown as HolidayDb;
   const availDb = db as unknown as AvailabilityDb;
 
-  await holidayDb.holiday.delete({ where: { date } });
+  try {
+    await holidayDb.holiday.delete({ where: { date } });
 
-  if (previousType === "company_holiday") {
-    await availDb.availability.deleteMany({ where: { date } });
+    if (previousType === "company_holiday") {
+      await availDb.availability.deleteMany({ where: { date } });
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error("[action:clearHoliday]", { dateIso, previousType }, err);
+    throw err;
   }
-
-  return { success: true };
 }
 
 export async function copyDayAssignments(
@@ -299,26 +344,31 @@ export async function copyDayAssignments(
   const targetDate = new Date(targetDateIso);
   const assignmentDb = db as unknown as AssignmentDb;
 
-  const sourceAssignments = await assignmentDb.assignment.findMany({
-    where: { date: sourceDate, weekId, NOT: { projectId: null } },
-  });
-
-  await assignmentDb.assignment.deleteMany({
-    where: { date: targetDate, weekId, NOT: { projectId: null } },
-  });
-
-  if (sourceAssignments.length > 0) {
-    await assignmentDb.assignment.createMany({
-      data: sourceAssignments.map((a) => ({
-        employeeId: a.employeeId,
-        projectId: a.projectId,
-        date: targetDate,
-        weekId,
-        dayPart: a.dayPart,
-      })),
-      skipDuplicates: true,
+  try {
+    const sourceAssignments = await assignmentDb.assignment.findMany({
+      where: { date: sourceDate, weekId, NOT: { projectId: null } },
     });
-  }
 
-  return { success: true };
+    await assignmentDb.assignment.deleteMany({
+      where: { date: targetDate, weekId, NOT: { projectId: null } },
+    });
+
+    if (sourceAssignments.length > 0) {
+      await assignmentDb.assignment.createMany({
+        data: sourceAssignments.map((a) => ({
+          employeeId: a.employeeId,
+          projectId: a.projectId,
+          date: targetDate,
+          weekId,
+          dayPart: a.dayPart,
+        })),
+        skipDuplicates: true,
+      });
+    }
+
+    return { success: true };
+  } catch (err) {
+    console.error("[action:copyDayAssignments]", { sourceDateIso, targetDateIso, weekId }, err);
+    throw err;
+  }
 }

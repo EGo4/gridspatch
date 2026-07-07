@@ -24,6 +24,8 @@ import type { Assignment, Availability, BoardWeek, DayPart, Employee, Holiday, H
 import { ALLOWED_TRANSITIONS, getSuperStatus } from "~/types";
 import { setSiteTransition } from "~/server/actions/sites";
 import { saveThemePreference } from "~/server/actions/preferences";
+import { reportClientError } from "~/server/actions/errors";
+import { useMutationQueue } from "./mutationQueue";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -207,6 +209,34 @@ export function BoardClient({
   } | null>(null);
   const [applyingStatusChange, setApplyingStatusChange] = useState(false);
 
+  // ── Mutation queue — serial, retrying, never blocks or resets the UI ──────
+  const reportQueueError = (label: string, err: unknown, attempt: number) => {
+    console.error(`[board] ${label} failed (attempt ${attempt})`, err);
+    const message = err instanceof Error ? err.message : String(err);
+    void reportClientError(label, message, attempt).catch((e) => console.error("[board] reportClientError failed", e));
+  };
+  const { enqueue, status: syncStatus, pending: syncPending, attempt: syncAttempt } = useMutationQueue(reportQueueError);
+
+  useEffect(() => {
+    if (syncPending === 0) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [syncPending]);
+
+  // Brief "Saved" flash once the queue drains back to empty.
+  const [justSaved, setJustSaved] = useState(false);
+  const wasPendingRef = useRef(false);
+  useEffect(() => {
+    const wasPending = wasPendingRef.current;
+    wasPendingRef.current = syncPending > 0;
+    if (wasPending && syncPending === 0) {
+      setJustSaved(true);
+      const t = setTimeout(() => setJustSaved(false), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [syncPending]);
+
   const isPastWeek = selectedWeek.startDateIso < toDateParam(getCurrentWeekStart());
   const [mutedUntil, setMutedUntil] = useState<number>(() =>
     typeof window !== "undefined" ? Number(localStorage.getItem(PAST_WEEK_MUTE_KEY) ?? 0) : 0,
@@ -261,7 +291,7 @@ export function BoardClient({
   };
   const isPublicHoliday = (day: string) => getHolidayType(day) === "public_holiday";
 
-  const applyHoliday = async (day: string, type: HolidayType) => {
+  const applyHoliday = (day: string, type: HolidayType) => {
     const dateIso = weekDates[day as keyof typeof weekDates];
     if (!dateIso) return;
 
@@ -282,7 +312,9 @@ export function BoardClient({
         for (const emp of dbEmployees) next[`${emp.id}-${day}`] = "vacation";
         return next;
       });
-      await persistHoliday(dateIso, selectedWeek.id, type, dbEmployees.map((e) => e.id));
+      const weekId = selectedWeek.id;
+      const employeeIds = dbEmployees.map((e) => e.id);
+      enqueue("setHoliday", () => persistHoliday(dateIso, weekId, type, employeeIds).then(() => router.refresh()));
     } else {
       // public_holiday: clear assignments + availability for this day
       setAssignmentsState((prev) => {
@@ -299,13 +331,12 @@ export function BoardClient({
         }
         return next;
       });
-      await persistHoliday(dateIso, selectedWeek.id, type, []);
+      const weekId = selectedWeek.id;
+      enqueue("setHoliday", () => persistHoliday(dateIso, weekId, type, []).then(() => router.refresh()));
     }
-
-    router.refresh();
   };
 
-  const removeHoliday = async (day: string) => {
+  const removeHoliday = (day: string) => {
     const dateIso = weekDates[day as keyof typeof weekDates];
     if (!dateIso) return;
     const previousType = holidays[dateIso];
@@ -323,8 +354,7 @@ export function BoardClient({
       });
     }
 
-    await unpersistHoliday(dateIso, previousType);
-    router.refresh();
+    enqueue("clearHoliday", () => unpersistHoliday(dateIso, previousType).then(() => router.refresh()));
   };
 
   // ── Close day dropdown on outside click or Escape ────────────────────────
@@ -535,13 +565,20 @@ export function BoardClient({
       setSitePickerFor(null);
       setOpenCardId(null);
       const dateIso = weekDates[day as keyof typeof weekDates];
-      if (dateIso) void updateAssignment(employeeId, projectId, dateIso, selectedWeek.id, "full_day");
+      if (dateIso) {
+        const weekId = selectedWeek.id;
+        enqueue("updateAssignment", () => updateAssignment(employeeId, projectId, dateIso, weekId, "full_day"));
+      }
     });
   };
 
   // ── Initialise state from DB ───────────────────────────────────────────────
 
   useEffect(() => {
+    // Server props are stale while edits are still queued to be sent — rebuilding
+    // now would silently discard optimistic state that hasn't reached the DB yet.
+    if (syncPending > 0) return;
+
     const state: Record<string, EmployeeEntry[]> = {};
 
     // Seed all cells with empty arrays.
@@ -633,7 +670,7 @@ export function BoardClient({
       dbProjects.forEach((p) => { if (p.status === "on_hold") defaults.add(p.id); });
       return defaults;
     });
-  }, [dbProjects, dbEmployees, dbAssignments, dbAvailability, selectedWeek.startDateIso]);
+  }, [dbProjects, dbEmployees, dbAssignments, dbAvailability, selectedWeek.startDateIso, syncPending]);
 
   // ── Card toggle ───────────────────────────────────────────────────────────
 
@@ -656,7 +693,10 @@ export function BoardClient({
       });
       setOpenCardId(null);
       const dateIso = weekDates[day as keyof typeof weekDates];
-      if (dateIso) void persistAvailability(employeeId, dateIso, selectedWeek.id, status);
+      if (dateIso) {
+        const weekId = selectedWeek.id;
+        enqueue("persistAvailability", () => persistAvailability(employeeId, dateIso, weekId, status));
+      }
     });
   };
 
@@ -671,7 +711,7 @@ export function BoardClient({
         }));
       }
       const dateIso = weekDates[day as keyof typeof weekDates];
-      if (dateIso) void unpersistAvailability(employeeId, dateIso);
+      if (dateIso) enqueue("unpersistAvailability", () => unpersistAvailability(employeeId, dateIso));
     });
   };
 
@@ -726,7 +766,8 @@ export function BoardClient({
       const sourceDateIso = weekDates[sourceDay as keyof typeof weekDates];
       const targetDateIso = weekDates[targetDay as keyof typeof weekDates];
       if (sourceDateIso && targetDateIso) {
-        void copyDayAssignments(sourceDateIso, targetDateIso, selectedWeek.id);
+        const weekId = selectedWeek.id;
+        enqueue("copyDayAssignments", () => copyDayAssignments(sourceDateIso, targetDateIso, weekId));
       }
     });
   };
@@ -735,16 +776,16 @@ export function BoardClient({
 
   const copyPreviousWeek = () => {
     if (!previousWeek) return;
-    confirmPastEdit(async () => {
+    confirmPastEdit(() => {
       setCopyWeekModalOpen(false);
       setSideMenuOpen(false);
-      await copyWeekAssignments(
-        previousWeek.id,
-        selectedWeek.id,
-        previousWeek.startDateIso,
-        selectedWeek.startDateIso,
+      const { id: sourceWeekId, startDateIso: sourceStartIso } = previousWeek;
+      const { id: targetWeekId, startDateIso: targetStartIso } = selectedWeek;
+      enqueue("copyWeekAssignments", () =>
+        copyWeekAssignments(sourceWeekId, targetWeekId, sourceStartIso, targetStartIso).then(() => {
+          router.refresh();
+        }),
       );
-      router.refresh();
     });
   };
 
@@ -770,7 +811,10 @@ export function BoardClient({
       });
       setOpenCardId(null);
       const dateIso = weekDates[day as keyof typeof weekDates];
-      if (dateIso) void splitAssignment(employeeId, projectId, dateIso, selectedWeek.id);
+      if (dateIso) {
+        const weekId = selectedWeek.id;
+        enqueue("splitAssignment", () => splitAssignment(employeeId, projectId, dateIso, weekId));
+      }
     });
   };
 
@@ -794,7 +838,10 @@ export function BoardClient({
       });
       setOpenCardId(null);
       const dateIso = weekDates[day as keyof typeof weekDates];
-      if (dateIso) void mergeAssignment(employeeId, projectId, dateIso, selectedWeek.id);
+      if (dateIso) {
+        const weekId = selectedWeek.id;
+        enqueue("mergeAssignment", () => mergeAssignment(employeeId, projectId, dateIso, weekId));
+      }
     });
   };
 
@@ -825,7 +872,7 @@ export function BoardClient({
       const reordered = [...sourceList];
       reordered.splice(destination.index, 0, removed);
       confirmPastEdit(() => {
-        setAssignmentsState({ ...assignmentsState, [source.droppableId]: reordered });
+        setAssignmentsState((prev) => ({ ...prev, [source.droppableId]: reordered }));
       });
       return;
     }
@@ -839,17 +886,20 @@ export function BoardClient({
     const targetProjectId = getProjectIdFromDroppableId(destination.droppableId);
     const targetDateIso = weekDates[destinationDay as keyof typeof weekDates];
 
-    confirmPastEdit(async () => {
-      setAssignmentsState({
-        ...assignmentsState,
+    confirmPastEdit(() => {
+      setAssignmentsState((prev) => ({
+        ...prev,
         [source.droppableId]: sourceList,
         [destination.droppableId]: destList,
-      });
+      }));
       if (targetDateIso) {
+        const weekId = selectedWeek.id;
+        // Two ops for a half-day move must land in this order; the serial queue
+        // guarantees that without needing to await here.
         if (sourceDayPart !== destDayPart && sourceDayPart !== "full_day") {
-          await updateAssignment(employeeId, null, targetDateIso, selectedWeek.id, sourceDayPart);
+          enqueue("updateAssignment:clearHalf", () => updateAssignment(employeeId, null, targetDateIso, weekId, sourceDayPart));
         }
-        await updateAssignment(employeeId, targetProjectId, targetDateIso, selectedWeek.id, destDayPart);
+        enqueue("updateAssignment", () => updateAssignment(employeeId, targetProjectId, targetDateIso, weekId, destDayPart));
       }
     });
   };
@@ -1356,14 +1406,14 @@ export function BoardClient({
                           <>
                             <button
                               type="button"
-                              onClick={(e) => { e.stopPropagation(); setHolidayPopoverDay(null); void applyHoliday(day, "public_holiday"); }}
+                              onClick={(e) => { e.stopPropagation(); setHolidayPopoverDay(null); applyHoliday(day, "public_holiday"); }}
                               className="block w-full rounded px-2 py-1.5 text-left text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
                             >
                               {t("setPublicHoliday")}
                             </button>
                             <button
                               type="button"
-                              onClick={(e) => { e.stopPropagation(); setHolidayPopoverDay(null); void applyHoliday(day, "company_holiday"); }}
+                              onClick={(e) => { e.stopPropagation(); setHolidayPopoverDay(null); applyHoliday(day, "company_holiday"); }}
                               className="block w-full rounded px-2 py-1.5 text-left text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
                             >
                               {t("setCompanyHoliday")}
@@ -1372,7 +1422,7 @@ export function BoardClient({
                         ) : (
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); setHolidayPopoverDay(null); void removeHoliday(day); }}
+                            onClick={(e) => { e.stopPropagation(); setHolidayPopoverDay(null); removeHoliday(day); }}
                             className="block w-full rounded px-2 py-1.5 text-left text-xs font-medium text-red-500 transition-colors hover:bg-red-500/10"
                           >
                             {t("clearHoliday")}
@@ -1783,6 +1833,25 @@ export function BoardClient({
 
       </div>
     </div>
+
+    {/* Sync status badge — shows unsent edits so they're never silently lost */}
+    {(syncPending > 0 || justSaved) && (
+      <div
+        className={`fixed bottom-4 right-4 z-[95] flex items-center gap-2 rounded-full px-3.5 py-2 text-xs font-semibold shadow-xl transition-colors ${
+          syncPending === 0
+            ? "bg-[var(--color-bg-overlay)] text-[var(--color-text-secondary)]"
+            : syncStatus === "retrying"
+              ? "bg-red-600 text-white"
+              : "bg-[var(--color-bg-overlay)] text-[var(--color-text-secondary)]"
+        }`}
+      >
+        {syncPending === 0
+          ? t("syncSaved")
+          : syncStatus === "retrying"
+            ? t("syncRetrying", { count: syncPending, attempt: syncAttempt })
+            : t("syncSaving", { count: syncPending })}
+      </div>
+    )}
 
     {/* Site picker — fixed overlay, pops up above the "assign to site" button */}
     {sitePickerFor && (
