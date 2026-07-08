@@ -224,18 +224,30 @@ export function BoardClient({
     return () => window.removeEventListener("beforeunload", handler);
   }, [syncPending]);
 
-  // Brief "Saved" flash once the queue drains back to empty.
+  // The rebuild effect must not re-run when the queue drains — server props are
+  // unchanged then and rebuilding would snap optimistic edits back. It reads
+  // pending state through this ref instead of depending on syncPending.
+  const syncPendingRef = useRef(0);
+  syncPendingRef.current = syncPending;
+  const skippedRebuildRef = useRef(false);
+
+  // Brief "Saved" flash once the queue drains back to empty; if fresh server
+  // props arrived while edits were in flight, pull them in now via refresh.
   const [justSaved, setJustSaved] = useState(false);
   const wasPendingRef = useRef(false);
   useEffect(() => {
     const wasPending = wasPendingRef.current;
     wasPendingRef.current = syncPending > 0;
     if (wasPending && syncPending === 0) {
+      if (skippedRebuildRef.current) {
+        skippedRebuildRef.current = false;
+        router.refresh();
+      }
       setJustSaved(true);
       const t = setTimeout(() => setJustSaved(false), 2000);
       return () => clearTimeout(t);
     }
-  }, [syncPending]);
+  }, [syncPending, router]);
 
   const isPastWeek = selectedWeek.startDateIso < toDateParam(getCurrentWeekStart());
   const [mutedUntil, setMutedUntil] = useState<number>(() =>
@@ -577,7 +589,11 @@ export function BoardClient({
   useEffect(() => {
     // Server props are stale while edits are still queued to be sent — rebuilding
     // now would silently discard optimistic state that hasn't reached the DB yet.
-    if (syncPending > 0) return;
+    // Remember the skip and re-fetch once the queue has drained.
+    if (syncPendingRef.current > 0) {
+      skippedRebuildRef.current = true;
+      return;
+    }
 
     const state: Record<string, EmployeeEntry[]> = {};
 
@@ -670,7 +686,8 @@ export function BoardClient({
       dbProjects.forEach((p) => { if (p.status === "on_hold") defaults.add(p.id); });
       return defaults;
     });
-  }, [dbProjects, dbEmployees, dbAssignments, dbAvailability, selectedWeek.startDateIso, syncPending]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- syncPending is read via ref on purpose: the queue draining must not trigger a rebuild from stale server props
+  }, [dbProjects, dbEmployees, dbAssignments, dbAvailability, selectedWeek.startDateIso]);
 
   // ── Card toggle ───────────────────────────────────────────────────────────
 
