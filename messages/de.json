@@ -232,7 +232,14 @@
     "syncSaved": "Alle Änderungen gespeichert",
     "dayCopyTitle": "Tag überschreiben?",
     "dayCopyBody": "Alle Zuweisungen von {from} nach {to} kopieren?",
-    "dayCopyWarn": "{day} enthält bereits Zuweisungen. Diese werden überschrieben."
+    "dayCopyWarn": "{day} enthält bereits Zuweisungen. Diese werden überschrieben.",
+    "comments": "Kommentare",
+    "commentsTitle": "Kommentare für {name}",
+    "commentsEmpty": "Noch keine Kommentare.",
+    "commentsPlaceholder": "Notiz hinzufügen…",
+    "addComment": "Hinzufügen",
+    "deleteComment": "Kommentar löschen",
+    "commentError": "Kommentar konnte nicht gespeichert werden. Bitte erneut versuchen."
   },
   "Audit": {
     "title": "Änderungsprotokoll",

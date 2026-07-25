@@ -3,31 +3,6 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## Comments per employee per day
-
-Goal:
-Planners can attach short notes to an employee for a specific date (e.g. "leaves at 14:00", "doctor appointment"). Multiple comments per employee/day, each with author and timestamp.
-
-Requirements:
-
-- Comments are scoped to **employee + date**, not to an assignment — they survive when the employee is moved to another site.
-- Multiple comments per day allowed; each stores author (User), text, createdAt.
-- Board UI: visual indicator on the employee card when comments exist for that day; click opens a popover/dialog to read and add comments.
-- Users can delete their own comments; admins can delete any.
-
-Acceptance criteria:
-
-- Add comment → indicator appears immediately; reload keeps it.
-- Moving the employee to another site keeps the comment visible.
-- Comment list shows author name and time.
-
-Technical notes:
-
-- **DB change** — new model, e.g.:
-  `EmployeeDayComment { id, employeeId → Employee, date @db.Date, authorId → User, text, createdAt }`
-  with index on `(employeeId, date)`. New migration required.
-- Include comment counts in the board data fetch (`src/server/services/board.ts`) to avoid per-card queries.
-
 ## HR user role
 
 Goal:

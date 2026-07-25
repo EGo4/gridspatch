@@ -232,7 +232,14 @@
     "syncSaved": "All changes saved",
     "dayCopyTitle": "Overwrite day?",
     "dayCopyBody": "Copy all assignments from {from} into {to}?",
-    "dayCopyWarn": "{day} already has assignments. They will be overwritten."
+    "dayCopyWarn": "{day} already has assignments. They will be overwritten.",
+    "comments": "Comments",
+    "commentsTitle": "Comments for {name}",
+    "commentsEmpty": "No comments yet.",
+    "commentsPlaceholder": "Add a note…",
+    "addComment": "Add",
+    "deleteComment": "Delete comment",
+    "commentError": "Couldn't save comment. Try again."
   },
   "Audit": {
     "title": "Audit Log",

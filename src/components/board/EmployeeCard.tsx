@@ -4,7 +4,7 @@
 import React from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import type { DayPart, Employee } from "~/types";
-import { SyringeIcon, PalmTreeIcon, SplitDayIcon, MergeIcon, AssignSiteIcon, UserIcon } from "~/components/icons";
+import { SyringeIcon, PalmTreeIcon, SplitDayIcon, MergeIcon, AssignSiteIcon, UserIcon, CommentIcon } from "~/components/icons";
 
 interface EmployeeCardProps {
   employee: Employee;
@@ -23,6 +23,10 @@ interface EmployeeCardProps {
   onAssignToSite?: (anchor: { left: number; top: number }) => void;
   /** Prevents the card from being dragged (used on public holidays). */
   isDragDisabled?: boolean;
+  /** Number of comments for this employee/date — shows a badge on the avatar when > 0. */
+  commentCount?: number;
+  /** Opens the comments dialog for this employee/date. */
+  onOpenComments?: () => void;
 }
 
 export function EmployeeCard({
@@ -38,6 +42,8 @@ export function EmployeeCard({
   onMergeDay,
   onAssignToSite,
   isDragDisabled,
+  commentCount = 0,
+  onOpenComments,
 }: EmployeeCardProps) {
   const isHalfDay = dayPart !== "full_day";
 
@@ -75,11 +81,24 @@ export function EmployeeCard({
             <span className={`text-xs font-medium text-[var(--color-text-primary)] ${isHalfDay ? "truncate" : "whitespace-nowrap"}`}>
               {employee.name}
             </span>
+
+            {/* Comment indicator — only shown once comments exist; opens the dialog
+                directly instead of toggling the card's fly-out menu. */}
+            {commentCount > 0 && onOpenComments && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onOpenComments(); }}
+                title={`${commentCount} comment${commentCount === 1 ? "" : "s"}`}
+                className="ml-auto flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-accent"
+              >
+                <CommentIcon size={18} />
+              </button>
+            )}
           </div>
 
           {/* Fly-out buttons */}
           {isHalfDay ? (
-            /* Half-day card: assign-site + merge */
+            /* Half-day card: assign-site, comments, merge */
             <>
               {onAssignToSite && (
                 <button
@@ -95,6 +114,16 @@ export function EmployeeCard({
                   <AssignSiteIcon />
                 </button>
               )}
+              {onOpenComments && commentCount === 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onOpenComments(); }}
+                  title="Comments"
+                  className="fly-btn fly-btn-comment-half text-[var(--color-text-secondary)]"
+                >
+                  <CommentIcon />
+                </button>
+              )}
               {onMergeDay && (
                 <button
                   type="button"
@@ -107,7 +136,7 @@ export function EmployeeCard({
               )}
             </>
           ) : (
-            /* Full-day card: assign-site, split (project cells only), sick, vacation */
+            /* Full-day card: assign-site, split (project cells only), comments, sick, vacation */
             <>
               {onAssignToSite && (
                 <button
@@ -133,6 +162,18 @@ export function EmployeeCard({
                   className="fly-btn fly-btn-split text-[var(--color-text-secondary)]"
                 >
                   <SplitDayIcon />
+                </button>
+              )}
+              {onOpenComments && commentCount === 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onOpenComments(); }}
+                  title="Comments"
+                  className={`fly-btn text-[var(--color-text-secondary)] ${
+                    onSplitDay ? "fly-btn-comment-fullday-split" : "fly-btn-comment-fullday"
+                  }`}
+                >
+                  <CommentIcon />
                 </button>
               )}
 

@@ -25,6 +25,7 @@ import { ALLOWED_TRANSITIONS, getSuperStatus } from "~/types";
 import { setSiteTransition } from "~/server/actions/sites";
 import { saveThemePreference } from "~/server/actions/preferences";
 import { reportClientError } from "~/server/actions/errors";
+import { listComments, addComment, deleteComment, type EmployeeDayCommentDto } from "~/server/actions/comments";
 import { useMutationQueue } from "./mutationQueue";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -42,6 +43,8 @@ interface BoardClientProps {
   dbAssignments: Assignment[];
   dbAvailability: Availability[];
   dbHolidays: Holiday[];
+  /** Comment count per employee/day, keyed by `${employeeId}::${dateIso}` — full text is fetched on demand. */
+  dbCommentCounts: Record<string, number>;
   weekStatusMap: Record<string, string>;
   selectedWeek: BoardWeek;
   weeks: BoardWeek[];
@@ -166,6 +169,7 @@ export function BoardClient({
   dbAssignments,
   dbAvailability,
   dbHolidays,
+  dbCommentCounts,
   weekStatusMap,
   selectedWeek,
   weeks,
@@ -184,6 +188,12 @@ export function BoardClient({
   const [draggingDayPart, setDraggingDayPart] = useState<DayPart | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
   const [availability, setAvailability] = useState<Record<string, AvailabilityStatus>>({});
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [commentsFor, setCommentsFor] = useState<{ employeeId: string; day: string } | null>(null);
+  const [commentsList, setCommentsList] = useState<EmployeeDayCommentDto[] | null>(null);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [commentSaving, setCommentSaving] = useState(false);
+  const [commentError, setCommentError] = useState(false);
   const [collapsedRows, setCollapsedRows] = useState<Set<string> | null>(null);
   const [copyPopoverDay, setCopyPopoverDay] = useState<string | null>(null);
   const [sitePickerFor, setSitePickerFor] = useState<{
@@ -284,6 +294,8 @@ export function BoardClient({
   };
 
   const weekDates = getWeekDateMap(selectedWeek.startDateIso);
+  const commentKey = (employeeId: string, day: string) =>
+    `${employeeId}::${weekDates[day as keyof typeof weekDates]}`;
   const dayLabel = (day: string) =>
     new Intl.DateTimeFormat(locale, { weekday: "long", timeZone: "UTC" }).format(
       new Date(weekDates[day as keyof typeof weekDates] ?? "1970-01-05"),
@@ -423,6 +435,55 @@ export function BoardClient({
       else next.add(id);
       return next;
     });
+  };
+
+  // ── Comments dialog ───────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!commentsFor) { setCommentsList(null); return; }
+    let cancelled = false;
+    setCommentsList(null);
+    setCommentError(false);
+    const dateIso = weekDates[commentsFor.day as keyof typeof weekDates];
+    if (!dateIso) return;
+    listComments(commentsFor.employeeId, dateIso)
+      .then((list) => { if (!cancelled) setCommentsList(list); })
+      .catch(() => { if (!cancelled) setCommentError(true); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- weekDates is a fresh object every render; depending on it would refetch on every re-render instead of only when the dialog target or week changes
+  }, [commentsFor, selectedWeek.startDateIso]);
+
+  const closeComments = () => {
+    setCommentsFor(null);
+    setCommentsList(null);
+    setCommentDraft("");
+    setCommentError(false);
+  };
+
+  const submitComment = () => {
+    if (!commentsFor || !commentDraft.trim()) return;
+    const dateIso = weekDates[commentsFor.day as keyof typeof weekDates];
+    if (!dateIso) return;
+    const { employeeId } = commentsFor;
+    const key = commentKey(employeeId, commentsFor.day);
+    setCommentSaving(true);
+    setCommentError(false);
+    addComment(employeeId, dateIso, commentDraft)
+      .then((created) => {
+        setCommentsList((prev) => [...(prev ?? []), created]);
+        setCommentCounts((prev) => ({ ...prev, [key]: (prev[key] ?? 0) + 1 }));
+        setCommentDraft("");
+      })
+      .catch(() => setCommentError(true))
+      .finally(() => setCommentSaving(false));
+  };
+
+  const removeComment = (commentId: string) => {
+    if (!commentsFor) return;
+    const key = commentKey(commentsFor.employeeId, commentsFor.day);
+    setCommentsList((prev) => (prev ?? []).filter((c) => c.id !== commentId));
+    setCommentCounts((prev) => ({ ...prev, [key]: Math.max(0, (prev[key] ?? 1) - 1) }));
+    deleteComment(commentId).catch(() => setCommentError(true));
   };
 
   // ── Close site picker on outside click or Escape ──────────────────────────
@@ -687,6 +748,7 @@ export function BoardClient({
     });
 
     setAssignmentsState(state);
+    setCommentCounts(dbCommentCounts);
     setIsLoaded(true);
 
     // Initialise collapsed rows from localStorage once; don't reset on week navigation.
@@ -702,7 +764,7 @@ export function BoardClient({
       return defaults;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- syncPending is read via ref on purpose: the queue draining must not trigger a rebuild from stale server props
-  }, [dbProjects, dbEmployees, dbAssignments, dbAvailability, selectedWeek.startDateIso]);
+  }, [dbProjects, dbEmployees, dbAssignments, dbAvailability, dbCommentCounts, selectedWeek.startDateIso]);
 
   // ── Card toggle ───────────────────────────────────────────────────────────
 
@@ -1099,6 +1161,8 @@ export function BoardClient({
                     setOpenCardId(null);
                     setSitePickerFor({ employeeId: entry.employee.id, day, sourceCellId: fdId, ...anchor });
                   }}
+                  commentCount={commentCounts[commentKey(entry.employee.id, day)] ?? 0}
+                  onOpenComments={() => { setOpenCardId(null); setCommentsFor({ employeeId: entry.employee.id, day }); }}
                 />
               ))}
               {provided.placeholder}
@@ -1154,6 +1218,8 @@ export function BoardClient({
                         setOpenCardId(null);
                         setSitePickerFor({ employeeId: entry.employee.id, day, sourceCellId: preId, ...anchor });
                       }}
+                      commentCount={commentCounts[commentKey(entry.employee.id, day)] ?? 0}
+                      onOpenComments={() => { setOpenCardId(null); setCommentsFor({ employeeId: entry.employee.id, day }); }}
                     />
                   ))}
                   {provided.placeholder}
@@ -1205,6 +1271,8 @@ export function BoardClient({
                         setOpenCardId(null);
                         setSitePickerFor({ employeeId: entry.employee.id, day, sourceCellId: postId, ...anchor });
                       }}
+                      commentCount={commentCounts[commentKey(entry.employee.id, day)] ?? 0}
+                      onOpenComments={() => { setOpenCardId(null); setCommentsFor({ employeeId: entry.employee.id, day }); }}
                     />
                   ))}
                   {provided.placeholder}
@@ -1883,6 +1951,8 @@ export function BoardClient({
                               setOpenCardId(null);
                               setSitePickerFor({ employeeId: entry.employee.id, day, sourceCellId: fdId, ...anchor });
                             }}
+                            commentCount={commentCounts[commentKey(entry.employee.id, day)] ?? 0}
+                            onOpenComments={() => { setOpenCardId(null); setCommentsFor({ employeeId: entry.employee.id, day }); }}
                           />
                         ))}
                         {provided.placeholder}
@@ -1955,6 +2025,86 @@ export function BoardClient({
       </div>
     )}
 
+    {/* Comments dialog */}
+    {commentsFor && (
+      <>
+        <div className="fixed inset-0 z-40 bg-black/60" onClick={closeComments} />
+        <div
+          className="fixed left-1/2 top-1/2 z-50 w-96 max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
+            <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
+              {t("commentsTitle", { name: dbEmployees.find((e) => e.id === commentsFor.employeeId)?.name ?? "" })}
+            </h3>
+            <button
+              type="button"
+              onClick={closeComments}
+              title="Close"
+              className="flex items-center rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="max-h-80 overflow-y-auto px-5 py-4 flex flex-col gap-3">
+            {commentsList === null ? (
+              <p className="text-xs text-[var(--color-text-muted)]">…</p>
+            ) : commentsList.length === 0 ? (
+              <p className="text-xs text-[var(--color-text-muted)]">{t("commentsEmpty")}</p>
+            ) : (
+              commentsList.map((c) => (
+                <div key={c.id} className="flex items-start justify-between gap-2 rounded-lg bg-[var(--color-bg-hover)] px-3 py-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-[var(--color-text-primary)] whitespace-pre-wrap break-words">{c.text}</p>
+                    <p className="mt-1 text-[10px] text-[var(--color-text-muted)]">
+                      {c.authorName} · {new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(new Date(c.createdAtIso))}
+                    </p>
+                  </div>
+                  {c.canDelete && (
+                    <button
+                      type="button"
+                      onClick={() => removeComment(c.id)}
+                      title={t("deleteComment")}
+                      className="flex-shrink-0 rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
+                    >
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6" />
+                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+                        <path d="M10 11v6" /><path d="M14 11v6" />
+                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              ))
+            )}
+            {commentError && <p className="text-xs text-red-500">{t("commentError")}</p>}
+          </div>
+
+          <div className="flex items-center gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4">
+            <input
+              type="text"
+              value={commentDraft}
+              onChange={(e) => setCommentDraft(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") submitComment(); }}
+              placeholder={t("commentsPlaceholder")}
+              className="flex-1 min-w-0 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] px-3 py-2 text-xs text-[var(--color-text-primary)] outline-none focus:border-accent"
+            />
+            <button
+              type="button"
+              onClick={submitComment}
+              disabled={commentSaving || !commentDraft.trim()}
+              className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-50"
+            >
+              {t("addComment")}
+            </button>
+          </div>
+        </div>
+      </>
+    )}
 
     {/* Copy previous week confirmation modal */}
     {copyWeekModalOpen && previousWeek && (

@@ -21,6 +21,13 @@ export type BoardDb = {
   assignment: {
     findMany: (args: { where: { weekId: string } }) => Promise<Assignment[]>;
   };
+  employeeDayComment: {
+    groupBy: (args: {
+      by: ["employeeId", "date"];
+      where: { date: { gte: Date; lte: Date } };
+      _count: { _all: true };
+    }) => Promise<Array<{ employeeId: string; date: Date; _count: { _all: number } }>>;
+  };
   availability: {
     findMany: (args: { where: { weekId: string } }) => Promise<Availability[]>;
   };
@@ -96,7 +103,7 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
     },
   });
 
-  const [weeks, rawProjects, rawEmployees, assignments, availabilities, allTransitions, rawHolidays] = await Promise.all([
+  const [weeks, rawProjects, rawEmployees, assignments, availabilities, allTransitions, rawHolidays, commentGroups] = await Promise.all([
     database.week.findMany({ orderBy: { startDate: "desc" } }),
     database.project.findMany({
       orderBy: { name: "asc" },
@@ -107,7 +114,19 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
     database.availability.findMany({ where: { weekId: selectedWeek.id } }),
     database.projectStatusTransition.findMany({ orderBy: { weekStartDate: "asc" } }),
     database.holiday.findMany({ where: { date: { gte: weekStart, lte: weekEnd } } }),
+    database.employeeDayComment.groupBy({
+      by: ["employeeId", "date"],
+      where: { date: { gte: weekStart, lte: weekEnd } },
+      _count: { _all: true },
+    }),
   ]);
+
+  // Keyed by `${employeeId}::${dateIso}` — cheap presence/count check per card,
+  // full comment text is only fetched on demand when a popover is opened.
+  const commentCounts: Record<string, number> = {};
+  for (const group of commentGroups) {
+    commentCounts[`${group.employeeId}::${toDateIso(group.date)}`] = group._count._all;
+  }
 
   const employees: Employee[] = rawEmployees.filter((emp) => {
     if (emp.startDate && emp.startDate > weekEnd) return false;
@@ -158,6 +177,7 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
     dbEmployees: employees,
     dbProjects: projects,
     dbHolidays,
+    dbCommentCounts: commentCounts,
     weekStatusMap,
     selectedWeek: toBoardWeek(selectedWeek, locale),
     weeks: weeks.map((w) => toBoardWeek(w, locale)),

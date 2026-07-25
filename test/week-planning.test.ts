@@ -114,6 +114,9 @@ await run(
         availability: {
           findMany: async () => [],
         },
+        employeeDayComment: {
+          groupBy: async () => [],
+        },
         holiday: {
           findMany: async () => [],
         },
