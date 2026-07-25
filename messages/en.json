@@ -229,7 +229,10 @@
     "clearHoliday": "Remove holiday",
     "syncSaving": "{count, plural, one {Saving # change…} other {Saving # changes…}}",
     "syncRetrying": "{count, plural, one {# change not saved — retrying…} other {# changes not saved — retrying…}}",
-    "syncSaved": "All changes saved"
+    "syncSaved": "All changes saved",
+    "dayCopyTitle": "Overwrite day?",
+    "dayCopyBody": "Copy all assignments from {from} into {to}?",
+    "dayCopyWarn": "{day} already has assignments. They will be overwritten."
   },
   "Audit": {
     "title": "Audit Log",

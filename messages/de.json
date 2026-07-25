@@ -229,7 +229,10 @@
     "clearHoliday": "Feiertag entfernen",
     "syncSaving": "{count, plural, one {Speichere # Änderung…} other {Speichere # Änderungen…}}",
     "syncRetrying": "{count, plural, one {# Änderung nicht gespeichert — erneuter Versuch…} other {# Änderungen nicht gespeichert — erneuter Versuch…}}",
-    "syncSaved": "Alle Änderungen gespeichert"
+    "syncSaved": "Alle Änderungen gespeichert",
+    "dayCopyTitle": "Tag überschreiben?",
+    "dayCopyBody": "Alle Zuweisungen von {from} nach {to} kopieren?",
+    "dayCopyWarn": "{day} enthält bereits Zuweisungen. Diese werden überschrieben."
   },
   "Audit": {
     "title": "Änderungsprotokoll",
