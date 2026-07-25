@@ -79,19 +79,7 @@ export function EmployeeCard({
 
           {/* Fly-out buttons */}
           {isHalfDay ? (
-            /* Half-day card: only merge button */
-            onMergeDay && (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onMergeDay(); }}
-                title="Merge back to full day"
-                className="fly-btn fly-btn-merge text-[var(--color-text-secondary)]"
-              >
-                <MergeIcon />
-              </button>
-            )
-          ) : (
-            /* Full-day card: assign-site (pool only) or split (project only), sick, vacation */
+            /* Half-day card: assign-site + merge */
             <>
               {onAssignToSite && (
                 <button
@@ -102,7 +90,37 @@ export function EmployeeCard({
                     onAssignToSite({ left: rect.left, top: rect.top });
                   }}
                   title="Assign to building site"
-                  className="fly-btn fly-btn-assign-site text-[var(--color-text-secondary)]"
+                  className="fly-btn fly-btn-assign-site-half text-[var(--color-text-secondary)]"
+                >
+                  <AssignSiteIcon />
+                </button>
+              )}
+              {onMergeDay && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onMergeDay(); }}
+                  title="Merge back to full day"
+                  className="fly-btn fly-btn-merge text-[var(--color-text-secondary)]"
+                >
+                  <MergeIcon />
+                </button>
+              )}
+            </>
+          ) : (
+            /* Full-day card: assign-site, split (project cells only), sick, vacation */
+            <>
+              {onAssignToSite && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    onAssignToSite({ left: rect.left, top: rect.top });
+                  }}
+                  title="Assign to building site"
+                  className={`fly-btn text-[var(--color-text-secondary)] ${
+                    onSplitDay ? "fly-btn-assign-site-fullday" : "fly-btn-assign-site"
+                  }`}
                 >
                   <AssignSiteIcon />
                 </button>

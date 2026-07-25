@@ -3,26 +3,6 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## Send employee to a site from the card menu even when already assigned
-
-Goal:
-The "send to construction site …" action in the employee card menu must also be available when the employee already has an assignment that day. Choosing a site **moves** the assignment (replace, not duplicate).
-
-Requirements:
-
-- Menu shows the full site list regardless of the employee's current assignment state.
-- Selecting a site updates the existing assignment's `projectId` for that date/dayPart instead of creating a second one (unique constraint `employeeId + date + dayPart` stays intact).
-- Current site is indicated in the menu (e.g. checkmark) and selecting it is a no-op.
-
-Acceptance criteria:
-
-- Assigned employee: menu open → pick different site → card appears under new site, old assignment gone.
-- Works for full-day and half-day assignments; a half-day move only moves that dayPart.
-
-Technical notes:
-
-- Server action in `src/server/actions/board.ts`: reuse/extend the assign action to upsert (`update` on the unique composite instead of `create`).
-
 ## Comments per employee per day
 
 Goal:
@@ -154,18 +134,3 @@ Acceptance criteria:
 
 - `done` and `active` are distinguishable at a glance in every status display.
 - Filter buttons meet a sensible minimum touch size (~40px) and stand out from the background.
-
-## Fix half-day drop target offset diverging from visual box
-
-Fixed in `BoardClient.tsx`. Root cause: at half-day drag start, every cell in the
-dragged day's column whose `hasHalves` was false expanded its AM/PM area from
-`half-col-collapsed` (32px) to `half-col-visible` + padding (~60px). That mid-drag
-layout shift cascaded — each expanded row pushed all rows below it down by Δ —
-but `@hello-pangea/dnd` snapshots droppable bounds at drag start and doesn't
-recompute on layout changes. So row N's hit area sat `(expanded_rows_above_N) × Δ`
-above its visual box. Further down ⇒ more expansions above ⇒ larger gap.
-
-Fix: split the flag. `showHalfSection` (drives layout: size, padding, divider,
-labels) now depends only on `hasHalves`. A new `showDropHint` toggles opacity and
-background color during the drag without changing size, so the user still sees
-the AM/PM zones light up but no layout shift happens.

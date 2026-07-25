@@ -189,6 +189,7 @@ export function BoardClient({
   const [sitePickerFor, setSitePickerFor] = useState<{
     employeeId: string;
     day: string;
+    sourceCellId: string;
     left: number;
     top: number;
   } | null>(null);
@@ -561,17 +562,31 @@ export function BoardClient({
     ? dbProjects.filter((p) => p.constructionManagerId === filterManagerId)
     : dbProjects;
 
-  // ── Assign pool worker to a project site ──────────────────────────────────
-  const assignToSite = (employeeId: string, day: string, projectId: string) => {
+  // ── Assign a worker (from pool or another site) to a project site ─────────
+  // sourceCellId may be a pool cell or a project cell (full-day or half-day);
+  // the dayPart is inferred from it so a half-day move only moves that half.
+  const assignToSite = (employeeId: string, day: string, projectId: string, sourceCellId: string) => {
     const employee = dbEmployees.find((e) => e.id === employeeId);
     if (!employee) return;
+    // Picking the site the employee is already on is a no-op.
+    if (getProjectIdFromDroppableId(sourceCellId) === projectId) {
+      setSitePickerFor(null);
+      return;
+    }
+    const dayPart = getDayPartFromDroppableId(sourceCellId);
     confirmPastEdit(() => {
-      const poolId   = poolFullDayId(day);
-      const targetId = fullDayDroppableId(projectId, day);
+      const targetId =
+        dayPart === "pre_lunch"
+          ? preLunchDroppableId(projectId, day)
+          : dayPart === "after_lunch"
+            ? afterLunchDroppableId(projectId, day)
+            : fullDayDroppableId(projectId, day);
       setAssignmentsState((prev) => {
         const next = { ...prev };
-        next[poolId]   = (next[poolId]   ?? []).filter((e) => e.employee.id !== employeeId);
-        next[targetId] = [...(next[targetId] ?? []), { employee, dayPart: "full_day" }];
+        next[sourceCellId] = (next[sourceCellId] ?? []).filter(
+          (e) => !(e.employee.id === employeeId && e.dayPart === dayPart),
+        );
+        next[targetId] = [...(next[targetId] ?? []), { employee, dayPart }];
         return next;
       });
       setSitePickerFor(null);
@@ -579,7 +594,7 @@ export function BoardClient({
       const dateIso = weekDates[day as keyof typeof weekDates];
       if (dateIso) {
         const weekId = selectedWeek.id;
-        enqueue("updateAssignment", () => updateAssignment(employeeId, projectId, dateIso, weekId, "full_day"));
+        enqueue("updateAssignment", () => updateAssignment(employeeId, projectId, dateIso, weekId, dayPart));
       }
     });
   };
@@ -1080,6 +1095,10 @@ export function BoardClient({
                   onMarkSick={() => markAvailability(entry.employee.id, day, "sick")}
                   onMarkVacation={() => markAvailability(entry.employee.id, day, "vacation")}
                   onSplitDay={() => splitDay(entry.employee.id, day, fdId)}
+                  onAssignToSite={isPubHoliday ? undefined : (anchor) => {
+                    setOpenCardId(null);
+                    setSitePickerFor({ employeeId: entry.employee.id, day, sourceCellId: fdId, ...anchor });
+                  }}
                 />
               ))}
               {provided.placeholder}
@@ -1131,6 +1150,10 @@ export function BoardClient({
                       onMarkSick={() => markAvailability(entry.employee.id, day, "sick")}
                       onMarkVacation={() => markAvailability(entry.employee.id, day, "vacation")}
                       onMergeDay={() => mergeDay(entry.employee.id, day, preId)}
+                      onAssignToSite={isPubHoliday ? undefined : (anchor) => {
+                        setOpenCardId(null);
+                        setSitePickerFor({ employeeId: entry.employee.id, day, sourceCellId: preId, ...anchor });
+                      }}
                     />
                   ))}
                   {provided.placeholder}
@@ -1178,6 +1201,10 @@ export function BoardClient({
                       onMarkSick={() => markAvailability(entry.employee.id, day, "sick")}
                       onMarkVacation={() => markAvailability(entry.employee.id, day, "vacation")}
                       onMergeDay={() => mergeDay(entry.employee.id, day, postId)}
+                      onAssignToSite={isPubHoliday ? undefined : (anchor) => {
+                        setOpenCardId(null);
+                        setSitePickerFor({ employeeId: entry.employee.id, day, sourceCellId: postId, ...anchor });
+                      }}
                     />
                   ))}
                   {provided.placeholder}
@@ -1854,7 +1881,7 @@ export function BoardClient({
                             onMarkVacation={() => { if (!pubHoliday) markAvailability(entry.employee.id, day, "vacation"); }}
                             onAssignToSite={pubHoliday ? undefined : (anchor) => {
                               setOpenCardId(null);
-                              setSitePickerFor({ employeeId: entry.employee.id, day, ...anchor });
+                              setSitePickerFor({ employeeId: entry.employee.id, day, sourceCellId: fdId, ...anchor });
                             }}
                           />
                         ))}
@@ -1903,20 +1930,28 @@ export function BoardClient({
         </div>
         {dbProjects
           .filter((p) => effectiveStatus(p) !== "on_hold")
-          .map((project) => (
-          <button
-            key={project.id}
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              assignToSite(sitePickerFor.employeeId, sitePickerFor.day, project.id);
-            }}
-            className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
-          >
-            <AssignSiteIcon size={12} className="flex-shrink-0 text-[var(--color-text-muted)]" />
-            {project.name}
-          </button>
-        ))}
+          .map((project) => {
+            const isCurrent = getProjectIdFromDroppableId(sitePickerFor.sourceCellId) === project.id;
+            return (
+              <button
+                key={project.id}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  assignToSite(sitePickerFor.employeeId, sitePickerFor.day, project.id, sitePickerFor.sourceCellId);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
+              >
+                <AssignSiteIcon size={12} className="flex-shrink-0 text-[var(--color-text-muted)]" />
+                <span className="flex-1 truncate">{project.name}</span>
+                {isCurrent && (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 text-accent">
+                    <path d="M20 6L9 17l-5-5" />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
       </div>
     )}
 

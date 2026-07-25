@@ -373,6 +373,29 @@ html {
 }
 
 /*
+ * Assign-to-site (→) on full-day project cells — shares the card with the
+ * split button, so it needs its own slot, fourth from right:
+ *   right: 44 + 36 + 4 + 40 = 124 px
+ */
+.fly-btn-assign-site-fullday {
+  right: 124px;
+  background-color: var(--color-fly-assign);
+  transform: translateY(-50%) scale(0);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
+  transition-delay: 150ms;
+}
+
+.fly-btn-assign-site-fullday:hover {
+  background-color: var(--color-fly-assign-hover);
+}
+
+.card-open .fly-btn-assign-site-fullday {
+  transform: translateY(-50%) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/*
  * Split (✂) — third from right:
  *   right: 44 + 36 + 4 = 84 px
  */
@@ -402,6 +425,23 @@ html {
   background-color: var(--color-fly-merge-hover);
 }
 
+/*
+ * Assign-to-site (→) on half-day cards — second from right, since merge
+ * already occupies right: 4px:
+ *   right: 4 + 36 + 4 = 44px
+ */
+.fly-btn-assign-site-half {
+  right: 44px;
+  background-color: var(--color-fly-assign);
+  transform: translateY(-50%) scale(0);
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.15s ease;
+  transition-delay: 50ms;
+}
+
+.fly-btn-assign-site-half:hover {
+  background-color: var(--color-fly-assign-hover);
+}
+
 /* Open state */
 .card-open .fly-btn-sick {
   transform: translateY(-50%) scale(1);
@@ -422,6 +462,12 @@ html {
 }
 
 .card-open .fly-btn-merge {
+  transform: translateY(-50%) scale(1);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.card-open .fly-btn-assign-site-half {
   transform: translateY(-50%) scale(1);
   opacity: 1;
   pointer-events: auto;
