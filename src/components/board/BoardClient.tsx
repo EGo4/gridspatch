@@ -1888,9 +1888,9 @@ export function BoardClient({
             </div>
           </div>
 
-          {/* Pool resize handle — desktop only */}
+          {/* Pool resize handle */}
           <div
-            className="hidden lg:flex h-5 shrink-0 cursor-ns-resize touch-none items-center justify-center gap-1 border-t-2 border-[var(--color-border-strong)] bg-[var(--color-bg-surface)] transition-colors hover:bg-[var(--color-bg-hover)] group select-none"
+            className="flex h-5 shrink-0 cursor-ns-resize touch-none items-center justify-center gap-1 border-t-2 border-[var(--color-border-strong)] bg-[var(--color-bg-surface)] transition-colors hover:bg-[var(--color-bg-hover)] group select-none"
             onPointerDown={handlePoolResizeStart}
           >
             {[0, 1, 2].map((i) => (
@@ -1901,7 +1901,7 @@ export function BoardClient({
           {/* Pool — always visible at the bottom of the content column, scrolls independently */}
           <div
             ref={poolOverlayRef}
-            className="pool-overlay flex flex-col gap-2 bg-[var(--color-bg-page)] border-t border-[var(--color-border-subtle)] lg:border-t-0 px-4 pt-3 pb-4"
+            className="pool-overlay flex flex-col gap-2 bg-[var(--color-bg-page)] px-4 pt-3 pb-4"
           >
           <button
             type="button"
