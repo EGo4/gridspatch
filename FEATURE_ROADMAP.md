@@ -38,19 +38,3 @@ Acceptance criteria:
 
 - Switching to Deutsch shows no English leftovers on any page.
 - `en` and `de` catalogs contain the same key set.
-
-## UI polish: pool divider, filter buttons, "done" status color
-
-Goal:
-Three small visual improvements for clarity.
-
-Requirements:
-
-- **Pool divider**: the line above the employee pool becomes visually prominent (thicker/higher contrast) so the pool is clearly separated from the board.
-- **Bottom-right buttons** (filter, …): larger and more visible — bigger hit area, stronger contrast/shadow so they are discoverable.
-- **`done` status color**: `done` gets its own color (violet) everywhere a status is shown — board, admin sites table, status filters, stats — so it is clearly distinct from `active`. Define it once as a shared token/class next to the existing status colors.
-
-Acceptance criteria:
-
-- `done` and `active` are distinguishable at a glance in every status display.
-- Filter buttons meet a sensible minimum touch size (~40px) and stand out from the background.

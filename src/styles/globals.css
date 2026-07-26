@@ -163,8 +163,8 @@ html {
   --color-status-active-txt:  #4ade80;
   --color-status-hold-bg:     #2c2619;
   --color-status-hold-txt:    #fbbf24;
-  --color-status-done-bg:     #0f2020;
-  --color-status-done-txt:    #34d399;
+  --color-status-done-bg:     #211a2e;
+  --color-status-done-txt:    #a78bfa;
   --color-status-inactive-bg: #252429;
   --color-status-inactive-txt: #6b6875;
 
@@ -268,8 +268,8 @@ html {
   --color-status-active-txt:  #166534;
   --color-status-hold-bg:     #fef3c7;
   --color-status-hold-txt:    #92400e;
-  --color-status-done-bg:     #d1fae5;
-  --color-status-done-txt:    #065f46;
+  --color-status-done-bg:     #ede9fe;
+  --color-status-done-txt:    #6d28d9;
   --color-status-inactive-bg: #f3f4f6;
   --color-status-inactive-txt: #6b7280;
 

@@ -528,23 +528,34 @@ export function BoardClient({
 
   const handlePoolResizeStart = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.stopPropagation();
+    const handle = e.currentTarget;
+    // Pointer capture keeps every subsequent event routed to this handle — without it,
+    // touch drags get hijacked by the browser as a page-scroll gesture partway through,
+    // and the sequence can be interrupted by whatever element the pointer happens to be over.
+    handle.setPointerCapture(e.pointerId);
+
     const startY = e.clientY;
     const startH = poolHeightRef.current;
 
     const onMove = (ev: PointerEvent) => {
+      ev.preventDefault();
       const h = Math.min(POOL_MAX_HEIGHT, Math.max(POOL_MIN_HEIGHT, startH + (startY - ev.clientY)));
       poolHeightRef.current = h;
       if (poolOverlayRef.current) poolOverlayRef.current.style.maxHeight = `${h}px`;
     };
 
-    const onUp = () => {
-      document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerup", onUp);
+    const onUp = (ev: PointerEvent) => {
+      handle.releasePointerCapture(ev.pointerId);
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onUp);
+      handle.removeEventListener("pointercancel", onUp);
       localStorage.setItem(POOL_HEIGHT_LS_KEY, String(poolHeightRef.current));
     };
 
-    document.addEventListener("pointermove", onMove);
-    document.addEventListener("pointerup", onUp);
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onUp);
+    handle.addEventListener("pointercancel", onUp);
   };
 
   // ── Close fly-out side menu on outside click or Escape ───────────────────
@@ -1816,10 +1827,10 @@ export function BoardClient({
                     <button
                       type="button"
                       onClick={() => { setSideMenuOpen(false); setCopyWeekModalOpen(true); }}
-                      className="hidden lg:flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
+                      className="hidden lg:flex h-10 items-center gap-1.5 rounded-lg px-3.5 text-xs font-medium bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] shadow-md transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
                       title={`Copy assignments from ${previousWeek.label}`}
                     >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                       </svg>
@@ -1831,13 +1842,13 @@ export function BoardClient({
                   <button
                     type="button"
                     onClick={() => { setSideMenuOpen(false); setFilterModalOpen(true); }}
-                    className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                    className={`flex h-10 items-center gap-1.5 rounded-lg px-3.5 text-xs font-medium shadow-md transition-colors ${
                       filterManagerId
                         ? "bg-accent text-white"
                         : "bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
                     }`}
                   >
-                    <FilterIcon size={12} />
+                    <FilterIcon size={14} />
                     {activeManagerName ?? t("filter")}
                   </button>
 
@@ -1847,9 +1858,9 @@ export function BoardClient({
                       type="button"
                       onClick={() => setFilterManagerId(null)}
                       title={t("clearFilter")}
-                      className="flex items-center rounded-lg p-2 bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
+                      className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] shadow-md transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
                     >
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
                       </svg>
                     </button>
@@ -1862,13 +1873,13 @@ export function BoardClient({
                 type="button"
                 onClick={() => setSideMenuOpen((o) => !o)}
                 title={sideMenuOpen ? t("closeMenu") : t("openMenu")}
-                className={`flex items-center justify-center rounded-lg w-8 h-9 transition-colors ${
+                className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg shadow-md transition-colors ${
                   filterManagerId
-                    ? "bg-accent text-white shadow-lg"
-                    : "bg-[var(--color-border-subtle)] text-[var(--color-text-muted)] hover:bg-[var(--color-border-muted)] hover:text-[var(--color-text-secondary)]"
+                    ? "bg-accent text-white"
+                    : "bg-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-muted)] hover:text-[var(--color-text-primary)]"
                 }`}
               >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
                   <path d={sideMenuOpen ? "M9 18l6-6-6-6" : "M15 18l-6-6 6-6"} />
                 </svg>
               </button>
@@ -1878,11 +1889,11 @@ export function BoardClient({
 
           {/* Pool resize handle — desktop only */}
           <div
-            className="hidden lg:flex h-3 shrink-0 cursor-ns-resize items-center justify-center gap-1 border-t border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] transition-colors hover:bg-[var(--color-bg-surface)] group select-none"
+            className="hidden lg:flex h-5 shrink-0 cursor-ns-resize touch-none items-center justify-center gap-1 border-t-2 border-[var(--color-border-strong)] bg-[var(--color-bg-surface)] transition-colors hover:bg-[var(--color-bg-hover)] group select-none"
             onPointerDown={handlePoolResizeStart}
           >
             {[0, 1, 2].map((i) => (
-              <div key={i} className="h-1 w-1 rounded-full bg-[var(--color-border-muted)] transition-colors group-hover:bg-accent/50" />
+              <div key={i} className="h-1 w-1 rounded-full bg-[var(--color-text-muted)] transition-colors group-hover:bg-accent" />
             ))}
           </div>
 
