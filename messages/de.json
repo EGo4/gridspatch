@@ -150,6 +150,7 @@
     "errorPasswordShort": "Passwort muss mindestens 8 Zeichen haben.",
     "errorAdminRequired": "Admin-Passwort ist erforderlich, um ein anderes Passwort zu ändern.",
     "roleManager": "Bauleiter",
+    "roleHr": "Personalwesen",
     "roleAdmin": "Administrator",
     "actions": "Aktionen",
     "errorGeneric": "Ein Fehler ist aufgetreten"

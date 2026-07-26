@@ -1,11 +1,9 @@
-import { redirect } from "next/navigation";
-import { getSession } from "~/server/better-auth/server";
+import { requireAdminPage } from "~/server/better-auth/roles";
 import { listUsers } from "~/server/actions/users";
 import { UsersClient } from "./UsersClient";
 
 export default async function UsersPage() {
-  const session = await getSession();
-  if (session?.user?.role !== "admin") redirect("/board");
+  await requireAdminPage();
 
   const users = await listUsers();
   return <UsersClient users={users} />;

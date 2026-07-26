@@ -25,6 +25,7 @@ type CurrentUser = {
 const ROLE_STYLES: Record<string, string> = {
   construction_manager: "bg-[var(--color-status-planned-bg)] text-[var(--color-status-planned-txt)] border border-[var(--color-border-subtle)]",
   admin: "bg-[var(--color-status-done-bg)] text-[var(--color-status-done-txt)] border border-[var(--color-border-subtle)]",
+  hr: "bg-[var(--color-status-active-bg)] text-[var(--color-status-active-txt)] border border-[var(--color-border-subtle)]",
 };
 
 const inputCls =
@@ -251,6 +252,7 @@ export function ProfileClient({
   const router = useRouter();
   const t = useTranslations("Profile");
   const tCommon = useTranslations("Common");
+  const tUsers = useTranslations("Users");
   const [, startTransition] = useTransition();
 
   const [navSidebarOpen, setNavSidebarOpen] = useState(false);
@@ -358,8 +360,9 @@ export function ProfileClient({
   const scalePercent = Math.round(uiScale * 100);
 
   const roleLabel =
-    user.role === "admin" ? "Admin"
-    : user.role === "construction_manager" ? "Construction Manager"
+    user.role === "admin" ? tUsers("roleAdmin")
+    : user.role === "construction_manager" ? tUsers("roleManager")
+    : user.role === "hr" ? tUsers("roleHr")
     : user.role;
 
   return (

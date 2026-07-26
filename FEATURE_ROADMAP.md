@@ -3,30 +3,7 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## HR user role
-
-Goal:
-New user role `hr` for HR/administrative staff. HR users can edit the plan, view statistics, and use the Excel export — but can never be selected as construction manager of a project.
-
-Requirements:
-
-- Add `hr` to the allowed values of `User.role` (alongside `construction_manager`, `admin`).
-- HR users are excluded from every construction-manager dropdown (project create/edit, bulk edit).
-- HR users have access to: board (full editing), statistics page, export page.
-- HR users have **no** access to admin pages (users, sites, audit).
-- Enforcement server-side in the relevant actions, not only hidden in the UI.
-
-Acceptance criteria:
-
-- Admin can set a user's role to HR in the user admin.
-- HR user does not appear in manager selection lists.
-- HR user navigating to `/admin/*` is rejected; board mutations and export succeed.
-
-Technical notes:
-
-- Role check helper next to the Better Auth config in `src/server/better-auth/`, used by server actions and page guards.
-
-## Excel export page (HR / administration)
+## Excel export page
 
 Goal:
 Separate export page (hub for future exports) where HR/admin can download week-based Excel reports of hours worked per employee per construction site.

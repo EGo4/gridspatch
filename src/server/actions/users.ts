@@ -3,8 +3,7 @@
 import { headers } from "next/headers";
 import { auth } from "~/server/better-auth";
 import { db } from "~/server/db";
-
-export type UserRole = "construction_manager" | "admin";
+import { isAdmin, type UserRole } from "~/server/better-auth/roles";
 
 type UserDb = {
   user: {
@@ -156,7 +155,7 @@ export async function resetUserPassword(input: {
   if (!session?.user?.id) throw new Error("Not authenticated");
 
   const adminUser = session.user as { role?: string };
-  if (adminUser.role !== "admin") throw new Error("Admin access required");
+  if (!isAdmin(adminUser.role)) throw new Error("Admin access required");
 
   await auth.api.verifyPassword({
     body: { password: input.adminPassword },

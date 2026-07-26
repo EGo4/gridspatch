@@ -150,6 +150,7 @@
     "errorPasswordShort": "Password must be at least 8 characters.",
     "errorAdminRequired": "Your admin password is required to change another user's password.",
     "roleManager": "Construction Manager",
+    "roleHr": "HR",
     "roleAdmin": "Admin",
     "actions": "Actions",
     "errorGeneric": "Something went wrong"

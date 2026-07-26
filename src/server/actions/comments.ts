@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { auth } from "~/server/better-auth";
 import { db } from "~/server/db";
+import { isAdmin } from "~/server/better-auth/roles";
 
 export type EmployeeDayCommentDto = {
   id: string;
@@ -35,7 +36,7 @@ export async function listComments(employeeId: string, dateIso: string): Promise
     authorId: c.authorId,
     authorName: c.author.name,
     createdAtIso: c.createdAt.toISOString(),
-    canDelete: session.user.role === "admin" || c.authorId === session.user.id,
+    canDelete: isAdmin(session.user.role) || c.authorId === session.user.id,
   }));
 }
 
@@ -69,7 +70,7 @@ export async function deleteComment(commentId: string): Promise<void> {
   const comment = await db.employeeDayComment.findUnique({ where: { id: commentId } });
   if (!comment) return;
 
-  if (comment.authorId !== session.user.id && session.user.role !== "admin") {
+  if (comment.authorId !== session.user.id && !isAdmin(session.user.role)) {
     throw new Error("Not allowed to delete this comment");
   }
 

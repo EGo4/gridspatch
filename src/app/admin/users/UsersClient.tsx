@@ -9,8 +9,8 @@ import {
   updateUser,
   deleteUser,
   resetUserPassword,
-  type UserRole,
 } from "~/server/actions/users";
+import type { UserRole } from "~/server/better-auth/roles";
 import { UserIcon } from "~/components/icons";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -50,11 +50,16 @@ const EMPTY_FORM: FormState = {
 const ROLE_STYLES: Record<string, string> = {
   construction_manager: "bg-[var(--color-status-planned-bg)] text-[var(--color-status-planned-txt)] border border-[var(--color-border-subtle)]",
   admin:                "bg-[var(--color-status-done-bg)] text-[var(--color-status-done-txt)] border border-[var(--color-border-subtle)]",
+  hr:                   "bg-[var(--color-status-active-bg)] text-[var(--color-status-active-txt)] border border-[var(--color-border-subtle)]",
 };
 
 function RoleBadge({ role }: { role: string }) {
   const t = useTranslations("Users");
-  const label = role === "admin" ? t("roleAdmin") : role === "construction_manager" ? t("roleManager") : role;
+  const label =
+    role === "admin" ? t("roleAdmin")
+    : role === "construction_manager" ? t("roleManager")
+    : role === "hr" ? t("roleHr")
+    : role;
   const style = ROLE_STYLES[role] ?? "bg-[var(--color-bg-raised)] text-[var(--color-text-muted)] border border-[var(--color-border-subtle)]";
   return (
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${style}`}>
@@ -228,6 +233,7 @@ function UserFormPanel({
               className={inputCls}
             >
               <option value="construction_manager">{t("roleManager")}</option>
+              <option value="hr">{t("roleHr")}</option>
               <option value="admin">{t("roleAdmin")}</option>
             </select>,
           )}

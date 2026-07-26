@@ -1,6 +1,7 @@
 import { prismaRaw } from "~/server/db";
 import { AuditClient } from "./AuditClient";
 import type { Prisma } from "@prisma/client";
+import { requireAdminPage } from "~/server/better-auth/roles";
 
 const PAGE_SIZE = 50;
 
@@ -41,6 +42,8 @@ export default async function AuditPage({
 }: {
   searchParams: Promise<Record<string, string | undefined>>;
 }) {
+  await requireAdminPage();
+
   const params = await searchParams;
   const model = params.model ?? "";
   const action = params.action ?? "";
