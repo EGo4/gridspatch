@@ -3,38 +3,6 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## Excel export page
-
-Goal:
-Separate export page (hub for future exports) where HR/admin can download week-based Excel reports of hours worked per employee per construction site.
-
-Requirements:
-
-- New page, e.g. `/export`, accessible to all roles (`hr`, `admin`, `construction_manager`) — construction managers have no restrictions apart from admin-only areas (user management, audit log).
-- Time range selection: single week, multiple weeks, a calendar month, or a whole year.
-- Only construction sites that actually had assignments in the selected range are included.
-- Two switchable layouts:
-  - **Employee-driven**: rows = employees, columns = sites (per week), cells = hours worked on that site.
-  - **Site-driven**: rows = sites with their assigned employees, mirroring the board layout.
-- Hours are derived from assignments: `full_day` = configured hours per day, `pre_lunch`/`after_lunch` = half of that.
-- **Hours per full day is a company-wide configurable setting** (default 8) editable by admin.
-- Absences are included as two dedicated rows — **sick** and **vacation** — exactly like on the board (in the employee-driven layout as two dedicated columns per week instead).
-- Output format: `.xlsx`, one worksheet per week for multi-week/month/year exports.
-
-Acceptance criteria:
-
-- Export for a week lists exactly the sites with ≥1 assignment that week.
-- Sums per employee and per site are correct for mixed full/half days.
-- Changing the hours-per-day setting changes subsequent exports.
-- Month/year export produces one file with one sheet per week.
-- Sick/vacation days show up in the sick/vacation rows, not under any site.
-
-Technical notes:
-
-- **DB change** for the setting — either a `CompanySetting` key/value model or a settings table; new migration.
-- Generation server-side (route handler streaming the file) with a library such as `exceljs`.
-- Aggregation query lives in a new service, e.g. `src/server/services/export.ts`; includes `EmployeeStatus` (sick/vacation) alongside assignments.
-
 ## Year filters for construction sites and employees
 
 Goal:

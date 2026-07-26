@@ -190,6 +190,13 @@ model Holiday {
   createdAt DateTime @default(now())
 }
 
+// Single row (id always "singleton") holding company-wide settings.
+model CompanySettings {
+  id          String   @id
+  hoursPerDay Int      @default(8)
+  updatedAt   DateTime @updatedAt
+}
+
 model UserPreference {
   id          String  @id @default(cuid())
   userId      String  @unique
