@@ -92,8 +92,8 @@ const STATUS_CHIP_TEXT: Record<ProjectStatus, string> = {
 
 const toInputDate = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
 
-const formatDate = (d: Date | null) =>
-  d ? d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+const formatDate = (d: Date | null, locale: string) =>
+  d ? d.toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric" }) : "—";
 
 const LOAD_STEP = 4;
 const INIT_RANGE = 4;
@@ -151,13 +151,13 @@ function SiteFormPanel({
           </button>
         </div>
         <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-6">
-          {field(t("nameRequired") ?? "Name *",
+          {field(t("nameRequired"),
             <input type="text" value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })}
-              placeholder="e.g. Site Müller – Hauptstraße" className={inputCls} autoFocus />,
+              placeholder={t("namePlaceholder")} className={inputCls} autoFocus />,
           )}
           {field(t("description"),
             <textarea value={form.description} onChange={(e) => onChange({ ...form, description: e.target.value })}
-              placeholder="Optional notes about this site" rows={3} className={`${inputCls} resize-none`} />,
+              placeholder={t("descriptionPlaceholder")} rows={3} className={`${inputCls} resize-none`} />,
           )}
           {field(t("manager"),
             <select value={form.constructionManagerId} title={t("manager")}
@@ -358,7 +358,7 @@ function SiteStatusPanel({
     try {
       const result = await setSiteTransition(site.id, selectedWeek, pickedStatus, force);
       if ("blocked" in result) {
-        setBlockMsg(`"${tStatus(pickedStatus)}" is not a valid transition from the current status.`);
+        setBlockMsg(t("invalidTransition", { status: tStatus(pickedStatus) }));
         setWarnOngoing(false);
         setWarnOngoingAfter(false);
       } else if ("warn" in result) {
@@ -397,7 +397,7 @@ function SiteStatusPanel({
     }
   };
 
-  const applyingLabel = applying ? "Applying…" : t("applyTransition");
+  const applyingLabel = applying ? t("applying") : t("applyTransition");
 
   return (
     <>
@@ -542,7 +542,7 @@ function SiteStatusPanel({
                 <div className="flex flex-col gap-1.5 flex-shrink-0">
                   <button type="button" onClick={() => void handleApply(true)} disabled={applying}
                     className="rounded-lg bg-[var(--color-warn-text)] px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
-                    {applying ? "Applying…" : t("applyAnyway")}
+                    {applying ? t("applying") : t("applyAnyway")}
                   </button>
                   <button type="button" onClick={() => setWarnOngoing(false)}
                     className="rounded-lg px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] text-center">
@@ -568,7 +568,7 @@ function SiteStatusPanel({
                 <div className="flex flex-col gap-1.5 flex-shrink-0">
                   <button type="button" onClick={() => void handleApply(true)} disabled={applying}
                     className="rounded-lg bg-[var(--color-warn-text)] px-3 py-1.5 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
-                    {applying ? "Applying…" : t("applyAnyway")}
+                    {applying ? t("applying") : t("applyAnyway")}
                   </button>
                   <button type="button" onClick={() => setWarnOngoingAfter(false)}
                     className="rounded-lg px-3 py-1.5 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] text-center">
@@ -638,7 +638,7 @@ function SiteStatusPanel({
                 >
                   <span className={`flex-1 ${isCurrent ? "font-semibold text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)]"}`}>
                     {formatWeekLabel(weekIso, locale)}
-                    {isCurrent && <span className="ml-1.5 text-[var(--color-text-faint)]">(current)</span>}
+                    {isCurrent && <span className="ml-1.5 text-[var(--color-text-faint)]">{t("currentWeek")}</span>}
                   </span>
                   {hasTransition && (
                     <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] flex-shrink-0" />
@@ -717,7 +717,7 @@ function SiteListImportPanel({
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={"Site Müller – Hauptstraße\nSite Bahnhof Nord\nSite Westpark"}
+            placeholder={t("pasteListPlaceholder")}
             rows={6}
             className={`${inputCls} resize-none`}
             autoFocus
@@ -835,6 +835,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
   const t = useTranslations("Sites");
   const tCommon = useTranslations("Common");
   const tStatus = useTranslations("Status");
+  const locale = useLocale();
   const [isPending, startTransition] = useTransition();
 
   const [navSidebarOpen, setNavSidebarOpen] = useState(false);
@@ -1097,7 +1098,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
 
   const tableColumns: [SiteSortKey, string][] = [
     ["name", tCommon("name")],
-    ["status", "Status"],
+    ["status", t("statusColumn")],
     ["startDate", tCommon("startDate")],
     ["endDate", tCommon("endDate")],
     ["manager", t("manager")],
@@ -1201,16 +1202,16 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
         {selectedIds.size > 0 && (
           <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] px-4 py-3">
             <span className="text-xs font-medium text-[var(--color-text-secondary)]">
-              {selectedIds.size} {selectedIds.size === 1 ? "site" : "sites"} selected
+              {t("selectedCount", { count: selectedIds.size })}
             </span>
             <div className="h-4 w-px bg-[var(--color-border-subtle)]" />
             <select
               value={bulkStatus}
               onChange={e => setBulkStatus(e.target.value as ProjectStatus | "")}
-              aria-label="Bulk status"
+              aria-label={t("bulkStatusAria")}
               className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-2 py-1 text-xs text-[var(--color-text-primary)] focus:outline-none"
             >
-              <option value="">Status — no change</option>
+              <option value="">{t("statusNoChange")}</option>
               {(["planned", "active", "on_hold", "done", "inactive"] as ProjectStatus[]).map(s => (
                 <option key={s} value={s}>{tStatus(s)}</option>
               ))}
@@ -1218,11 +1219,11 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
             <select
               value={bulkManagerId}
               onChange={e => setBulkManagerId(e.target.value)}
-              aria-label="Bulk manager"
+              aria-label={t("bulkManagerAria")}
               className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)] px-2 py-1 text-xs text-[var(--color-text-primary)] focus:outline-none"
             >
-              <option value="">Manager — no change</option>
-              <option value="__none__">— Remove manager</option>
+              <option value="">{t("managerNoChange")}</option>
+              <option value="__none__">{t("removeManagerOption")}</option>
               {managers.map(m => (
                 <option key={m.id} value={m.id}>{m.name}</option>
               ))}
@@ -1233,7 +1234,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
               onClick={() => void handleBulkApply()}
               className="rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-white transition-opacity disabled:opacity-40 hover:opacity-90"
             >
-              {bulkApplying ? "Applying…" : "Apply"}
+              {bulkApplying ? t("applying") : t("apply")}
             </button>
             <button
               type="button"
@@ -1263,7 +1264,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
                       checked={allVisible}
                       onChange={toggleSelectAll}
                       className="cursor-pointer accent-[var(--color-accent)]"
-                      aria-label="Select all"
+                      aria-label={t("selectAllAria")}
                     />
                   </th>
                   {tableColumns.map(([key, label]) => (
@@ -1286,13 +1287,13 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
                         checked={selectedIds.has(site.id)}
                         onChange={() => toggleSelectOne(site.id)}
                         className="cursor-pointer accent-[var(--color-accent)]"
-                        aria-label={`Select ${site.name}`}
+                        aria-label={t("selectRowAria", { name: site.name })}
                       />
                     </td>
                     <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">{site.name}</td>
                     <td className="px-4 py-3"><StatusBadge status={site.status} /></td>
-                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">{formatDate(site.startDate)}</td>
-                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">{formatDate(site.endDate)}</td>
+                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">{formatDate(site.startDate, locale)}</td>
+                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">{formatDate(site.endDate, locale)}</td>
                     <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                       {site.constructionManagerName ?? <span className="text-[var(--color-text-faint)]">—</span>}
                     </td>

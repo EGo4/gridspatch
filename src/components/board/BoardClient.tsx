@@ -177,6 +177,7 @@ export function BoardClient({
   const router = useRouter();
   const t = useTranslations("Board");
   const tStatus = useTranslations("Status");
+  const tCommon = useTranslations("Common");
   const locale = useLocale();
   const [navSidebarOpen, setNavSidebarOpen] = useState(false);
   const [assignmentsState, setAssignmentsState] = useState<Record<string, EmployeeEntry[]>>({});
@@ -1097,7 +1098,7 @@ export function BoardClient({
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  if (!isLoaded) return <div className="p-10 text-[var(--color-text-primary)] bg-[var(--color-bg-page)]">Loading board...</div>;
+  if (!isLoaded) return <div className="p-10 text-[var(--color-text-primary)] bg-[var(--color-bg-page)]">{t("loading")}</div>;
 
   /**
    * Render a project day cell.
@@ -1309,7 +1310,7 @@ export function BoardClient({
           <button
             type="button"
             onClick={() => setNavSidebarOpen(true)}
-            title="Open menu"
+            title={t("openMenu")}
             className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1326,7 +1327,7 @@ export function BoardClient({
               onClick={(e) => { e.stopPropagation(); setDayDropdownOpen((o) => !o); }}
               className="flex items-center gap-1.5 px-4 py-2 text-[var(--color-text-primary)] transition hover:text-[var(--color-text-primary)]"
             >
-              {activeDay}
+              {dayLabel(activeDay)}
               <svg className="h-3 w-3 text-[var(--color-pill-text)]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
               </svg>
@@ -1828,7 +1829,7 @@ export function BoardClient({
                       type="button"
                       onClick={() => { setSideMenuOpen(false); setCopyWeekModalOpen(true); }}
                       className="hidden lg:flex h-10 items-center gap-1.5 rounded-lg px-3.5 text-xs font-medium bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] shadow-md transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
-                      title={`Copy assignments from ${previousWeek.label}`}
+                      title={t("copyAssignmentsFrom", { week: previousWeek.label })}
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
@@ -2007,7 +2008,7 @@ export function BoardClient({
         className="site-picker z-[100] min-w-[180px] overflow-hidden rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] py-1 shadow-2xl"
       >
         <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-          Assign to site
+          {t("assignToSite")}
         </div>
         {dbProjects
           .filter((p) => effectiveStatus(p) !== "on_hold")
@@ -2051,7 +2052,7 @@ export function BoardClient({
             <button
               type="button"
               onClick={closeComments}
-              title="Close"
+              title={tCommon("close")}
               className="flex items-center rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -2134,7 +2135,7 @@ export function BoardClient({
             <button
               type="button"
               onClick={() => setCopyWeekModalOpen(false)}
-              title="Close"
+              title={tCommon("close")}
               className="flex items-center rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -2201,7 +2202,7 @@ export function BoardClient({
             <button
               type="button"
               onClick={() => setDayCopyConfirm(null)}
-              title="Close"
+              title={tCommon("close")}
               className="flex items-center rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -2266,7 +2267,7 @@ export function BoardClient({
             <button
               type="button"
               onClick={() => setFilterModalOpen(false)}
-              title="Close"
+              title={tCommon("close")}
               className="flex items-center rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
             >
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -2349,7 +2350,7 @@ export function BoardClient({
           >
             <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
               <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("holdTitle")}</h3>
-              <button type="button" title="Close" onClick={() => setHoldingTransition(null)}
+              <button type="button" title={tCommon("close")} onClick={() => setHoldingTransition(null)}
                 className="flex items-center rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -2397,7 +2398,7 @@ export function BoardClient({
               <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
                 {t("markAsTitle", { status: tStatus(completingTransition.status) })}
               </h3>
-              <button type="button" title="Close" onClick={() => setCompletingTransition(null)}
+              <button type="button" title={tCommon("close")} onClick={() => setCompletingTransition(null)}
                 className="flex items-center rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />

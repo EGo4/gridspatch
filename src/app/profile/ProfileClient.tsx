@@ -35,6 +35,7 @@ const DEFAULT_ACCENT = "#4f7cf0";
 const DEFAULT_AM_HUE = "#dcbe7d";
 const DEFAULT_PM_HUE = "#82aafa";
 const DEFAULT_SCALE = 1;
+const PHOTO_UPLOAD_FAILED = "__photo_upload_failed__";
 
 // ── Photo picker ──────────────────────────────────────────────────────────────
 
@@ -48,6 +49,7 @@ function PhotoPicker({
   onChange: (image: string, pendingFile: File | null) => void;
 }) {
   const tCommon = useTranslations("Common");
+  const tProfile = useTranslations("Profile");
   const inputRef = useRef<HTMLInputElement>(null);
   const previewSrc = pendingFile ? URL.createObjectURL(pendingFile) : image || null;
 
@@ -61,7 +63,7 @@ function PhotoPicker({
     <div className="flex items-center gap-4">
       <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--color-border-subtle)] bg-[var(--color-bg-input)]">
         {previewSrc ? (
-          <img src={previewSrc} alt="Profile photo" className="h-full w-full object-cover" />
+          <img src={previewSrc} alt={tCommon("photo")} className="h-full w-full object-cover" />
         ) : (
           <UserIcon size={32} className="text-[var(--color-text-faint)]" />
         )}
@@ -89,7 +91,7 @@ function PhotoPicker({
         ref={inputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif"
-        aria-label="Upload profile photo"
+        aria-label={tProfile("uploadPhotoAria")}
         className="hidden"
         onChange={handleFile}
       />
@@ -106,6 +108,8 @@ function ColorField({
   onChange,
   onReset,
   resetLabel,
+  pickLabel,
+  resultingLabel,
   previewStyle,
 }: {
   label: string;
@@ -114,6 +118,8 @@ function ColorField({
   onChange: (v: string) => void;
   onReset: () => void;
   resetLabel: string;
+  pickLabel: string;
+  resultingLabel: string;
   previewStyle?: React.CSSProperties;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -128,13 +134,13 @@ function ColorField({
           onClick={() => inputRef.current?.click()}
           className="h-9 w-9 flex-shrink-0 cursor-pointer rounded-lg border-2 border-[var(--color-border-subtle)] transition-colors hover:border-[var(--color-border-strong)]"
           style={{ backgroundColor: value }}
-          title="Click to pick colour"
+          title={pickLabel}
         />
         {previewStyle && (
           <div
             className="h-9 w-9 flex-shrink-0 rounded-lg border border-[var(--color-border-subtle)]"
             style={previewStyle}
-            title="Resulting zone colour"
+            title={resultingLabel}
           />
         )}
         <span className="font-mono text-xs text-[var(--color-text-muted)]">{value.toUpperCase()}</span>
@@ -292,7 +298,7 @@ export function ProfileClient({
     const fd = new FormData();
     fd.append("file", file);
     const res = await fetch("/api/upload/users", { method: "POST", body: fd });
-    if (!res.ok) throw new Error("Photo upload failed");
+    if (!res.ok) throw new Error(PHOTO_UPLOAD_FAILED);
     const data = (await res.json()) as { url: string };
     return data.url;
   };
@@ -342,7 +348,8 @@ export function ProfileClient({
       setSuccessMsg(t("changesSaved"));
       startTransition(() => router.refresh());
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong");
+      const message = e instanceof Error ? e.message : tCommon("errorGeneric");
+      setError(message === PHOTO_UPLOAD_FAILED ? tCommon("errorPhotoUpload") : message);
     } finally {
       setSaving(false);
     }
@@ -425,7 +432,7 @@ export function ProfileClient({
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
+                placeholder={t("namePlaceholder")}
                 className={inputCls}
               />,
             )}
@@ -436,7 +443,7 @@ export function ProfileClient({
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                placeholder={t("emailPlaceholder")}
                 className={inputCls}
               />,
             )}
@@ -544,6 +551,8 @@ export function ProfileClient({
               onChange={setAccentColor}
               onReset={() => setAccentColor(DEFAULT_ACCENT)}
               resetLabel={t("reset")}
+              pickLabel={t("pickColour")}
+              resultingLabel={t("resultingColour")}
             />
 
             <ColorField
@@ -553,6 +562,8 @@ export function ProfileClient({
               onChange={setAmColor}
               onReset={() => setAmColor(DEFAULT_AM_HUE)}
               resetLabel={t("reset")}
+              pickLabel={t("pickColour")}
+              resultingLabel={t("resultingColour")}
               previewStyle={{ backgroundColor: `color-mix(in srgb, ${amColor} 20%, ${theme === "light" ? "white" : "black"})` }}
             />
 
@@ -563,6 +574,8 @@ export function ProfileClient({
               onChange={setPmColor}
               onReset={() => setPmColor(DEFAULT_PM_HUE)}
               resetLabel={t("reset")}
+              pickLabel={t("pickColour")}
+              resultingLabel={t("resultingColour")}
               previewStyle={{ backgroundColor: `color-mix(in srgb, ${pmColor} 20%, ${theme === "light" ? "white" : "black"})` }}
             />
 

@@ -45,6 +45,8 @@ const EMPTY_FORM: FormState = {
   pendingFile: null,
 };
 
+const PHOTO_UPLOAD_FAILED = "__photo_upload_failed__";
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const ROLE_STYLES: Record<string, string> = {
@@ -80,6 +82,7 @@ function PhotoPicker({
   onChange: (image: string, pendingFile: File | null) => void;
 }) {
   const tCommon = useTranslations("Common");
+  const tUsers = useTranslations("Users");
   const inputRef = useRef<HTMLInputElement>(null);
   const previewSrc = pendingFile ? URL.createObjectURL(pendingFile) : image || null;
 
@@ -93,7 +96,7 @@ function PhotoPicker({
     <div className="flex items-center gap-4">
       <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]">
         {previewSrc ? (
-          <img src={previewSrc} alt="Preview" className="h-full w-full object-cover" />
+          <img src={previewSrc} alt={tCommon("preview")} className="h-full w-full object-cover" />
         ) : (
           <UserIcon size={28} className="text-[var(--color-text-faint)]" />
         )}
@@ -121,7 +124,7 @@ function PhotoPicker({
         ref={inputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif"
-        aria-label="Upload user photo"
+        aria-label={tUsers("uploadPhotoAria")}
         className="hidden"
         onChange={handleFile}
       />
@@ -207,7 +210,7 @@ function UserFormPanel({
               type="text"
               value={form.name}
               onChange={(e) => onChange({ ...form, name: e.target.value })}
-              placeholder="e.g. Anna Müller"
+              placeholder={t("namePlaceholder")}
               className={inputCls}
               autoFocus
             />,
@@ -219,7 +222,7 @@ function UserFormPanel({
               type="email"
               value={form.email}
               onChange={(e) => onChange({ ...form, email: e.target.value })}
-              placeholder="anna@example.com"
+              placeholder={t("emailPlaceholder")}
               className={inputCls}
             />,
           )}
@@ -386,7 +389,7 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
     const fd = new FormData();
     fd.append("file", file);
     const res = await fetch("/api/upload/users", { method: "POST", body: fd });
-    if (!res.ok) throw new Error("Photo upload failed");
+    if (!res.ok) throw new Error(PHOTO_UPLOAD_FAILED);
     const data = (await res.json()) as { url: string };
     return data.url;
   };
@@ -428,7 +431,8 @@ export function UsersClient({ users: initialUsers }: { users: User[] }) {
       setFormOpen(false);
       startTransition(() => router.refresh());
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("errorGeneric"));
+      const message = e instanceof Error ? e.message : t("errorGeneric");
+      setError(message === PHOTO_UPLOAD_FAILED ? tCommon("errorPhotoUpload") : message);
     } finally {
       setSaving(false);
     }

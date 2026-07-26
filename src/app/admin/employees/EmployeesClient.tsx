@@ -65,6 +65,7 @@ function PhotoPicker({
   onChange: (img: string, pendingFile: File | null) => void;
 }) {
   const t = useTranslations("Common");
+  const tEmployees = useTranslations("Employees");
   const inputRef = useRef<HTMLInputElement>(null);
   const previewSrc = pendingFile ? URL.createObjectURL(pendingFile) : img || null;
 
@@ -78,7 +79,7 @@ function PhotoPicker({
     <div className="flex items-center gap-4">
       <div className="flex h-16 w-16 flex-shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)]">
         {previewSrc ? (
-          <img src={previewSrc} alt="Preview" className="h-full w-full object-cover" />
+          <img src={previewSrc} alt={t("preview")} className="h-full w-full object-cover" />
         ) : (
           <UserIcon size={28} className="text-[var(--color-text-faint)]" />
         )}
@@ -106,7 +107,7 @@ function PhotoPicker({
         ref={inputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp,image/gif"
-        aria-label="Upload employee photo"
+        aria-label={tEmployees("uploadPhotoAria")}
         className="hidden"
         onChange={handleFile}
       />
@@ -165,9 +166,9 @@ function EmployeeFormPanel({
 
         <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-6">
           {field(tCommon("photo"), <PhotoPicker img={form.img} pendingFile={form.pendingFile} onChange={(img, pendingFile) => onChange({ ...form, img, pendingFile })} />)}
-          {field(t("nameRequired"), <input type="text" value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} placeholder="e.g. John Smith" className={inputCls} autoFocus />)}
-          {field(t("initialsRequired"), <input type="text" value={form.initials} onChange={(e) => onChange({ ...form, initials: e.target.value.toUpperCase().slice(0, 4) })} placeholder="e.g. JS" maxLength={4} className={inputCls} />)}
-          {field(tCommon("role"), <input type="text" value={form.role} onChange={(e) => onChange({ ...form, role: e.target.value })} placeholder="e.g. Foreman, Apprentice" className={inputCls} />)}
+          {field(t("nameRequired"), <input type="text" value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} placeholder={t("namePlaceholder")} className={inputCls} autoFocus />)}
+          {field(t("initialsRequired"), <input type="text" value={form.initials} onChange={(e) => onChange({ ...form, initials: e.target.value.toUpperCase().slice(0, 4) })} placeholder={t("initialsPlaceholder")} maxLength={4} className={inputCls} />)}
+          {field(tCommon("role"), <input type="text" value={form.role} onChange={(e) => onChange({ ...form, role: e.target.value })} placeholder={t("rolePlaceholder")} className={inputCls} />)}
           {field(tCommon("startDate"), <input type="date" title={tCommon("startDate")} value={form.startDate} onChange={(e) => onChange({ ...form, startDate: e.target.value })} className={inputCls} />)}
           {field(tCommon("endDate"), <input type="date" title={tCommon("endDate")} value={form.endDate} onChange={(e) => onChange({ ...form, endDate: e.target.value })} className={inputCls} />)}
         </div>
@@ -272,7 +273,7 @@ function EmployeeListImportPanel({
           <textarea
             value={text}
             onChange={(e) => setText(e.target.value)}
-            placeholder={"John Smith\nJane Doe\nBob Johnson"}
+            placeholder={t("pasteListPlaceholder")}
             rows={6}
             className={`${inputCls} resize-none`}
             autoFocus
@@ -675,7 +676,7 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
             </button>
           </div>
 
-          <input ref={jsonFileInputRef} type="file" accept=".json,application/json" aria-label="Import JSON" className="hidden" onChange={handleJsonFile} />
+          <input ref={jsonFileInputRef} type="file" accept=".json,application/json" aria-label={t("importJson")} className="hidden" onChange={handleJsonFile} />
         </header>
 
         <main className="flex-1 overflow-y-auto overflow-x-clip p-6">

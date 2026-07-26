@@ -3,17 +3,20 @@ import "~/styles/globals.css";
 import { type Metadata } from "next";
 import { Geist } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
-import { getLocale, getMessages } from "next-intl/server";
+import { getLocale, getMessages, getTranslations } from "next-intl/server";
 import { getSession } from "~/server/better-auth/server";
 import { getUserPreferences } from "~/server/actions/preferences";
 
-export const metadata: Metadata = {
-  title: "Gridspatch",
-  description: "Weekly construction staffing board",
-  icons: [
-    { rel: "icon", url: "/logo.svg", type: "image/svg+xml" },
-  ],
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getTranslations("Metadata");
+  return {
+    title: "Gridspatch",
+    description: t("description"),
+    icons: [
+      { rel: "icon", url: "/logo.svg", type: "image/svg+xml" },
+    ],
+  };
+}
 
 const geist = Geist({
   subsets: ["latin"],

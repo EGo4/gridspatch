@@ -19,7 +19,10 @@
     "changePhoto": "Change photo",
     "uploadPhoto": "Upload photo",
     "remove": "Remove",
-    "photoHint": "JPEG, PNG, WebP · max 5 MB"
+    "photoHint": "JPEG, PNG, WebP · max 5 MB",
+    "preview": "Preview",
+    "errorPhotoUpload": "Photo upload failed",
+    "errorGeneric": "Something went wrong"
   },
   "Status": {
     "planned": "Planned",
@@ -78,7 +81,12 @@
     "readyCount": "{count, plural, one {# employee} other {# employees}} ready to import",
     "errorInvalidFormat": "Invalid format. Expected an array or an exported JSON file.",
     "errorNoValid": "No valid employees found in the file.",
-    "errorParseFile": "Could not parse file. Make sure it is valid JSON."
+    "errorParseFile": "Could not parse file. Make sure it is valid JSON.",
+    "uploadPhotoAria": "Upload employee photo",
+    "namePlaceholder": "e.g. John Smith",
+    "initialsPlaceholder": "e.g. JS",
+    "rolePlaceholder": "e.g. Foreman, Apprentice",
+    "pasteListPlaceholder": "John Smith\nJane Doe\nBob Johnson"
   },
   "Sites": {
     "title": "Building Sites",
@@ -90,6 +98,7 @@
     "deleteTitle": "Delete building site?",
     "deleteBody": "will be permanently deleted. Existing assignments referencing this site will be unlinked.",
     "createSite": "Create site",
+    "nameRequired": "Name *",
     "description": "Description",
     "manager": "Construction manager",
     "noneManager": "— None —",
@@ -126,7 +135,23 @@
     "warnFutureTitle": "Later ongoing transitions will be removed",
     "warnFutureBody": "{count, plural, one {# transition after this week is Active or On hold and would contradict the {status} state set here. It will be permanently deleted.} other {# transitions after this week are Active or On hold and would contradict the {status} state set here. They will be permanently deleted.}}",
     "employeeDays": "Employee-Days",
-    "weeksCovered": "Weeks Staffed"
+    "weeksCovered": "Weeks Staffed",
+    "namePlaceholder": "e.g. Site Müller – Hauptstraße",
+    "descriptionPlaceholder": "Optional notes about this site",
+    "invalidTransition": "\"{status}\" is not a valid transition from the current status.",
+    "applying": "Applying…",
+    "apply": "Apply",
+    "currentWeek": "(current)",
+    "pasteListPlaceholder": "Site Müller – Hauptstraße\nSite Bahnhof Nord\nSite Westpark",
+    "statusColumn": "Status",
+    "selectedCount": "{count, plural, one {# site selected} other {# sites selected}}",
+    "bulkStatusAria": "Bulk status",
+    "statusNoChange": "Status — no change",
+    "bulkManagerAria": "Bulk manager",
+    "managerNoChange": "Manager — no change",
+    "removeManagerOption": "— Remove manager",
+    "selectAllAria": "Select all",
+    "selectRowAria": "Select {name}"
   },
   "Users": {
     "title": "Users",
@@ -155,7 +180,10 @@
     "roleHr": "HR",
     "roleAdmin": "Admin",
     "actions": "Actions",
-    "errorGeneric": "Something went wrong"
+    "errorGeneric": "Something went wrong",
+    "uploadPhotoAria": "Upload user photo",
+    "namePlaceholder": "e.g. Anna Müller",
+    "emailPlaceholder": "anna@example.com"
   },
   "Stats": {
     "title": "Statistics",
@@ -180,7 +208,8 @@
     "colSite": "Site",
     "colWeeksCovered": "Weeks Staffed",
     "chartDaysPerSite": "{name} — days per site",
-    "chartDaysPerWeek": "{name} — employee-days per week"
+    "chartDaysPerWeek": "{name} — employee-days per week",
+    "expandAria": "Expand"
   },
   "Board": {
     "switchToLight": "Switch to light mode",
@@ -242,7 +271,15 @@
     "commentsPlaceholder": "Add a note…",
     "addComment": "Add",
     "deleteComment": "Delete comment",
-    "commentError": "Couldn't save comment. Try again."
+    "commentError": "Couldn't save comment. Try again.",
+    "assignToSite": "Assign to building site",
+    "mergeToFullDay": "Merge back to full day",
+    "splitIntoHalfDays": "Split into half-days",
+    "markAsSick": "Mark as sick",
+    "markAsVacation": "Mark as on vacation",
+    "commentsCount": "{count, plural, one {# comment} other {# comments}}",
+    "copyAssignmentsFrom": "Copy assignments from {week}",
+    "loading": "Loading board…"
   },
   "Audit": {
     "title": "Audit Log",
@@ -343,6 +380,14 @@
     "textSizeHint": "Scales text and element sizes globally. Range: 80% – 120%.",
     "reset": "Reset",
     "language": "Language",
-    "languageHint": "Choose the interface language."
+    "languageHint": "Choose the interface language.",
+    "namePlaceholder": "Your name",
+    "emailPlaceholder": "you@example.com",
+    "uploadPhotoAria": "Upload profile photo",
+    "pickColour": "Click to pick colour",
+    "resultingColour": "Resulting zone colour"
+  },
+  "Metadata": {
+    "description": "Weekly construction staffing board"
   }
 }

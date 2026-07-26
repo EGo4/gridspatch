@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Sidebar } from "~/components/Sidebar";
 import type {
   EmployeeStat,
@@ -23,11 +23,11 @@ const STATUS_BADGE: Record<string, { bgVar: string; txtVar: string }> = {
   inactive: { bgVar: "--color-status-inactive-bg", txtVar: "--color-status-inactive-txt" },
 };
 
-const shortWeekLabel = (weekParam: string): string => {
+const shortWeekLabel = (weekParam: string, locale: string): string => {
   const [y, m, d] = weekParam.split("-").map(Number);
   const date = new Date(Date.UTC(y ?? 0, (m ?? 1) - 1, d ?? 1));
   const day   = date.getUTCDate();
-  const month = date.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
+  const month = date.toLocaleDateString(locale, { month: "short", timeZone: "UTC" });
   return `${day} ${month}`;
 };
 
@@ -55,6 +55,7 @@ function ChevronIcon({ open }: { open: boolean }) {
 
 function VertBarChart({ points, title }: { points: WeekPoint[]; title: string }) {
   const t = useTranslations("Stats");
+  const locale = useLocale();
   if (points.length === 0) {
     return <p className="py-4 text-center text-xs text-[var(--color-text-muted)]">{t("noData")}</p>;
   }
@@ -93,7 +94,7 @@ function VertBarChart({ points, title }: { points: WeekPoint[]; title: string })
             {points.map((p) => (
               <div key={p.weekParam} className="flex-1 min-w-0 text-center">
                 <span className="block truncate text-[8px] leading-none text-[var(--color-text-faint)]">
-                  {shortWeekLabel(p.weekParam)}
+                  {shortWeekLabel(p.weekParam, locale)}
                 </span>
               </div>
             ))}
@@ -180,7 +181,7 @@ function EmployeesTable({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]">
-            <th className="w-8 px-3 py-3" aria-label="Expand" />
+            <th className="w-8 px-3 py-3" aria-label={t("expandAria")} />
             <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("colEmployee")}</th>
             <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("colDaysAssigned")}</th>
             <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("colSickDays")}</th>
@@ -245,7 +246,7 @@ function SitesTable({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]">
-            <th className="w-8 px-3 py-3" aria-label="Expand" />
+            <th className="w-8 px-3 py-3" aria-label={t("expandAria")} />
             <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("colSite")}</th>
             <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("colManager")}</th>
             <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("colStatus")}</th>
@@ -316,7 +317,7 @@ function ManagersTable({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]">
-            <th className="w-8 px-3 py-3" aria-label="Expand" />
+            <th className="w-8 px-3 py-3" aria-label={t("expandAria")} />
             <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("colManager")}</th>
             <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("colActiveSites")}</th>
             <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("colTotalEmployeeDays")}</th>

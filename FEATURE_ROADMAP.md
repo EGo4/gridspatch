@@ -22,19 +22,3 @@ Acceptance criteria:
 Technical notes:
 
 - Needs a lightweight aggregate query (distinct years, activity per year); avoid loading all assignments client-side.
-
-## Fix translation gaps (hardcoded English strings)
-
-Goal:
-All user-visible strings go through the i18n layer (`src/i18n/`, locales `en`/`de`). No hardcoded English text in components.
-
-Requirements:
-
-- Audit all components/pages for hardcoded strings (board, admin pages, stats, export, dialogs, toasts, empty states, aria-labels).
-- Move each into the message catalogs with a German translation.
-- Establish the rule for new code: no literals, always message keys.
-
-Acceptance criteria:
-
-- Switching to Deutsch shows no English leftovers on any page.
-- `en` and `de` catalogs contain the same key set.

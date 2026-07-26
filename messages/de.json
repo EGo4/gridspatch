@@ -19,7 +19,10 @@
     "changePhoto": "Foto ändern",
     "uploadPhoto": "Foto hochladen",
     "remove": "Entfernen",
-    "photoHint": "JPEG, PNG, WebP · max. 5 MB"
+    "photoHint": "JPEG, PNG, WebP · max. 5 MB",
+    "preview": "Vorschau",
+    "errorPhotoUpload": "Foto-Upload fehlgeschlagen",
+    "errorGeneric": "Etwas ist schiefgelaufen"
   },
   "Status": {
     "planned": "Geplant",
@@ -78,7 +81,12 @@
     "readyCount": "{count, plural, one {# Mitarbeiter} other {# Mitarbeiter}} bereit zum Import",
     "errorInvalidFormat": "Ungültiges Format. Es wird ein Array oder eine exportierte JSON-Datei erwartet.",
     "errorNoValid": "Keine gültigen Mitarbeiter in der Datei gefunden.",
-    "errorParseFile": "Datei konnte nicht gelesen werden. Bitte sicherstellen, dass es sich um gültiges JSON handelt."
+    "errorParseFile": "Datei konnte nicht gelesen werden. Bitte sicherstellen, dass es sich um gültiges JSON handelt.",
+    "uploadPhotoAria": "Mitarbeiterfoto hochladen",
+    "namePlaceholder": "z. B. John Smith",
+    "initialsPlaceholder": "z. B. JS",
+    "rolePlaceholder": "z. B. Vorarbeiter, Auszubildender",
+    "pasteListPlaceholder": "John Smith\nJane Doe\nBob Johnson"
   },
   "Sites": {
     "title": "Baustellen",
@@ -90,6 +98,7 @@
     "deleteTitle": "Baustelle löschen?",
     "deleteBody": "wird dauerhaft gelöscht. Bestehende Zuweisungen dieser Baustelle werden getrennt.",
     "createSite": "Baustelle erstellen",
+    "nameRequired": "Name *",
     "description": "Beschreibung",
     "manager": "Bauleiter",
     "noneManager": "— Keiner —",
@@ -126,7 +135,23 @@
     "warnFutureTitle": "Spätere laufende Übergänge werden entfernt",
     "warnFutureBody": "{count, plural, one {# Übergang nach dieser Woche ist Aktiv oder Pausiert und widerspricht dem hier gesetzten Status {status}. Er wird dauerhaft gelöscht.} other {# Übergänge nach dieser Woche sind Aktiv oder Pausiert und widersprechen dem hier gesetzten Status {status}. Sie werden dauerhaft gelöscht.}}",
     "employeeDays": "Mitarbeiter-Tage",
-    "weeksCovered": "Besetzte Wochen"
+    "weeksCovered": "Besetzte Wochen",
+    "namePlaceholder": "z. B. Baustelle Müller – Hauptstraße",
+    "descriptionPlaceholder": "Optionale Notizen zu dieser Baustelle",
+    "invalidTransition": "„{status}“ ist kein gültiger Übergang vom aktuellen Status.",
+    "applying": "Wird angewendet…",
+    "apply": "Anwenden",
+    "currentWeek": "(aktuell)",
+    "pasteListPlaceholder": "Baustelle Müller – Hauptstraße\nBaustelle Bahnhof Nord\nBaustelle Westpark",
+    "statusColumn": "Status",
+    "selectedCount": "{count, plural, one {# Baustelle ausgewählt} other {# Baustellen ausgewählt}}",
+    "bulkStatusAria": "Sammel-Status",
+    "statusNoChange": "Status — keine Änderung",
+    "bulkManagerAria": "Sammel-Bauleiter",
+    "managerNoChange": "Bauleiter — keine Änderung",
+    "removeManagerOption": "— Bauleiter entfernen",
+    "selectAllAria": "Alle auswählen",
+    "selectRowAria": "{name} auswählen"
   },
   "Users": {
     "title": "Benutzer",
@@ -155,7 +180,10 @@
     "roleHr": "Personalwesen",
     "roleAdmin": "Administrator",
     "actions": "Aktionen",
-    "errorGeneric": "Ein Fehler ist aufgetreten"
+    "errorGeneric": "Ein Fehler ist aufgetreten",
+    "uploadPhotoAria": "Benutzerfoto hochladen",
+    "namePlaceholder": "z. B. Anna Müller",
+    "emailPlaceholder": "anna@beispiel.de"
   },
   "Stats": {
     "title": "Statistik",
@@ -180,7 +208,8 @@
     "colSite": "Baustelle",
     "colWeeksCovered": "Besetzte Wochen",
     "chartDaysPerSite": "{name} — Tage pro Baustelle",
-    "chartDaysPerWeek": "{name} — Mitarbeiter-Tage pro Woche"
+    "chartDaysPerWeek": "{name} — Mitarbeiter-Tage pro Woche",
+    "expandAria": "Ausklappen"
   },
   "Board": {
     "switchToLight": "Zu Hellmodus wechseln",
@@ -242,7 +271,15 @@
     "commentsPlaceholder": "Notiz hinzufügen…",
     "addComment": "Hinzufügen",
     "deleteComment": "Kommentar löschen",
-    "commentError": "Kommentar konnte nicht gespeichert werden. Bitte erneut versuchen."
+    "commentError": "Kommentar konnte nicht gespeichert werden. Bitte erneut versuchen.",
+    "assignToSite": "Zur Baustelle zuweisen",
+    "mergeToFullDay": "Zu Ganztag zusammenführen",
+    "splitIntoHalfDays": "In Halbtage aufteilen",
+    "markAsSick": "Als krank markieren",
+    "markAsVacation": "Als im Urlaub markieren",
+    "commentsCount": "{count, plural, one {# Kommentar} other {# Kommentare}}",
+    "copyAssignmentsFrom": "Zuweisungen von {week} kopieren",
+    "loading": "Board wird geladen…"
   },
   "Audit": {
     "title": "Änderungsprotokoll",
@@ -343,6 +380,14 @@
     "textSizeHint": "Skaliert Text und Elemente global. Bereich: 80 % – 120 %.",
     "reset": "Zurücksetzen",
     "language": "Sprache",
-    "languageHint": "Anzeigesprache wählen."
+    "languageHint": "Anzeigesprache wählen.",
+    "namePlaceholder": "Ihr Name",
+    "emailPlaceholder": "sie@beispiel.de",
+    "uploadPhotoAria": "Profilfoto hochladen",
+    "pickColour": "Klicken, um Farbe zu wählen",
+    "resultingColour": "Resultierende Zonenfarbe"
+  },
+  "Metadata": {
+    "description": "Wöchentliches Baustellen-Personalplanungsboard"
   }
 }

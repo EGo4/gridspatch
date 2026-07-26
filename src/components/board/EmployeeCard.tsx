@@ -3,6 +3,7 @@
 
 import React from "react";
 import { Draggable } from "@hello-pangea/dnd";
+import { useTranslations } from "next-intl";
 import type { DayPart, Employee } from "~/types";
 import { SyringeIcon, PalmTreeIcon, SplitDayIcon, MergeIcon, AssignSiteIcon, UserIcon, CommentIcon } from "~/components/icons";
 
@@ -45,6 +46,7 @@ export function EmployeeCard({
   commentCount = 0,
   onOpenComments,
 }: EmployeeCardProps) {
+  const t = useTranslations("Board");
   const isHalfDay = dayPart !== "full_day";
 
   return (
@@ -88,7 +90,7 @@ export function EmployeeCard({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onOpenComments(); }}
-                title={`${commentCount} comment${commentCount === 1 ? "" : "s"}`}
+                title={t("commentsCount", { count: commentCount })}
                 className="ml-auto flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-accent"
               >
                 <CommentIcon size={18} />
@@ -108,7 +110,7 @@ export function EmployeeCard({
                     const rect = e.currentTarget.getBoundingClientRect();
                     onAssignToSite({ left: rect.left, top: rect.top });
                   }}
-                  title="Assign to building site"
+                  title={t("assignToSite")}
                   className="fly-btn fly-btn-assign-site-half text-[var(--color-text-secondary)]"
                 >
                   <AssignSiteIcon />
@@ -118,7 +120,7 @@ export function EmployeeCard({
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); onOpenComments(); }}
-                  title="Comments"
+                  title={t("comments")}
                   className="fly-btn fly-btn-comment-half text-[var(--color-text-secondary)]"
                 >
                   <CommentIcon />
@@ -128,7 +130,7 @@ export function EmployeeCard({
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); onMergeDay(); }}
-                  title="Merge back to full day"
+                  title={t("mergeToFullDay")}
                   className="fly-btn fly-btn-merge text-[var(--color-text-secondary)]"
                 >
                   <MergeIcon />
@@ -146,7 +148,7 @@ export function EmployeeCard({
                     const rect = e.currentTarget.getBoundingClientRect();
                     onAssignToSite({ left: rect.left, top: rect.top });
                   }}
-                  title="Assign to building site"
+                  title={t("assignToSite")}
                   className={`fly-btn text-[var(--color-text-secondary)] ${
                     onSplitDay ? "fly-btn-assign-site-fullday" : "fly-btn-assign-site"
                   }`}
@@ -158,7 +160,7 @@ export function EmployeeCard({
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); onSplitDay(); }}
-                  title="Split into half-days"
+                  title={t("splitIntoHalfDays")}
                   className="fly-btn fly-btn-split text-[var(--color-text-secondary)]"
                 >
                   <SplitDayIcon />
@@ -168,7 +170,7 @@ export function EmployeeCard({
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); onOpenComments(); }}
-                  title="Comments"
+                  title={t("comments")}
                   className={`fly-btn text-[var(--color-text-secondary)] ${
                     onSplitDay ? "fly-btn-comment-fullday-split" : "fly-btn-comment-fullday"
                   }`}
@@ -180,7 +182,7 @@ export function EmployeeCard({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onMarkSick(); }}
-                title="Mark as sick"
+                title={t("markAsSick")}
                 className={`fly-btn fly-btn-sick text-[var(--color-text-secondary)] ${!onSplitDay ? "fly-btn-sick-nosplit" : ""}`}
               >
                 <SyringeIcon />
@@ -189,7 +191,7 @@ export function EmployeeCard({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onMarkVacation(); }}
-                title="Mark as on vacation"
+                title={t("markAsVacation")}
                 className="fly-btn fly-btn-vacation text-[var(--color-text-secondary)]"
               >
                 <PalmTreeIcon />
