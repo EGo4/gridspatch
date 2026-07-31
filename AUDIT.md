@@ -1,71 +1,34 @@
 # Code Audit — open items
 
-Findings from a read-through of the codebase on 2026-07-31. Nothing here is fixed yet.
+Findings from a read-through of the codebase on 2026-07-31.
 Ordered by "fix this first": security, then type safety, then structure, then coverage.
+Items get marked RESOLVED in place as they're fixed, rather than deleted — the reasoning (especially where an initial assumption turned out wrong) is worth keeping.
 
 Feature work lives in [FEATURE_ROADMAP.md](FEATURE_ROADMAP.md) — this file is about the existing code, not new functionality.
 
-Suggested order: **0 → 3 → 2 → 4 → 1 → 5** (5 strictly last — see its ordering constraint).
+Suggested order for what's left: **3 → 2 → 4 → 1 → 5** (5 strictly last — see its ordering constraint). Item 0 is resolved.
 
 ---
 
-## 0. Authorization gaps
+## 0. Authorization gaps — RESOLVED, with a correction
 
-The codebase already has a good pattern — it just isn't applied everywhere. [comments.ts](src/server/actions/comments.ts), [settings.ts](src/server/actions/settings.ts) and [users.ts](src/server/actions/users.ts) all resolve the session and check the role before touching data. The files below simply skip it.
+The original write-up of this item assumed employee/site CRUD should be admin-only because it lives under `/admin/`. That assumption was wrong, and led to a wrong initial fix plan — recorded here so it isn't repeated.
 
-### 0a. Two admin pages have no guard
+**What the evidence actually shows:** [Sidebar.tsx:147-153](src/components/Sidebar.tsx#L147-L153) puts `/admin/employees` and `/admin/sites` in `baseItems`, shown to every authenticated role unconditionally. Only `/admin/users`, `/admin/audit`, `/admin/settings` are gated behind `isAdmin` (`adminItems`, [Sidebar.tsx:155-161](src/components/Sidebar.tsx#L155-L161)). Neither `EmployeesClient.tsx` nor `SitesClient.tsx` has any role check on their edit/create/delete/import UI. So the product's actual design is: **`admin` manages users, audit log and company settings; every authenticated role manages the board, employees and sites.** Adding `requireAdminPage()` to the employees/sites pages, as originally planned, would have locked `hr` and `construction_manager` out of their own job.
 
-`requireAdminPage()` is called in [admin/audit/page.tsx](src/app/admin/audit/page.tsx), [admin/settings/page.tsx](src/app/admin/settings/page.tsx) and [admin/users/page.tsx](src/app/admin/users/page.tsx).
+**0a — corrected, no fix needed.** The two pages were never missing a guard relative to their intended audience; they were correctly open to all roles, same as `/board`, `/stats`, `/export`. No change made.
 
-It is **missing** in:
+**0b — corrected and fixed with a narrower scope than planned.** The original claim that these actions have "no session or role check at all, callable by any logged-in user of any role" was misleading on the role part (there is no role restriction to violate — see above) and overstated on the session part: [middleware.ts](src/middleware.ts)'s matcher (`/((?!_next/static|_next/image|favicon.ico|uploads/).*)`) covers `/board`, `/admin/employees` and `/admin/sites`, and Next.js Server Actions POST to the page that defined them — so these actions were already unreachable without a session, as long as they're only invoked from those protected pages (confirmed: [employees.ts](src/server/actions/employees.ts) is only imported by `EmployeesClient.tsx`, [sites.ts](src/server/actions/sites.ts) only by `SitesClient.tsx`/`BoardClient.tsx`, [board.ts](src/server/actions/board.ts) only by `BoardClient.tsx`).
 
-- [admin/employees/page.tsx](src/app/admin/employees/page.tsx)
-- [admin/sites/page.tsx](src/app/admin/sites/page.tsx)
+What was still worth fixing: relying *solely* on middleware for a mutation is fragile defense-in-depth (a future edit to `PUBLIC_PATHS` or the matcher regex silently opens every mutation). Added `requireSession()` to [roles.ts](src/server/better-auth/roles.ts) (throws unless a session exists, deliberately no role check) and called it at the top of every mutating export in [employees.ts](src/server/actions/employees.ts) and [sites.ts](src/server/actions/sites.ts) — `createEmployee`, `updateEmployee`, `deleteEmployee`, `bulkCreateEmployees`, `createSite`, `updateSite`, `deleteSite`, `setSiteTransition`, `bulkCreateSites`, `bulkUpdateSites`, `deleteSiteTransition`. Read-only exports (`getSiteTransitions`) were left ungated, matching the existing convention in `settings.ts` (`getCompanySettings` is open, `updateCompanySettings` is gated).
 
-[Sidebar.tsx:140](src/components/Sidebar.tsx#L140) hides the admin nav for non-admins, but that is presentation only. Any authenticated `hr` or `construction_manager` who types the URL gets the full employee and site management UI.
+**[board.ts](src/server/actions/board.ts) deliberately excluded from this fix — confirmed with the maintainer.** `getSession()` is `React.cache()`-wrapped ([server.ts](src/server/better-auth/server.ts)) so it dedupes *within* one request/render, but each server-action call is its own request, and middleware's `getSession` runs via a separate `betterFetch` HTTP round-trip that isn't shared with that cache at all — so adding `requireSession()` here would mean a second, real session lookup on every single drag, split, merge, copy and availability toggle, which is the single highest-frequency interaction in the app. The safety gain is marginal (protects only against a future middleware regression, same as employees/sites). Raised as an explicit choice rather than assumed either way; decision: leave `board.ts` as-is, rely on middleware alone. Revisit only if middleware's own coverage changes (see item 5).
 
-**Fix:** add `await requireAdminPage()` at the top of both page components, matching the three pages that already do it.
+**0c — fixed, this was the one real, confirmed vulnerability.** [api/upload/employees/route.ts](src/app/api/upload/employees/route.ts) and [api/upload/users/route.ts](src/app/api/upload/users/route.ts) derived the written file's extension from the *user-supplied filename* while only validating `file.type` (a client-set, trivially forged header), with no magic-byte check. A POST with a forged `Content-Type: image/png` and filename `payload.html` wrote `public/uploads/employees/<uuid>.html`; the middleware matcher explicitly excludes `uploads/`, so that file was then served same-origin **without any session** — stored XSS reachable by unauthenticated visitors once planted.
 
-### 0b. Three server-action modules have no session or role check at all
+Fixed via a shared [imageUpload.ts](src/lib/imageUpload.ts): extension is now derived from a fixed MIME→extension map (never from `file.name`), and file bytes are checked against magic numbers for JPEG/PNG/GIF/WebP before the file is written; anything that doesn't match is rejected. Both routes now also require a session before accepting a file — matching each route's actual consumer: `requireSession()` (any role) for the employees route since employee-avatar upload is reachable from the all-roles employees page, `requireAdmin()` for the users route since it's only reachable from the admin-only users page.
 
-- [board.ts](src/server/actions/board.ts) — every board mutation
-- [employees.ts](src/server/actions/employees.ts) — employee CRUD, bulk import
-- [sites.ts](src/server/actions/sites.ts) — site CRUD, bulk import
-
-[middleware.ts](src/middleware.ts) proves only that *a* session exists; it does not know which role. Server actions are POST endpoints, so page guards do not protect them — these are callable directly by any logged-in user of any role.
-
-**Fix:** decide the intended policy per module first, since it is not obvious from the code:
-
-- board mutations — presumably any authenticated planner (`construction_manager` and up)?
-- employee/site CRUD — presumably admin only
-- bulk import — admin only
-
-Then add the check the same way `settings.ts` does it (`getSession` → `isAdmin` → `throw`), or add a small `requireRole()` helper next to `requireAdminPage()` in [roles.ts](src/server/better-auth/roles.ts) so the policy lives in one place. Note `hr` exists as a role and its intended permissions are currently undocumented — worth writing down while doing this.
-
-### 0c. Upload routes allow stored XSS
-
-[api/upload/employees/route.ts](src/app/api/upload/employees/route.ts) and [api/upload/users/route.ts](src/app/api/upload/users/route.ts):
-
-```ts
-const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-const filename = `${randomUUID()}.${ext}`;
-```
-
-Three problems:
-
-1. **No auth check in the route itself.** The only thing between the internet and these writes is the middleware session gate; any authenticated user of any role can write files into `public/`. (And if item 5 is ever done first, nothing is.)
-2. **The extension comes from the user-supplied filename**, while the only validation is on `file.type` — a client-set header, trivially forged.
-3. **No content sniffing** — the bytes are never checked against the claimed type.
-
-So a POST with a forged `Content-Type: image/png` and a filename of `payload.html` writes `public/uploads/employees/<uuid>.html` (same with `.svg`). And the middleware matcher **explicitly excludes `uploads/`** — the planted file is served from the app's own origin *without any session*. That is stored XSS against every user of the app, including admins, reachable by unauthenticated visitors once planted.
-
-**Fix:**
-
-- Require a session (and the same role as the CRUD action that consumes the upload).
-- Derive the extension from the *validated MIME type* via a fixed map, never from `file.name`.
-- Verify magic bytes match the claimed type before writing.
-- Consider dropping `image/gif` if only avatars are needed (`image/svg+xml` is already not in `ALLOWED_TYPES` — keep it that way).
-- Optionally serve uploads from a route that forces `Content-Disposition: attachment` / a strict `Content-Type`, so a stray file can never execute.
+Verified: `npm run typecheck`/`lint`/`test` all clean, and manually smoke-tested (login, employees/sites pages, avatar upload) after the change.
 
 ---
 

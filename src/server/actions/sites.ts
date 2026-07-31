@@ -4,6 +4,7 @@ import { db } from "~/server/db";
 import type { ProjectStatus } from "~/types";
 import { getSuperStatus, ALLOWED_TRANSITIONS } from "~/types";
 import { normalizeWeekStart, toDateParam } from "~/lib/week";
+import { requireSession } from "~/server/better-auth/roles";
 
 type SiteDb = {
   project: {
@@ -100,6 +101,7 @@ export async function createSite(input: {
   endDate?: string | null;
   constructionManagerId?: string | null;
 }) {
+  await requireSession();
   const site = await siteDb.project.create({
     data: {
       name: input.name.trim(),
@@ -120,6 +122,7 @@ export async function updateSite(input: {
   endDate?: string | null;
   constructionManagerId?: string | null;
 }) {
+  await requireSession();
   await siteDb.project.update({
     where: { id: input.id },
     data: {
@@ -134,6 +137,7 @@ export async function updateSite(input: {
 }
 
 export async function deleteSite(id: string) {
+  await requireSession();
   await siteDb.project.delete({ where: { id } });
   return { success: true };
 }
@@ -165,6 +169,7 @@ export async function setSiteTransition(
   status: ProjectStatus,
   force = false,
 ): Promise<SetTransitionResult> {
+  await requireSession();
   const existing = await transitionDb.projectStatusTransition.findMany({
     where: { projectId },
     orderBy: { weekStartDate: "asc" },
@@ -246,6 +251,7 @@ export async function bulkCreateSites(
     endDate?: string | null;
   }>,
 ): Promise<{ created: number; errors: number }> {
+  await requireSession();
   let created = 0;
   let errors = 0;
   for (const item of items) {
@@ -270,6 +276,7 @@ export async function bulkUpdateSites(
   ids: string[],
   updates: { status?: ProjectStatus; constructionManagerId?: string | null },
 ): Promise<{ updated: number; errors: number }> {
+  await requireSession();
   let updated = 0;
   let errors = 0;
   const weekStart = normalizeWeekStart(toDateParam(new Date()));
@@ -300,6 +307,7 @@ export async function deleteSiteTransition(
   projectId: string,
   weekStartIso: string,
 ): Promise<{ success: true }> {
+  await requireSession();
   const weekStart = normalizeWeekStart(weekStartIso);
   await transitionDb.projectStatusTransition.deleteMany({
     where: { projectId, weekStartDate: weekStart },

@@ -1,6 +1,7 @@
 "use server";
 
 import { db } from "~/server/db";
+import { requireSession } from "~/server/better-auth/roles";
 
 type EmployeeDb = {
   employee: {
@@ -52,6 +53,7 @@ export async function createEmployee(input: {
   startDate?: string | null;
   endDate?: string | null;
 }) {
+  await requireSession();
   const employee = await empDb.employee.create({
     data: {
       name: input.name.trim(),
@@ -74,6 +76,7 @@ export async function updateEmployee(input: {
   startDate?: string | null;
   endDate?: string | null;
 }) {
+  await requireSession();
   await empDb.employee.update({
     where: { id: input.id },
     data: {
@@ -89,6 +92,7 @@ export async function updateEmployee(input: {
 }
 
 export async function deleteEmployee(id: string) {
+  await requireSession();
   await empDb.employee.delete({ where: { id } });
   return { success: true };
 }
@@ -96,6 +100,7 @@ export async function deleteEmployee(id: string) {
 export async function bulkCreateEmployees(
   items: Array<{ name: string; initials: string; role?: string | null }>,
 ): Promise<{ created: number; errors: number }> {
+  await requireSession();
   let created = 0;
   let errors = 0;
   for (const item of items) {
