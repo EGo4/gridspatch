@@ -5,23 +5,15 @@ Ordered by "fix this first": security, then type safety, then structure, then co
 
 Feature work lives in [FEATURE_ROADMAP.md](FEATURE_ROADMAP.md) — this file is about the existing code, not new functionality.
 
-Suggested order: **0 → 1 → 4 → 3 → 5 → 2 → 6** (6 strictly last — see its ordering constraint).
+Suggested order: **0 → 3 → 2 → 4 → 1 → 5** (5 strictly last — see its ordering constraint).
 
 ---
 
-## 0. Dependency vulnerabilities (already specced)
-
-`npm audit` reports 9 vulnerabilities — 1 critical (`better-auth` ≤1.6.21), 6 high (incl. `next` Server Actions DoS, which this app leans on heavily). A dry run confirms plain `npm audit fix` resolves all of them without `--force`, i.e. no major upgrades needed.
-
-Full detail and the follow-up smoke test are in the "Fix all npm vulnerabilities" section of [FEATURE_ROADMAP.md](FEATURE_ROADMAP.md). Listed here only because it should happen before anything else in this file.
-
----
-
-## 1. Authorization gaps
+## 0. Authorization gaps
 
 The codebase already has a good pattern — it just isn't applied everywhere. [comments.ts](src/server/actions/comments.ts), [settings.ts](src/server/actions/settings.ts) and [users.ts](src/server/actions/users.ts) all resolve the session and check the role before touching data. The files below simply skip it.
 
-### 1a. Two admin pages have no guard
+### 0a. Two admin pages have no guard
 
 `requireAdminPage()` is called in [admin/audit/page.tsx](src/app/admin/audit/page.tsx), [admin/settings/page.tsx](src/app/admin/settings/page.tsx) and [admin/users/page.tsx](src/app/admin/users/page.tsx).
 
@@ -34,7 +26,7 @@ It is **missing** in:
 
 **Fix:** add `await requireAdminPage()` at the top of both page components, matching the three pages that already do it.
 
-### 1b. Three server-action modules have no session or role check at all
+### 0b. Three server-action modules have no session or role check at all
 
 - [board.ts](src/server/actions/board.ts) — every board mutation
 - [employees.ts](src/server/actions/employees.ts) — employee CRUD, bulk import
@@ -50,7 +42,7 @@ It is **missing** in:
 
 Then add the check the same way `settings.ts` does it (`getSession` → `isAdmin` → `throw`), or add a small `requireRole()` helper next to `requireAdminPage()` in [roles.ts](src/server/better-auth/roles.ts) so the policy lives in one place. Note `hr` exists as a role and its intended permissions are currently undocumented — worth writing down while doing this.
 
-### 1c. Upload routes allow stored XSS
+### 0c. Upload routes allow stored XSS
 
 [api/upload/employees/route.ts](src/app/api/upload/employees/route.ts) and [api/upload/users/route.ts](src/app/api/upload/users/route.ts):
 
@@ -61,7 +53,7 @@ const filename = `${randomUUID()}.${ext}`;
 
 Three problems:
 
-1. **No auth check in the route itself.** The only thing between the internet and these writes is the middleware session gate; any authenticated user of any role can write files into `public/`. (And if item 6 is ever done first, nothing is.)
+1. **No auth check in the route itself.** The only thing between the internet and these writes is the middleware session gate; any authenticated user of any role can write files into `public/`. (And if item 5 is ever done first, nothing is.)
 2. **The extension comes from the user-supplied filename**, while the only validation is on `file.type` — a client-set header, trivially forged.
 3. **No content sniffing** — the bytes are never checked against the claimed type.
 
@@ -77,7 +69,7 @@ So a POST with a forged `Content-Type: image/png` and a filename of `payload.htm
 
 ---
 
-## 2. Zod is a declared dependency that is never used
+## 1. Zod is a declared dependency that is never used
 
 `zod` is in `package.json` and listed in the stack, but the only import in the whole tree is [env.js](src/env.js). Every server action takes raw client input and hands it to Prisma unvalidated:
 
@@ -85,13 +77,13 @@ So a POST with a forged `Content-Type: image/png` and a filename of `payload.htm
 - strings have no length or shape constraints
 - bulk import paths (`importEmployees`, `importSites`) accept arbitrary parsed JSON with only ad-hoc `typeof` checks
 
-**Fix:** define one schema per action input, parse at the top of the action, and let the parsed value flow onward. Start with the bulk-import paths — they take the least trustworthy input. This pairs naturally with item 1b, since both mean "add a preamble to every action".
+**Fix:** define one schema per action input, parse at the top of the action, and let the parsed value flow onward. Start with the bulk-import paths — they take the least trustworthy input. This pairs naturally with item 0b, since both mean "add a preamble to every action".
 
 Until then, the "Validation: Zod" line in [CLAUDE.md](CLAUDE.md) overstates what the code does.
 
 ---
 
-## 3. The `as unknown as` Prisma shims are obsolete
+## 2. The `as unknown as` Prisma shims are obsolete
 
 32 occurrences across `src/`, 14 of them in [board.ts](src/server/actions/board.ts) alone.
 
@@ -117,7 +109,7 @@ Highest safety-per-hour item in this file.
 
 ---
 
-## 4. BoardClient.tsx is 2471 lines
+## 3. BoardClient.tsx is 2471 lines
 
 [BoardClient.tsx](src/components/board/BoardClient.tsx) holds drag-and-drop, copy day, copy week, availability, holidays, comments, filters, the site picker, the mutation queue wiring and roughly fifteen inline modals in a single component.
 
@@ -135,7 +127,7 @@ Droppable-id helpers and the day-part parsing should move to a small `boardIds.t
 
 ---
 
-## 5. Test coverage is thin
+## 4. Test coverage is thin
 
 Two test files, [test/week-planning.test.ts](test/week-planning.test.ts) and [test/export.test.ts](test/export.test.ts), both covering pure date/aggregation logic. Nothing covers assignment invariants, which is where the actual complexity lives:
 
@@ -144,16 +136,16 @@ Two test files, [test/week-planning.test.ts](test/week-planning.test.ts) and [te
 - copy day / copy week behaviour when the target already has data
 - the `[employeeId, date, dayPart]` unique-constraint conflict during a partial copy (specced in the roadmap — worth writing the test before the feature)
 
-The board actions are hard to test today because they reach for the module-level `db`. Item 3 makes them typed; taking the client as a parameter — the way [export.ts](src/server/services/export.ts) already does with `ExportDb` — would make them testable.
+The board actions are hard to test today because they reach for the module-level `db`. Item 2 makes them typed; taking the client as a parameter — the way [export.ts](src/server/services/export.ts) already does with `ExportDb` — would make them testable.
 
 ---
 
-## 6. Middleware does an HTTP round-trip on every request
+## 5. Middleware does an HTTP round-trip on every request
 
 [middleware.ts](src/middleware.ts) calls `betterFetch("/api/auth/get-session")` against `http://localhost:${PORT}` for every non-static request, meaning each navigation costs an extra internal HTTP call plus a DB lookup.
 
 Better Auth's recommended shape is an optimistic cookie-presence check in middleware, with real verification at the page/action layer.
 
-**Ordering constraint:** a cookie-*presence* check is spoofable (any value passes), and today the upload routes (item 1c) and [api/export/route.ts](src/app/api/export/route.ts) have **no verification of their own** — middleware is their only auth. Weakening middleware before 1b and 1c land, plus a session check in the export route, would leave those endpoints effectively open. Do this item last.
+**Ordering constraint:** a cookie-*presence* check is spoofable (any value passes), and today the upload routes (item 0c) and [api/export/route.ts](src/app/api/export/route.ts) have **no verification of their own** — middleware is their only auth. Weakening middleware before 0b and 0c land, plus a session check in the export route, would leave those endpoints effectively open. Do this item last.
 
 Also note the hardcoded `http://localhost:${PORT}` base URL — worth confirming it behaves under the Docker Compose + Caddy setup in the repo root.
