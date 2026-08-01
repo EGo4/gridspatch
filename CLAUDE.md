@@ -46,7 +46,8 @@ src/
     api/
       auth/[...all]/         # Better Auth route
       export/route.ts        # export file download
-      upload/                # employee/user image upload
+      upload/                # employee/user image upload (POST, writes to data/uploads/)
+      files/                 # employee/user image serving (GET, authenticated, from data/uploads/)
   components/
     board/BoardClient.tsx    # drag-and-drop board logic (large, ~2.4k lines)
     board/EmployeeCard.tsx   # card + fly-out action buttons
@@ -61,7 +62,7 @@ src/
     db.ts                    # Prisma singleton + audit-log extension
   i18n/                      # locale config + next-intl request config
   lib/                       # constants.ts (DAYS), week.ts (week date utils),
-                             #   imageUpload.ts (MIME/magic-byte validation)
+                             #   imageUpload.ts (MIME/magic-byte validation, upload storage)
   middleware.ts              # session gate for all non-public routes
   styles/globals.css         # theme CSS variables
   types/index.ts             # shared domain types + project status rules
@@ -104,7 +105,11 @@ Domain:
 
 Guards in [roles.ts](src/server/better-auth/roles.ts): `requireAdminPage()` redirects (use in admin page components), `requireAdmin()` throws (admin-only actions/routes), `requireSession()` throws (any authenticated role). Convention: mutating actions get a guard, read-only ones do not — see `settings.ts`, where `getCompanySettings` is open and `updateCompanySettings` is gated.
 
-**[board.ts](src/server/actions/board.ts) has no guard, on purpose.** It relies on middleware alone. `getSession()` is `React.cache()`-wrapped, but that only dedupes within a single request — each server-action call is its own request, and middleware's check is a separate `betterFetch` round-trip that shares nothing with it. Adding `requireSession()` there would put a second real session lookup on every drag, split, merge, copy and availability toggle. Deliberate tradeoff, not an oversight. Revisit only if middleware stops being a real session check (see item 6 in [AUDIT.md](AUDIT.md)).
+**Every export in a `"use server"` file is its own POST endpoint, independent of which page imports it.** A page-level guard (`requireAdminPage()`) only protects rendering that page — it does nothing for the action itself, which stays callable directly by anyone with a session, regardless of role. Two real bugs found this way and fixed: `updateUser` in [users.ts](src/server/actions/users.ts) took a client-supplied `role` field and wrote it via Prisma with no guard at all — any authenticated user could grant themselves admin. `listUsers` in the same file returned every user's name/email/role/image with no guard, reachable by any role even though only the admin-gated `/admin/users` page ever calls it from the UI. Both now call `requireAdmin()`. When adding a new exported action, ask "what happens if this is called directly, bypassing the page it's meant to be used from" — the page guard is not the enforcement point.
+
+**[board.ts](src/server/actions/board.ts) has no guard, on purpose.** It relies on middleware alone. `getSession()` is `React.cache()`-wrapped, but that only dedupes within a single request — each server-action call is its own request, and middleware's check is a separate `betterFetch` round-trip that shares nothing with it. Adding `requireSession()` there would put a second real session lookup on every drag, split, merge, copy and availability toggle. Deliberate tradeoff, not an oversight. Revisit only if middleware stops being a real session check (see [AUDIT.md](AUDIT.md)).
+
+**Uploaded avatars are not static files.** Both employee and user avatar uploads go through `POST /api/upload/{employees,users}`, land in `data/uploads/{employees,users}/` (outside `public/`, see `uploadDir()` in [imageUpload.ts](src/lib/imageUpload.ts)), and are served back through `GET /api/files/{employees,users}/[filename]` — a real route handler, not a static path, so it requires a session and sets `Content-Type` from a fixed extension map rather than trusting the file. `requireSession()` guards both kinds (not `requireAdmin()` for users — `/profile` lets every role upload their *own* avatar through the same endpoint; per-target authorization happens downstream in `updateCurrentUser` vs. `updateUser`, not at the upload/serve layer). `isValidUploadFilename()` is the path-traversal guard on the way back out — a served filename must match the exact `${randomUUID()}.${ext}` shape or it's rejected before touching the filesystem. In Docker, this directory is a mounted volume (`uploads_data` in [docker-compose.yml](docker-compose.yml)) so avatars survive a redeploy; locally it's gitignored under `/data/uploads/`.
 
 **No hardcoded UI strings.** Everything user-visible goes through next-intl. Add keys to **both** `messages/en.json` and `messages/de.json` under the right namespace (`Common, Status, Nav, Login, Employees, Sites, Users, Stats, Board, Audit, Export, Settings, Profile, Metadata`). Same for locale-dependent formatting — pass the locale explicitly, never rely on the runtime default.
 

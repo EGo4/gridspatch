@@ -7,11 +7,11 @@ Feature work lives in [FEATURE_ROADMAP.md](FEATURE_ROADMAP.md) — this file is 
 
 ## Where to start
 
-Items are listed in the order they should be done. The order is not arbitrary — items 2 and 3 have hard dependencies, item 6 has a safety constraint that requires items 1 and 5 to land first.
+Items are listed in the order they should be done. The order is not arbitrary — items 3 and 4 have a hard dependency, item 6 has a safety constraint that requires items 2 and 5 to land first.
 
 | # | Item | Size | Why here |
 | --- | --- | --- | --- |
-| 1 | [Uploads: persistence + planted-file sweep](#1-uploads-persistence-and-planted-file-sweep) | S | Security residual + data loss on redeploy; unblocks item 6 |
+| 1 | [Base Docker image has known vulnerabilities](#1-base-docker-image-has-known-vulnerabilities) | S | Independent, cheap to check |
 | 2 | [Drop the obsolete Prisma shims](#2-the-as-unknown-as-prisma-shims-are-obsolete) | M | Highest safety-per-hour; makes item 3 possible |
 | 3 | [Server-action invariant tests](#3-no-tests-cover-assignment-invariants) | M | Needs item 2 for injectable `db` |
 | 4 | [Finish splitting BoardClient.tsx](#4-boardclienttsx-is-2434-lines) | L | Do before the roadmap's board features land here |
@@ -20,15 +20,11 @@ Items are listed in the order they should be done. The order is not arbitrary �
 
 ---
 
-## 1. Uploads: persistence and planted-file sweep
+## 1. Base Docker image has known vulnerabilities
 
-Residual work from the upload-route XSS fix (commit `1c5e751`). The code hole is closed; these are the parts that code alone could not close.
+An IDE container scanner flagged the `node:20-alpine` base image in [Dockerfile](Dockerfile) with 2 critical and 23 high-severity vulnerabilities. That's a summary count from a linter, not a CVE list — nobody has looked at what they actually are yet.
 
-**1a. Sweep for planted files — one-time, per deployed environment.** The fix stops *future* bad uploads but does not remove anything already written. If the hole was exploited before the fix, the planted `.html` / `.svg` files still sit in `public/uploads/` and are still served **without a session** (the middleware matcher excludes `uploads/`). On each deployed instance, list `public/uploads/**` and delete anything whose extension is not `jpg|png|webp|gif`, or whose bytes do not match its extension.
-
-**1b. Uploads do not survive a redeploy.** Neither [docker-compose.yml](docker-compose.yml) nor the [Dockerfile](Dockerfile) mounts a volume for `public/uploads/`, so uploaded avatars live in the container filesystem and vanish on every redeploy. Next.js also only guarantees serving `public/` assets that existed at build time, so even before a redeploy the behaviour is not something to rely on.
-
-**Fix (addresses 1a and 1b together):** move uploads out of `public/` to a directory backed by a persistent volume, and serve them through a route handler that requires a session and sets an explicit `Content-Type` (never the stored file's own). That makes planted files unreachable even if one slips through, removes the `uploads/` middleware exclusion as a security-relevant surface, and survives redeploys. If that is more than you want right now, the minimum is a mounted volume plus the 1a sweep.
+**Fix:** run a real scanner against the built image (`docker scout cves gridspatch:latest` or `trivy image gridspatch:latest`) to see what's actually flagged, then either bump to the current `node:20-alpine` patch tag (Alpine base layers get rebuilt frequently; a stale local pull is a common cause of exactly this) or move to `node:22-alpine` (Node 20 support windows are finite — worth checking where 20 sits before investing more here). Re-scan after.
 
 ---
 
@@ -62,7 +58,7 @@ so a misspelled or restructured `where` clause compiles cleanly and only fails a
 
 ## 3. No tests cover assignment invariants
 
-Current suite: [week-planning.test.ts](test/week-planning.test.ts), [export.test.ts](test/export.test.ts), [board-ids.test.ts](test/board-ids.test.ts) — pure date, aggregation and ID-encoding logic. None of it touches the mutation logic where the real complexity lives.
+Current suite: [week-planning.test.ts](test/week-planning.test.ts), [export.test.ts](test/export.test.ts), [board-ids.test.ts](test/board-ids.test.ts), [image-upload.test.ts](test/image-upload.test.ts) — pure date, aggregation, ID-encoding and upload-validation logic. None of it touches the mutation logic where the real complexity lives.
 
 **Depends on item 2** having made the board actions accept an injectable client.
 
@@ -101,7 +97,9 @@ The ID helpers are already out (see [boardIds.ts](src/components/board/boardIds.
 
 **Fix:** define one schema per action input, parse at the top of the action, let the parsed value flow onward. Start with the bulk-import paths — they take the least trustworthy input.
 
-**Also fix here:** [api/export/route.ts](src/app/api/export/route.ts) has **no session check of its own** — middleware is its only auth, same pattern as the upload routes before item 1. Add `requireSession()` from [roles.ts](src/server/better-auth/roles.ts) while you are adding validation to its query-parameter parsing. Item 6 cannot safely land until this is done.
+**Also fix here:** [api/export/route.ts](src/app/api/export/route.ts) has **no session check of its own** — middleware is its only auth, the same pattern the upload/serve routes had before they were fixed (see the guard note in [CLAUDE.md](CLAUDE.md)). Add `requireSession()` from [roles.ts](src/server/better-auth/roles.ts) while you are adding validation to its query-parameter parsing. Item 6 cannot safely land until this is done.
+
+**While you're touching every action for validation, do one more pass for the class of bug already found twice in this codebase** (see the "`use server`" note in [CLAUDE.md](CLAUDE.md)): every exported function in a `"use server"` file is independently callable, regardless of which page imports it or what that page's guard checks. Skim every action module for one that assumes a page-level guard protects it and doesn't check for itself.
 
 Until this item is finished, the "Validation: Zod" line in [CLAUDE.md](CLAUDE.md) overstates what the code does.
 

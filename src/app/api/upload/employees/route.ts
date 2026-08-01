@@ -4,7 +4,7 @@ import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 import { requireSession } from "~/server/better-auth/roles";
-import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, extensionForType, matchesMagicBytes } from "~/lib/imageUpload";
+import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, extensionForType, matchesMagicBytes, uploadDir } from "~/lib/imageUpload";
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,10 +32,10 @@ export async function POST(request: NextRequest) {
   }
 
   const filename = `${randomUUID()}.${extensionForType(file.type)}`;
-  const uploadDir = path.join(process.cwd(), "public", "uploads", "employees");
+  const dir = uploadDir("employees");
 
-  await mkdir(uploadDir, { recursive: true });
-  await writeFile(path.join(uploadDir, filename), buffer);
+  await mkdir(dir, { recursive: true });
+  await writeFile(path.join(dir, filename), buffer);
 
-  return NextResponse.json({ url: `/uploads/employees/${filename}` });
+  return NextResponse.json({ url: `/api/files/employees/${filename}` });
 }

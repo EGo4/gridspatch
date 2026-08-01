@@ -3,14 +3,18 @@ import type { NextRequest } from "next/server";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
-import { requireAdmin } from "~/server/better-auth/roles";
-import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, extensionForType, matchesMagicBytes } from "~/lib/imageUpload";
+import { requireSession } from "~/server/better-auth/roles";
+import { ALLOWED_IMAGE_TYPES, MAX_IMAGE_BYTES, extensionForType, matchesMagicBytes, uploadDir } from "~/lib/imageUpload";
 
+// Any authenticated user, not admin-only: /profile lets every role upload
+// their own avatar through this same endpoint (see ProfileClient.tsx). Who
+// may attach the result to which User row is enforced downstream, in
+// updateCurrentUser (self only) vs. updateUser (admin only).
 export async function POST(request: NextRequest) {
   try {
-    await requireAdmin();
+    await requireSession();
   } catch {
-    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
   const formData = await request.formData();
@@ -32,10 +36,10 @@ export async function POST(request: NextRequest) {
   }
 
   const filename = `${randomUUID()}.${extensionForType(file.type)}`;
-  const uploadDir = path.join(process.cwd(), "public", "uploads", "users");
+  const dir = uploadDir("users");
 
-  await mkdir(uploadDir, { recursive: true });
-  await writeFile(path.join(uploadDir, filename), buffer);
+  await mkdir(dir, { recursive: true });
+  await writeFile(path.join(dir, filename), buffer);
 
-  return NextResponse.json({ url: `/uploads/users/${filename}` });
+  return NextResponse.json({ url: `/api/files/users/${filename}` });
 }

@@ -35,6 +35,12 @@ COPY package.json ./
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 
+# Uploaded avatars live outside public/ (served through an authenticated route,
+# not statically) and outside .next, so this directory is what a volume mount
+# in docker-compose.yml needs to target for uploads to survive a redeploy.
+RUN mkdir -p /app/data/uploads/employees /app/data/uploads/users && \
+    chown -R nextjs:nodejs /app/data
+
 USER nextjs
 EXPOSE 3000
 ENTRYPOINT ["./docker-entrypoint.sh"]

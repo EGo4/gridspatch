@@ -45,5 +45,7 @@ yarn-error.log*
 
 # idea files
 .idea
-# user-uploaded images (runtime data, not source)
-/public/uploads/
+
+# user-uploaded images (runtime data, not source) — written outside public/,
+# see uploadDir() in src/lib/imageUpload.ts
+/data/uploads/

@@ -3,7 +3,7 @@
 import { headers } from "next/headers";
 import { auth } from "~/server/better-auth";
 import { db } from "~/server/db";
-import { isAdmin, type UserRole } from "~/server/better-auth/roles";
+import { isAdmin, requireAdmin, type UserRole } from "~/server/better-auth/roles";
 
 type UserDb = {
   user: {
@@ -50,6 +50,7 @@ export async function findEmailByUsername(name: string): Promise<string | null> 
 }
 
 export async function listUsers() {
+  await requireAdmin();
   return userDb.user.findMany({
     orderBy: { name: "asc" },
     select: {
@@ -133,6 +134,7 @@ export async function updateUser(input: {
   role: UserRole;
   image?: string | null;
 }) {
+  await requireAdmin();
   await userDb.user.update({
     where: { id: input.id },
     data: {
