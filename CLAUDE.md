@@ -48,8 +48,9 @@ src/
       export/route.ts        # export file download
       upload/                # employee/user image upload
   components/
-    board/BoardClient.tsx    # drag-and-drop board logic (large, ~2.5k lines)
+    board/BoardClient.tsx    # drag-and-drop board logic (large, ~2.4k lines)
     board/EmployeeCard.tsx   # card + fly-out action buttons
+    board/boardIds.ts        # droppable/draggable id encode + parse (pure, tested)
     board/mutationQueue.ts   # optimistic mutation queue with retry/backoff
     Sidebar.tsx, Logo.tsx, icons.tsx
   server/
@@ -59,7 +60,8 @@ src/
     better-auth/             # config, server/client, roles + page guards
     db.ts                    # Prisma singleton + audit-log extension
   i18n/                      # locale config + next-intl request config
-  lib/                       # constants.ts (DAYS), week.ts (week date utils)
+  lib/                       # constants.ts (DAYS), week.ts (week date utils),
+                             #   imageUpload.ts (MIME/magic-byte validation)
   middleware.ts              # session gate for all non-public routes
   styles/globals.css         # theme CSS variables
   types/index.ts             # shared domain types + project status rules
@@ -96,7 +98,13 @@ Domain:
 
 **Audit logging is automatic.** `db` is a `$extends`-wrapped client that writes an `AuditLog` row for every write operation on every model except `AuditLog`/`Session`/`Account`/`Verification`. Use `prismaRaw` only when you deliberately need to bypass that.
 
-**Auth is enforced.** [middleware.ts](src/middleware.ts) redirects any request without a session to `/login` (public: `/login`, `/api/auth`). User roles are `construction_manager | hr | admin`; admin pages guard with `requireAdminPage()` from [roles.ts](src/server/better-auth/roles.ts).
+**Auth is enforced.** [middleware.ts](src/middleware.ts) redirects any request without a session to `/login` (public: `/login`, `/api/auth`). User roles are `construction_manager | hr | admin`.
+
+**Who may do what.** Despite the `/admin/` URL prefix, **employees and sites are not admin-only** — [Sidebar.tsx](src/components/Sidebar.tsx) lists `/admin/employees` and `/admin/sites` in `baseItems`, visible to every authenticated role, alongside `/board`, `/stats` and `/export`. Only `/admin/users`, `/admin/audit` and `/admin/settings` are admin-gated (`adminItems`). Do not "fix" the employees/sites pages by adding `requireAdminPage()` — that locks `hr` and `construction_manager` out of their actual job.
+
+Guards in [roles.ts](src/server/better-auth/roles.ts): `requireAdminPage()` redirects (use in admin page components), `requireAdmin()` throws (admin-only actions/routes), `requireSession()` throws (any authenticated role). Convention: mutating actions get a guard, read-only ones do not — see `settings.ts`, where `getCompanySettings` is open and `updateCompanySettings` is gated.
+
+**[board.ts](src/server/actions/board.ts) has no guard, on purpose.** It relies on middleware alone. `getSession()` is `React.cache()`-wrapped, but that only dedupes within a single request — each server-action call is its own request, and middleware's check is a separate `betterFetch` round-trip that shares nothing with it. Adding `requireSession()` there would put a second real session lookup on every drag, split, merge, copy and availability toggle. Deliberate tradeoff, not an oversight. Revisit only if middleware stops being a real session check (see item 6 in [AUDIT.md](AUDIT.md)).
 
 **No hardcoded UI strings.** Everything user-visible goes through next-intl. Add keys to **both** `messages/en.json` and `messages/de.json` under the right namespace (`Common, Status, Nav, Login, Employees, Sites, Users, Stats, Board, Audit, Export, Settings, Profile, Metadata`). Same for locale-dependent formatting — pass the locale explicitly, never rely on the runtime default.
 
@@ -104,7 +112,7 @@ Domain:
 
 **Board mutations are optimistic and queued.** `BoardClient` updates local state first, then `enqueue("label", () => serverAction(...))` through [mutationQueue.ts](src/components/board/mutationQueue.ts), which retries with backoff. Do not call board server actions directly from UI handlers. The state-rebuild effect deliberately skips while mutations are in flight (`syncPendingRef`) so optimistic state is not clobbered by stale server props.
 
-**Board cell ids.** Droppable ids are built by `fullDayDroppableId(projectId, day)` / `preLunchDroppableId` / `afterLunchDroppableId` / `poolFullDayId(day)`, and parsed back with `getProjectIdFromDroppableId` / `getDayPartFromDroppableId`. Never hand-assemble these strings.
+**Board cell ids.** All in [boardIds.ts](src/components/board/boardIds.ts): droppable ids are built by `fullDayDroppableId(projectId, day)` / `preLunchDroppableId` / `afterLunchDroppableId` / `poolFullDayId(day)`, and parsed back with `getProjectIdFromDroppableId` / `getDayPartFromDroppableId`. Never hand-assemble these strings. That module imports by relative path (not the `~/` alias) so the tests can load it under `node --experimental-strip-types`.
 
 **Past-week edits** go through `confirmPastEdit(...)`, which asks the user before mutating a week that has already passed.
 

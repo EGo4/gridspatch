@@ -45,3 +45,5 @@ yarn-error.log*
 
 # idea files
 .idea
+# user-uploaded images (runtime data, not source)
+/public/uploads/
