@@ -8,6 +8,17 @@ import { DragDropContext, Droppable } from "@hello-pangea/dnd";
 import type { DragStart, DropResult } from "@hello-pangea/dnd";
 
 import { EmployeeCard } from "./EmployeeCard";
+import {
+  getDraggableId,
+  parseFromDraggableId,
+  getDayFromDroppableId,
+  getProjectIdFromDroppableId,
+  getDayPartFromDroppableId,
+  fullDayDroppableId,
+  preLunchDroppableId,
+  afterLunchDroppableId,
+  poolFullDayId,
+} from "./boardIds";
 import { SyringeIcon, PalmTreeIcon, CopyIcon, AssignSiteIcon, FilterIcon, GearIcon } from "~/components/icons";
 import { Sidebar } from "~/components/Sidebar";
 import { updateAssignment, splitAssignment, mergeAssignment, copyDayAssignments, copyWeekAssignments, setAvailability as persistAvailability, clearAvailability as unpersistAvailability, clearProjectAssignmentsForWeek, setHoliday as persistHoliday, clearHoliday as unpersistHoliday } from "~/server/actions/board";
@@ -49,54 +60,6 @@ interface BoardClientProps {
   selectedWeek: BoardWeek;
   weeks: BoardWeek[];
 }
-
-// ── ID helpers ────────────────────────────────────────────────────────────────
-
-/**
- * Encode a draggable ID.
- * Format: `${employeeId}::${day}::${dayPart}`
- */
-const getDraggableId = (employeeId: string, day: string, dayPart: DayPart) =>
-  `${employeeId}::${day}::${dayPart}`;
-
-const parseFromDraggableId = (id: string): { employeeId: string; day: string; dayPart: DayPart } => {
-  const [employeeId = "", day = "", dayPart = "full_day"] = id.split("::");
-  return { employeeId, day, dayPart: dayPart as DayPart };
-};
-
-/**
- * Strip the `-pre` / `-post` suffix to get the base droppable ID,
- * then extract the day name from it.
- */
-const getDayFromDroppableId = (droppableId: string): string => {
-  const stripped = droppableId.replace(/-(pre|post)$/, "");
-  if (stripped.startsWith("pool-")) return stripped.replace("pool-", "");
-  return DAYS.find((day) => stripped.endsWith(`-${day}`)) ?? "";
-};
-
-/** Extract the projectId from a droppable ID (null for pool droppables). */
-const getProjectIdFromDroppableId = (droppableId: string): string | null => {
-  const stripped = droppableId.replace(/-(pre|post)$/, "");
-  if (stripped.startsWith("pool-")) return null;
-  const day = DAYS.find((d) => stripped.endsWith(`-${d}`));
-  if (!day) return null;
-  return stripped.slice(0, -(day.length + 1));
-};
-
-/** Determine which DayPart a droppable represents from its suffix. */
-const getDayPartFromDroppableId = (droppableId: string): DayPart => {
-  if (droppableId.endsWith("-pre")) return "pre_lunch";
-  if (droppableId.endsWith("-post")) return "after_lunch";
-  return "full_day";
-};
-
-// Droppable IDs — project cells
-const fullDayDroppableId  = (projectId: string, day: string) => `${projectId}-${day}`;
-const preLunchDroppableId = (projectId: string, day: string) => `${projectId}-${day}-pre`;
-const afterLunchDroppableId = (projectId: string, day: string) => `${projectId}-${day}-post`;
-
-// Droppable IDs — pool (full-day only, no split section)
-const poolFullDayId = (day: string) => `pool-${day}`;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 

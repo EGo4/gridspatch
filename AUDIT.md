@@ -6,7 +6,7 @@ Items get marked RESOLVED in place as they're fixed, rather than deleted — the
 
 Feature work lives in [FEATURE_ROADMAP.md](FEATURE_ROADMAP.md) — this file is about the existing code, not new functionality.
 
-Suggested order for what's left: **3 → 2 → 4 → 1 → 5** (5 strictly last — see its ordering constraint). Item 0 is resolved.
+Suggested order for what's left: **4 → 3 (remainder) → 2 → 1 → 5** (5 strictly last — see its ordering constraint). Item 0 is resolved; item 3 is partially done — see its note on why 4 moved ahead of finishing it.
 
 ---
 
@@ -72,21 +72,17 @@ Highest safety-per-hour item in this file.
 
 ---
 
-## 3. BoardClient.tsx is 2471 lines
+## 3. BoardClient.tsx is 2471 lines — PARTIALLY ADDRESSED
 
 [BoardClient.tsx](src/components/board/BoardClient.tsx) holds drag-and-drop, copy day, copy week, availability, holidays, comments, filters, the site picker, the mutation queue wiring and roughly fifteen inline modals in a single component.
 
 Three roadmap features — half-day absences, both day-copy variants, and "back to pool" — all land in exactly this file. Splitting it afterwards will be strictly harder.
 
-**Fix:** extract along the seams that already exist in the code's own comment banners:
+**Done:** the droppable/draggable-id helpers (`getDraggableId`, `parseFromDraggableId`, `getDayFromDroppableId`, `getProjectIdFromDroppableId`, `getDayPartFromDroppableId`, `fullDayDroppableId`, `preLunchDroppableId`, `afterLunchDroppableId`, `poolFullDayId`) moved to [boardIds.ts](src/components/board/boardIds.ts) — pure functions, zero behavior change, now covered by 7 unit tests / 17 assertions in [board-ids.test.ts](test/board-ids.test.ts) (also chips away at item 4). `BoardClient.tsx` 2471 → 2434 lines. Verified: `typecheck`/`lint`/`test` all clean, same pre-existing lint warnings only.
 
-- `useBoardState` — the assignment state map, the DB→state rebuild effect, the `syncPendingRef` skip logic
-- `useAvailability` — sick/vacation marking and clearing
-- `useCopy` — day copy, week copy, and their confirmation state
-- `useHolidays`
-- one component per modal (copy week, day copy confirm, comments, site picker, filter panel)
+**Not done, and deliberately not attempted in the same pass:** the state/effect extraction (`useBoardState`, `useAvailability`, `useCopy`, `useHolidays`, one component per modal). This is a materially different risk profile from the ID-helper move — `assignmentsState` is touched by nearly every handler (`assignToSite`, `markAvailability`, `clearAvailability`, `copyDay`, `splitDay`, `mergeDay`, `onDragEnd`, `applyHoliday`), all closing over `dbEmployees`/`dbProjects`/`selectedWeek`/`enqueue`/`confirmPastEdit`/`weekDates`, plus the ref-based `syncPendingRef`/`skippedRebuildRef` skip logic that exists specifically to avoid clobbering in-flight optimistic state. A slip in an effect dependency array or a closure captured before extraction is the kind of bug that only shows up as "my drag silently reverted" days later — and item 4 (test coverage) is still open, so there's no automated safety net for exactly the behavior this refactor would touch. Splitting this without either a human doing careful manual QA of every board interaction (drag, split, merge, both copy paths, sick/vacation, holidays, status transitions) or test coverage in place first is the kind of high-blast-radius change worth pausing on rather than pushing through solo.
 
-Droppable-id helpers and the day-part parsing should move to a small `boardIds.ts` so they can be unit-tested without React.
+**Recommendation:** do item 4's invariant tests (split/merge round-trip, absence-clears-assignment, copy-day conflict handling) against the current `BoardClient.tsx` first, *then* extract the hooks behind that net — the tests won't need to change since they're testing behavior, not structure. This reorders the suggested sequence below.
 
 ---
 
