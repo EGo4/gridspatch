@@ -4,11 +4,13 @@ import { z } from "zod";
 import { db } from "~/server/db";
 import * as mutations from "~/server/services/boardMutations";
 import type { DayPart } from "~/types";
+import { requireSession } from "~/server/better-auth/roles";
 import { zAvailabilityStatus, zDateIso, zHolidayType, zId } from "~/server/validation";
 
-// No requireSession() here — deliberate, see the board.ts note in CLAUDE.md.
-// Zod still validates every argument: these are plain HTTP endpoints once
-// compiled, so TypeScript's param types are not enforced at the RPC boundary.
+// requireSession() on every export, unlike most action files. See the
+// board.ts note in CLAUDE.md: middleware now only checks cookie presence
+// (spoofable), so this is the actual authentication for board mutations —
+// not defense-in-depth on top of a real middleware check like elsewhere.
 
 export async function updateAssignment(
   employeeId: string,
@@ -17,6 +19,7 @@ export async function updateAssignment(
   weekId: string,
   dayPart: DayPart = "full_day",
 ) {
+  await requireSession();
   employeeId = zId.parse(employeeId);
   projectId = zId.nullable().parse(projectId);
   dateIsoString = zDateIso.parse(dateIsoString);
@@ -31,6 +34,7 @@ export async function splitAssignment(
   dateIsoString: string,
   weekId: string,
 ) {
+  await requireSession();
   employeeId = zId.parse(employeeId);
   projectId = zId.nullable().parse(projectId);
   dateIsoString = zDateIso.parse(dateIsoString);
@@ -44,6 +48,7 @@ export async function mergeAssignment(
   dateIsoString: string,
   weekId: string,
 ) {
+  await requireSession();
   employeeId = zId.parse(employeeId);
   projectId = zId.nullable().parse(projectId);
   dateIsoString = zDateIso.parse(dateIsoString);
@@ -57,6 +62,7 @@ export async function setAvailability(
   weekId: string,
   status: "sick" | "vacation",
 ) {
+  await requireSession();
   employeeId = zId.parse(employeeId);
   dateIso = zDateIso.parse(dateIso);
   weekId = zId.parse(weekId);
@@ -65,6 +71,7 @@ export async function setAvailability(
 }
 
 export async function clearAvailability(employeeId: string, dateIso: string) {
+  await requireSession();
   employeeId = zId.parse(employeeId);
   dateIso = zDateIso.parse(dateIso);
   return mutations.clearAvailability(db, employeeId, dateIso);
@@ -76,6 +83,7 @@ export async function copyWeekAssignments(
   sourceWeekStartIso: string,
   targetWeekStartIso: string,
 ) {
+  await requireSession();
   sourceWeekId = zId.parse(sourceWeekId);
   targetWeekId = zId.parse(targetWeekId);
   sourceWeekStartIso = zDateIso.parse(sourceWeekStartIso);
@@ -84,6 +92,7 @@ export async function copyWeekAssignments(
 }
 
 export async function clearProjectAssignmentsForWeek(projectId: string, weekId: string) {
+  await requireSession();
   projectId = zId.parse(projectId);
   weekId = zId.parse(weekId);
   return mutations.clearProjectAssignmentsForWeek(db, projectId, weekId);
@@ -95,6 +104,7 @@ export async function setHoliday(
   type: "public_holiday" | "company_holiday",
   employeeIds: string[],
 ) {
+  await requireSession();
   dateIso = zDateIso.parse(dateIso);
   weekId = zId.parse(weekId);
   type = zHolidayType.parse(type);
@@ -106,6 +116,7 @@ export async function clearHoliday(
   dateIso: string,
   previousType: "public_holiday" | "company_holiday",
 ) {
+  await requireSession();
   dateIso = zDateIso.parse(dateIso);
   previousType = zHolidayType.parse(previousType);
   return mutations.clearHoliday(db, dateIso, previousType);
@@ -116,6 +127,7 @@ export async function copyDayAssignments(
   targetDateIso: string,
   weekId: string,
 ) {
+  await requireSession();
   sourceDateIso = zDateIso.parse(sourceDateIso);
   targetDateIso = zDateIso.parse(targetDateIso);
   weekId = zId.parse(weekId);

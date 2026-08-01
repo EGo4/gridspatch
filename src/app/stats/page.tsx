@@ -2,6 +2,7 @@ import { getLocale } from "next-intl/server";
 import { db } from "~/server/db";
 import { StatsClient } from "./StatsClient";
 import { getStatsPageData } from "~/server/services/statistics";
+import { requireSessionPage } from "~/server/better-auth/roles";
 
 type SearchParams = { from?: string | string[]; to?: string | string[] };
 
@@ -10,6 +11,7 @@ export default async function StatsPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  await requireSessionPage();
   const resolved = await searchParams;
   const fromParam = Array.isArray(resolved.from) ? resolved.from[0] : resolved.from;
   const toParam = Array.isArray(resolved.to) ? resolved.to[0] : resolved.to;

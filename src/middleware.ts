@@ -1,29 +1,23 @@
-import { NextRequest, NextResponse } from "next/server";
-import { betterFetch } from "@better-fetch/fetch";
-
-type SessionResponse = {
-  user: { id: string; email: string; name: string; role: string };
-  session: { id: string; userId: string; expiresAt: string };
-};
+import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
+import { getSessionCookie } from "better-auth/cookies";
 
 const PUBLIC_PATHS = ["/login", "/api/auth"];
 
-export async function middleware(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if (PUBLIC_PATHS.some((p) => pathname.startsWith(p))) {
     return NextResponse.next();
   }
 
-  const { data: session } = await betterFetch<SessionResponse>(
-    "/api/auth/get-session",
-    {
-      baseURL: `http://localhost:${process.env.PORT ?? "3000"}`,
-      headers: { cookie: request.headers.get("cookie") ?? "" },
-    },
-  );
-
-  if (!session?.user) {
+  // Optimistic check: confirms a session cookie is present, not that it is
+  // valid. A forged cookie value passes this. Real verification happens at
+  // the page/action layer (requireSession()/requireAdmin() in roles.ts) —
+  // every mutating action already calls one of those. See the board.ts note
+  // in CLAUDE.md: it has no page to guard it, so it calls requireSession()
+  // itself on every export specifically because this check is spoofable.
+  if (!getSessionCookie(request)) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 

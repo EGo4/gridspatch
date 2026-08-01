@@ -1,8 +1,10 @@
 import { db } from "~/server/db";
 import { toDateParam } from "~/lib/week";
 import { EmployeesClient } from "./EmployeesClient";
+import { requireSessionPage } from "~/server/better-auth/roles";
 
 export default async function EmployeesPage() {
+  await requireSessionPage();
   const rows = await db.employee.findMany({ orderBy: { name: "asc" } });
 
   return (

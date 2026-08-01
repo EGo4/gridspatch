@@ -13,6 +13,24 @@ export async function requireAdminPage() {
 }
 
 /**
+ * Page guard: redirects to /login unless a session exists. Does not check
+ * role — same "any authenticated role" scope as requireSession() below, just
+ * for page components instead of actions/routes (redirect vs. throw).
+ *
+ * Needed because middleware.ts only checks session-cookie *presence*, not
+ * validity (see the comment there) — a page that reads the DB directly
+ * without calling this is reachable with a forged cookie. Every page that
+ * fetches data without going through a client component's own action calls
+ * needs this: board, admin/employees, admin/sites, stats, export. Admin-only
+ * pages use requireAdminPage() instead, which already implies a session.
+ */
+export async function requireSessionPage() {
+  const session = await getSession();
+  if (!session?.user?.id) redirect("/login");
+  return session;
+}
+
+/**
  * Server-action / route-handler guard: throws unless a session exists.
  * Does not check role — employee, site, and upload management are intentionally
  * available to every authenticated role, matching the unconditional nav items

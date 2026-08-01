@@ -2,6 +2,7 @@ import { getLocale } from "next-intl/server";
 import { BoardClient } from "~/components/board/BoardClient";
 import { db } from "~/server/db";
 import { getBoardPageData } from "~/server/services/board";
+import { requireSessionPage } from "~/server/better-auth/roles";
 
 type BoardPageProps = {
   searchParams?: Promise<{
@@ -10,6 +11,7 @@ type BoardPageProps = {
 };
 
 export default async function BoardPage({ searchParams }: BoardPageProps) {
+  await requireSessionPage();
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
   const selectedWeekParam = Array.isArray(resolvedSearchParams?.week)
     ? resolvedSearchParams.week[0]

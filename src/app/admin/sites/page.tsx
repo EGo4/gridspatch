@@ -3,8 +3,10 @@ import { SitesClient } from "./SitesClient";
 import { listConstructionManagers } from "~/server/actions/users";
 import type { ProjectStatus } from "~/types";
 import { toDateParam } from "~/lib/week";
+import { requireSessionPage } from "~/server/better-auth/roles";
 
 export default async function SitesPage() {
+  await requireSessionPage();
   const [rows, managers] = await Promise.all([
     db.project.findMany({
       orderBy: { name: "asc" },
