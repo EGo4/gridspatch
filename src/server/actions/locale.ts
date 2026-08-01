@@ -3,10 +3,12 @@
 import { cookies, headers } from "next/headers";
 import { auth } from "~/server/better-auth";
 import { db } from "~/server/db";
-import { locales, type Locale } from "~/i18n/config";
+import { zLocale } from "~/server/validation";
 
 export async function setLocale(locale: string): Promise<void> {
-  if (!locales.includes(locale as Locale)) return;
+  const result = zLocale.safeParse(locale);
+  if (!result.success) return;
+  locale = result.data;
 
   const cs = await cookies();
   cs.set("locale", locale, { path: "/", maxAge: 60 * 60 * 24 * 365 });

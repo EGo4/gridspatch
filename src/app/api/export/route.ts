@@ -1,7 +1,10 @@
+import { z } from "zod";
 import { NextResponse } from "next/server";
 import { getLocale, getTranslations } from "next-intl/server";
 import { db } from "~/server/db";
+import { requireSession } from "~/server/better-auth/roles";
 import { getCompanySettings } from "~/server/actions/settings";
+import { zDateParam } from "~/server/validation";
 import {
   listExportWeeks,
   resolveWeeksForRange,
@@ -12,31 +15,35 @@ import {
   type CsvLabels,
 } from "~/server/services/export";
 
-function parseRange(searchParams: URLSearchParams): ExportRangeParams | null {
-  const mode = searchParams.get("mode");
+const zYear = z.coerce.number().int().min(1970).max(2200);
+const zMonth = z.coerce.number().int().min(1).max(12);
 
-  if (mode === "week") {
-    const week = searchParams.get("week");
-    return week ? { mode: "week", week } : null;
-  }
-  if (mode === "weeks") {
-    const from = searchParams.get("from");
-    const to = searchParams.get("to");
-    return from && to ? { mode: "weeks", from, to } : null;
-  }
-  if (mode === "month") {
-    const year = Number(searchParams.get("year"));
-    const month = Number(searchParams.get("month"));
-    return Number.isInteger(year) && month >= 1 && month <= 12 ? { mode: "month", year, month } : null;
-  }
-  if (mode === "year") {
-    const year = Number(searchParams.get("year"));
-    return Number.isInteger(year) ? { mode: "year", year } : null;
-  }
-  return null;
+const rangeSchema = z.discriminatedUnion("mode", [
+  z.object({ mode: z.literal("week"), week: zDateParam }),
+  z.object({ mode: z.literal("weeks"), from: zDateParam, to: zDateParam }),
+  z.object({ mode: z.literal("month"), year: zYear, month: zMonth }),
+  z.object({ mode: z.literal("year"), year: zYear }),
+]);
+
+function parseRange(searchParams: URLSearchParams): ExportRangeParams | null {
+  const result = rangeSchema.safeParse({
+    mode: searchParams.get("mode"),
+    week: searchParams.get("week"),
+    from: searchParams.get("from"),
+    to: searchParams.get("to"),
+    year: searchParams.get("year"),
+    month: searchParams.get("month"),
+  });
+  return result.success ? result.data : null;
 }
 
 export async function GET(request: Request) {
+  try {
+    await requireSession();
+  } catch {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
   const searchParams = new URL(request.url).searchParams;
   const layout = searchParams.get("layout") === "site" ? "site" : "employee";
   const range = parseRange(searchParams);

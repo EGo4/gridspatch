@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { auth } from "~/server/better-auth";
 import { db } from "~/server/db";
 import { isAdmin } from "~/server/better-auth/roles";
+import { zDateIso, zId, zShortText } from "~/server/validation";
 
 export type EmployeeDayCommentDto = {
   id: string;
@@ -22,7 +23,8 @@ const getRequiredSession = async () => {
 
 export async function listComments(employeeId: string, dateIso: string): Promise<EmployeeDayCommentDto[]> {
   const session = await getRequiredSession();
-  const date = new Date(dateIso);
+  employeeId = zId.parse(employeeId);
+  const date = new Date(zDateIso.parse(dateIso));
 
   const comments = await db.employeeDayComment.findMany({
     where: { employeeId, date },
@@ -46,11 +48,13 @@ export async function addComment(
   text: string,
 ): Promise<EmployeeDayCommentDto> {
   const session = await getRequiredSession();
-  const trimmed = text.trim();
+  employeeId = zId.parse(employeeId);
+  const date = new Date(zDateIso.parse(dateIso));
+  const trimmed = zShortText.parse(text);
   if (!trimmed) throw new Error("Comment text is required");
 
   const created = await db.employeeDayComment.create({
-    data: { employeeId, date: new Date(dateIso), authorId: session.user.id, text: trimmed },
+    data: { employeeId, date, authorId: session.user.id, text: trimmed },
     include: { author: { select: { name: true } } },
   });
 
@@ -66,6 +70,7 @@ export async function addComment(
 
 export async function deleteComment(commentId: string): Promise<void> {
   const session = await getRequiredSession();
+  commentId = zId.parse(commentId);
 
   const comment = await db.employeeDayComment.findUnique({ where: { id: commentId } });
   if (!comment) return;

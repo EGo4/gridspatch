@@ -1,13 +1,18 @@
 "use server";
 
+import { z } from "zod";
 import { headers } from "next/headers";
 import { auth } from "~/server/better-auth";
 import { db } from "~/server/db";
 import { isAdmin, requireAdmin, type UserRole } from "~/server/better-auth/roles";
+import { zEmail, zId, zName, zUserRole } from "~/server/validation";
+
+const zPassword = z.string().min(8).max(200);
 
 export async function findEmailByUsername(name: string): Promise<string | null> {
+  const parsedName = zName.parse(name);
   const user = await db.user.findFirst({
-    where: { name },
+    where: { name: parsedName },
     select: { email: true },
   });
   return user?.email ?? null;
@@ -45,6 +50,14 @@ export async function listConstructionManagers(): Promise<Array<{ id: string; na
     .map((u) => ({ id: u.id, name: u.name }));
 }
 
+const createUserSchema = z.object({
+  name: zName,
+  email: zEmail,
+  password: zPassword,
+  role: zUserRole,
+  image: z.string().trim().max(2000).nullable().optional(),
+});
+
 export async function createUser(input: {
   name: string;
   email: string;
@@ -52,6 +65,8 @@ export async function createUser(input: {
   role: UserRole;
   image?: string | null;
 }) {
+  const parsedInput = createUserSchema.parse(input);
+  input = parsedInput;
   const h = await headers();
   const userCount = await db.user.count();
 
@@ -91,6 +106,14 @@ export async function createUser(input: {
   return { id: userId };
 }
 
+const updateUserSchema = z.object({
+  id: zId,
+  name: zName,
+  email: zEmail,
+  role: zUserRole,
+  image: z.string().trim().max(2000).nullable().optional(),
+});
+
 export async function updateUser(input: {
   id: string;
   name: string;
@@ -99,23 +122,31 @@ export async function updateUser(input: {
   image?: string | null;
 }) {
   await requireAdmin();
+  const parsed = updateUserSchema.parse(input);
   await db.user.update({
-    where: { id: input.id },
+    where: { id: parsed.id },
     data: {
-      name: input.name.trim(),
-      email: input.email.trim().toLowerCase(),
-      role: input.role,
-      image: input.image ?? null,
+      name: parsed.name,
+      email: parsed.email.toLowerCase(),
+      role: parsed.role,
+      image: parsed.image ?? null,
     },
   });
   return { success: true };
 }
+
+const resetPasswordSchema = z.object({
+  userId: zId,
+  newPassword: zPassword,
+  adminPassword: z.string().min(1).max(200),
+});
 
 export async function resetUserPassword(input: {
   userId: string;
   newPassword: string;
   adminPassword: string;
 }) {
+  const parsed = resetPasswordSchema.parse(input);
   const h = await headers();
   const session = await auth.api.getSession({ headers: h });
   if (!session?.user?.id) throw new Error("Not authenticated");
@@ -124,29 +155,35 @@ export async function resetUserPassword(input: {
   if (!isAdmin(adminUser.role)) throw new Error("Admin access required");
 
   await auth.api.verifyPassword({
-    body: { password: input.adminPassword },
+    body: { password: parsed.adminPassword },
     headers: h,
   });
 
   await auth.api.setUserPassword({
-    body: { userId: input.userId, newPassword: input.newPassword },
+    body: { userId: parsed.userId, newPassword: parsed.newPassword },
     headers: h,
   });
   return { success: true };
 }
 
+const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1).max(200),
+  newPassword: zPassword,
+});
+
 export async function changeCurrentUserPassword(input: {
   currentPassword: string;
   newPassword: string;
 }) {
+  const parsed = changePasswordSchema.parse(input);
   const h = await headers();
   const session = await auth.api.getSession({ headers: h });
   if (!session?.user?.id) throw new Error("Not authenticated");
 
   await auth.api.changePassword({
     body: {
-      currentPassword: input.currentPassword,
-      newPassword: input.newPassword,
+      currentPassword: parsed.currentPassword,
+      newPassword: parsed.newPassword,
     },
     headers: h,
   });
@@ -154,9 +191,10 @@ export async function changeCurrentUserPassword(input: {
 }
 
 export async function deleteUser(userId: string) {
+  const parsedUserId = zId.parse(userId);
   const h = await headers();
   await auth.api.removeUser({
-    body: { userId },
+    body: { userId: parsedUserId },
     headers: h,
   });
   return { success: true };
@@ -182,11 +220,18 @@ export async function getCurrentUser() {
   };
 }
 
+const updateCurrentUserSchema = z.object({
+  name: zName,
+  email: zEmail,
+  image: z.string().trim().max(2000).nullable().optional(),
+});
+
 export async function updateCurrentUser(input: {
   name: string;
   email: string;
   image?: string | null;
 }) {
+  const parsed = updateCurrentUserSchema.parse(input);
   const h = await headers();
   const session = await auth.api.getSession({ headers: h });
   if (!session?.user?.id) throw new Error("Not authenticated");
@@ -194,9 +239,9 @@ export async function updateCurrentUser(input: {
   await db.user.update({
     where: { id: session.user.id },
     data: {
-      name: input.name.trim(),
-      email: input.email.trim().toLowerCase(),
-      image: input.image ?? null,
+      name: parsed.name,
+      email: parsed.email.toLowerCase(),
+      image: parsed.image ?? null,
     },
   });
   return { success: true };

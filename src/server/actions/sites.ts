@@ -1,10 +1,15 @@
 "use server";
 
+import { z } from "zod";
 import { db } from "~/server/db";
 import type { ProjectStatus } from "~/types";
 import { getSuperStatus, ALLOWED_TRANSITIONS } from "~/types";
 import { normalizeWeekStart, toDateParam } from "~/lib/week";
 import { requireSession } from "~/server/better-auth/roles";
+import { zDateIso, zId, zProjectStatus } from "~/server/validation";
+
+const zSiteName = z.string().trim().min(1).max(200);
+const zDescription = z.string().trim().max(4000).nullable().optional();
 
 type TransitionRow = { projectId: string; weekStartDate: Date; status: string };
 
@@ -24,6 +29,14 @@ function getEffectiveStatus(
 
 // ── Site CRUD ──────────────────────────────────────────────────────────────────
 
+const createSiteSchema = z.object({
+  name: zSiteName,
+  description: zDescription,
+  startDate: zDateIso.nullable().optional(),
+  endDate: zDateIso.nullable().optional(),
+  constructionManagerId: zId.nullable().optional(),
+});
+
 export async function createSite(input: {
   name: string;
   description?: string | null;
@@ -32,17 +45,27 @@ export async function createSite(input: {
   constructionManagerId?: string | null;
 }) {
   await requireSession();
+  const parsed = createSiteSchema.parse(input);
   const site = await db.project.create({
     data: {
-      name: input.name.trim(),
-      description: input.description?.trim() ?? null,
-      startDate: input.startDate ? new Date(input.startDate) : null,
-      endDate: input.endDate ? new Date(input.endDate) : null,
-      constructionManagerId: input.constructionManagerId ?? null,
+      name: parsed.name,
+      description: parsed.description?.trim() ?? null,
+      startDate: parsed.startDate ? new Date(parsed.startDate) : null,
+      endDate: parsed.endDate ? new Date(parsed.endDate) : null,
+      constructionManagerId: parsed.constructionManagerId ?? null,
     },
   });
   return { id: site.id };
 }
+
+const updateSiteSchema = z.object({
+  id: zId,
+  name: zSiteName,
+  description: zDescription,
+  startDate: zDateIso.nullable().optional(),
+  endDate: zDateIso.nullable().optional(),
+  constructionManagerId: zId.nullable().optional(),
+});
 
 export async function updateSite(input: {
   id: string;
@@ -53,14 +76,15 @@ export async function updateSite(input: {
   constructionManagerId?: string | null;
 }) {
   await requireSession();
+  const parsed = updateSiteSchema.parse(input);
   await db.project.update({
-    where: { id: input.id },
+    where: { id: parsed.id },
     data: {
-      name: input.name.trim(),
-      constructionManagerId: input.constructionManagerId ?? null,
-      ...("description" in input && { description: input.description?.trim() ?? null }),
-      ...("startDate" in input && { startDate: input.startDate ? new Date(input.startDate) : null }),
-      ...("endDate" in input && { endDate: input.endDate ? new Date(input.endDate) : null }),
+      name: parsed.name,
+      constructionManagerId: parsed.constructionManagerId ?? null,
+      ...("description" in parsed && { description: parsed.description?.trim() ?? null }),
+      ...("startDate" in parsed && { startDate: parsed.startDate ? new Date(parsed.startDate) : null }),
+      ...("endDate" in parsed && { endDate: parsed.endDate ? new Date(parsed.endDate) : null }),
     },
   });
   return { success: true };
@@ -68,7 +92,8 @@ export async function updateSite(input: {
 
 export async function deleteSite(id: string) {
   await requireSession();
-  await db.project.delete({ where: { id } });
+  const parsedId = zId.parse(id);
+  await db.project.delete({ where: { id: parsedId } });
   return { success: true };
 }
 
@@ -77,8 +102,9 @@ export async function deleteSite(id: string) {
 export async function getSiteTransitions(
   projectId: string,
 ): Promise<{ weekStartIso: string; status: ProjectStatus }[]> {
+  const parsedProjectId = zId.parse(projectId);
   const rows = await db.projectStatusTransition.findMany({
-    where: { projectId },
+    where: { projectId: parsedProjectId },
     orderBy: { weekStartDate: "asc" },
   });
   return rows.map((r) => ({
@@ -100,6 +126,9 @@ export async function setSiteTransition(
   force = false,
 ): Promise<SetTransitionResult> {
   await requireSession();
+  projectId = zId.parse(projectId);
+  weekStartIso = zDateIso.parse(weekStartIso);
+  status = zProjectStatus.parse(status);
   const existing = await db.projectStatusTransition.findMany({
     where: { projectId },
     orderBy: { weekStartDate: "asc" },
@@ -173,6 +202,13 @@ export async function setSiteTransition(
   return { success: true };
 }
 
+const bulkSiteItemSchema = z.object({
+  name: zSiteName,
+  description: zDescription,
+  startDate: zDateIso.nullable().optional(),
+  endDate: zDateIso.nullable().optional(),
+});
+
 export async function bulkCreateSites(
   items: Array<{
     name: string;
@@ -184,11 +220,17 @@ export async function bulkCreateSites(
   await requireSession();
   let created = 0;
   let errors = 0;
-  for (const item of items) {
+  for (const rawItem of items) {
+    const result = bulkSiteItemSchema.safeParse(rawItem);
+    if (!result.success) {
+      errors++;
+      continue;
+    }
+    const item = result.data;
     try {
       await db.project.create({
         data: {
-          name: item.name.trim(),
+          name: item.name,
           description: item.description?.trim() ?? null,
           startDate: item.startDate ? new Date(item.startDate) : null,
           endDate: item.endDate ? new Date(item.endDate) : null,
@@ -202,27 +244,34 @@ export async function bulkCreateSites(
   return { created, errors };
 }
 
+const bulkUpdateSchema = z.object({
+  status: zProjectStatus.optional(),
+  constructionManagerId: zId.nullable().optional(),
+});
+
 export async function bulkUpdateSites(
   ids: string[],
   updates: { status?: ProjectStatus; constructionManagerId?: string | null },
 ): Promise<{ updated: number; errors: number }> {
   await requireSession();
+  const parsedIds = z.array(zId).parse(ids);
+  const parsedUpdates = bulkUpdateSchema.parse(updates);
   let updated = 0;
   let errors = 0;
   const weekStart = normalizeWeekStart(toDateParam(new Date()));
-  for (const id of ids) {
+  for (const id of parsedIds) {
     try {
-      if ("constructionManagerId" in updates) {
+      if ("constructionManagerId" in parsedUpdates) {
         await db.project.update({
           where: { id },
-          data: { constructionManagerId: updates.constructionManagerId },
+          data: { constructionManagerId: parsedUpdates.constructionManagerId },
         });
       }
-      if (updates.status !== undefined) {
+      if (parsedUpdates.status !== undefined) {
         await db.projectStatusTransition.upsert({
           where: { projectId_weekStartDate: { projectId: id, weekStartDate: weekStart } },
-          update: { status: updates.status },
-          create: { projectId: id, weekStartDate: weekStart, status: updates.status },
+          update: { status: parsedUpdates.status },
+          create: { projectId: id, weekStartDate: weekStart, status: parsedUpdates.status },
         });
       }
       updated++;
@@ -238,7 +287,8 @@ export async function deleteSiteTransition(
   weekStartIso: string,
 ): Promise<{ success: true }> {
   await requireSession();
-  const weekStart = normalizeWeekStart(weekStartIso);
+  projectId = zId.parse(projectId);
+  const weekStart = normalizeWeekStart(zDateIso.parse(weekStartIso));
   await db.projectStatusTransition.deleteMany({
     where: { projectId, weekStartDate: weekStart },
   });

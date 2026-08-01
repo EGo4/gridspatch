@@ -1,8 +1,13 @@
 "use server";
 
+import { z } from "zod";
 import { headers } from "next/headers";
 import { prismaRaw } from "~/server/db";
 import { auth } from "~/server/better-auth";
+
+const zLabel = z.string().trim().min(1).max(200);
+const zMessage = z.string().trim().max(4000);
+const zAttempt = z.number().int().min(0).max(1000);
 
 /**
  * Records a client-side mutation failure (e.g. a board edit that couldn't reach
@@ -15,6 +20,10 @@ export async function reportClientError(
   message: string,
   attempt: number,
 ) {
+  label = zLabel.parse(label);
+  message = zMessage.parse(message);
+  attempt = zAttempt.parse(attempt);
+
   let path: string | null = null;
   let userId: string | null = null;
   try {

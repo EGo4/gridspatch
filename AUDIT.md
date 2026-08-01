@@ -7,44 +7,23 @@ Feature work lives in [FEATURE_ROADMAP.md](FEATURE_ROADMAP.md) — this file is 
 
 ## Where to start
 
-Items are listed in the order they should be done. Item 2 has a safety constraint that requires item 1 to land first.
+One item left.
 
 | # | Item | Size | Why here |
 | --- | --- | --- | --- |
-| 1 | [Validate action input with Zod](#1-zod-is-a-declared-dependency-that-is-never-used) | M | Also closes the export-route auth gap noted in item 2 |
-| 2 | [Trim the middleware round-trip](#2-middleware-does-an-http-round-trip-on-every-request) | S | **Strictly last** — see its ordering constraint |
+| 1 | [Trim the middleware round-trip](#1-middleware-does-an-http-round-trip-on-every-request) | S | Was blocked on Zod validation landing first — now unblocked |
 
 ---
 
-## 1. Zod is a declared dependency that is never used
-
-`zod` is in `package.json` and listed in the stack, but the only import in the whole tree is [env.js](src/env.js). Every server action takes raw client input and hands it to Prisma unvalidated:
-
-- date strings go through `new Date(input.startDate)` with no check, so `Invalid Date` can reach the DB layer
-- strings have no length or shape constraints
-- the bulk-import paths (`bulkCreateEmployees`, `bulkCreateSites`, `bulkUpdateSites`) accept arbitrary parsed JSON with only ad-hoc `typeof` checks
-
-**Fix:** define one schema per action input, parse at the top of the action, let the parsed value flow onward. Start with the bulk-import paths — they take the least trustworthy input.
-
-**Also fix here:** [api/export/route.ts](src/app/api/export/route.ts) has **no session check of its own** — middleware is its only auth, the same pattern the upload/serve routes had before they were fixed (see the guard note in [CLAUDE.md](CLAUDE.md)). Add `requireSession()` from [roles.ts](src/server/better-auth/roles.ts) while you are adding validation to its query-parameter parsing. Item 2 cannot safely land until this is done.
-
-**While you're touching every action for validation, do one more pass for the class of bug already found twice in this codebase** (see the "`use server`" note in [CLAUDE.md](CLAUDE.md)): every exported function in a `"use server"` file is independently callable, regardless of which page imports it or what that page's guard checks. Skim every action module for one that assumes a page-level guard protects it and doesn't check for itself.
-
-Until this item is finished, the "Validation: Zod" line in [CLAUDE.md](CLAUDE.md) overstates what the code does.
-
----
-
-## 2. Middleware does an HTTP round-trip on every request
+## 1. Middleware does an HTTP round-trip on every request
 
 [middleware.ts](src/middleware.ts) calls `betterFetch("/api/auth/get-session")` against `http://localhost:${PORT}` for every non-static request, so each navigation costs an extra internal HTTP call plus a DB lookup.
 
 Better Auth's recommended shape is an optimistic cookie-presence check in middleware, with real verification at the page/action layer.
 
-**Ordering constraint — this is why the item is last.** A cookie-*presence* check is spoofable: any value passes. Middleware is currently the *only* auth for two things, so weakening it before they are fixed leaves them open to anyone who sets a cookie:
+**Why this was blocked, and why it no longer is.** A cookie-*presence* check is spoofable: any value passes. Middleware was the *only* auth for two things:
 
-- [api/export/route.ts](src/app/api/export/route.ts) — no check of its own (see item 1)
-- [board.ts](src/server/actions/board.ts) — deliberately relies on middleware alone; see the note in [CLAUDE.md](CLAUDE.md). If middleware stops being a real check, that decision must be revisited and `requireSession()` added there after all.
-
-So: item 1 first, then re-decide `board.ts`, then this.
+- [api/export/route.ts](src/app/api/export/route.ts) — now has its own `requireSession()` and Zod-validated query params, independent of middleware.
+- [board.ts](src/server/actions/board.ts) — still deliberately relies on middleware alone (see the note in [CLAUDE.md](CLAUDE.md)); every argument is now Zod-validated, but that is input hygiene, not authentication. If middleware becomes a cookie-presence-only check, `board.ts` needs `requireSession()` added after all — decide this at the same time as the middleware change, not after.
 
 Also note the hardcoded `http://localhost:${PORT}` base URL — worth confirming it behaves under the Docker Compose + Caddy setup in the repo root.
