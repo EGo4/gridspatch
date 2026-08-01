@@ -13,28 +13,12 @@ export type UserPrefs = {
   locale?: string | null;
 };
 
-type PrefDb = {
-  userPreference: {
-    findUnique: (args: {
-      where: { userId: string };
-      select: { accentColor: true; amColor: true; pmColor: true; uiScale: true; theme: true; locale: true };
-    }) => Promise<UserPrefs | null>;
-    upsert: (args: {
-      where: { userId: string };
-      update: Partial<UserPrefs>;
-      create: Partial<UserPrefs> & { userId: string };
-    }) => Promise<unknown>;
-  };
-};
-
-const prefDb = db as unknown as PrefDb;
-
 export async function getUserPreferences(): Promise<UserPrefs | null> {
   const h = await headers();
   const session = await auth.api.getSession({ headers: h });
   if (!session?.user?.id) return null;
 
-  return prefDb.userPreference.findUnique({
+  return db.userPreference.findUnique({
     where: { userId: session.user.id },
     select: { accentColor: true, amColor: true, pmColor: true, uiScale: true, theme: true, locale: true },
   });
@@ -45,7 +29,7 @@ export async function saveUserPreferences(prefs: UserPrefs): Promise<void> {
   const session = await auth.api.getSession({ headers: h });
   if (!session?.user?.id) throw new Error("Not authenticated");
 
-  await prefDb.userPreference.upsert({
+  await db.userPreference.upsert({
     where: { userId: session.user.id },
     update: prefs,
     create: { userId: session.user.id, ...prefs },
@@ -57,7 +41,7 @@ export async function saveThemePreference(theme: "dark" | "light"): Promise<void
   const session = await auth.api.getSession({ headers: h });
   if (!session?.user?.id) throw new Error("Not authenticated");
 
-  await prefDb.userPreference.upsert({
+  await db.userPreference.upsert({
     where: { userId: session.user.id },
     update: { theme },
     create: { userId: session.user.id, accentColor: null, amColor: null, pmColor: null, uiScale: null, theme },

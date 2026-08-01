@@ -4,24 +4,13 @@ import { auth } from "~/server/better-auth";
 import { db } from "~/server/db";
 import { defaultLocale, locales, type Locale } from "./config";
 
-type LocaleDb = {
-  userPreference: {
-    findUnique: (args: {
-      where: { userId: string };
-      select: { locale: true };
-    }) => Promise<{ locale: string | null } | null>;
-  };
-};
-
-const localeDb = db as unknown as LocaleDb;
-
 export default getRequestConfig(async () => {
   let raw: string | undefined;
 
   const h = await headers();
   const session = await auth.api.getSession({ headers: h });
   if (session?.user?.id) {
-    const pref = await localeDb.userPreference.findUnique({
+    const pref = await db.userPreference.findUnique({
       where: { userId: session.user.id },
       select: { locale: true },
     });

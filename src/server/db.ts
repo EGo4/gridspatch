@@ -2,14 +2,6 @@ import { env } from "~/env";
 import { PrismaClient } from "@prisma/client";
 import { headers } from "next/headers";
 
-type AuditDb = {
-  auditLog: {
-    create: (args: {
-      data: { action: string; model: string; path: string | null; payload: object };
-    }) => Promise<unknown>;
-  };
-};
-
 const WRITE_OPS = new Set([
   "create", "update", "delete", "upsert",
   "createMany", "updateMany", "deleteMany",
@@ -50,7 +42,7 @@ export const db = prismaBase.$extends({
             // outside request context (seed, migration, etc.)
           }
 
-          void (prismaBase as unknown as AuditDb).auditLog.create({
+          void prismaBase.auditLog.create({
             data: {
               action: operation,
               model,

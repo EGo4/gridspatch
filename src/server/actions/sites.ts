@@ -6,77 +6,7 @@ import { getSuperStatus, ALLOWED_TRANSITIONS } from "~/types";
 import { normalizeWeekStart, toDateParam } from "~/lib/week";
 import { requireSession } from "~/server/better-auth/roles";
 
-type SiteDb = {
-  project: {
-    findMany: (args?: {
-      orderBy?: { name: "asc" | "desc" };
-      include?: { constructionManager?: { select?: { id?: boolean; name?: boolean } } };
-    }) => Promise<
-      Array<{
-        id: string;
-        name: string;
-        description: string | null;
-        startDate: Date | null;
-        endDate: Date | null;
-        status: string;
-        constructionManagerId: string | null;
-        constructionManager?: { id: string; name: string } | null;
-        createdAt: Date;
-        updatedAt: Date;
-      }>
-    >;
-    create: (args: {
-      data: {
-        name: string;
-        description?: string | null;
-        startDate?: Date | null;
-        endDate?: Date | null;
-        constructionManagerId?: string | null;
-      };
-    }) => Promise<{ id: string }>;
-    update: (args: {
-      where: { id: string };
-      data: {
-        name?: string;
-        description?: string | null;
-        startDate?: Date | null;
-        endDate?: Date | null;
-        constructionManagerId?: string | null;
-        status?: string;
-      };
-    }) => Promise<{ id: string }>;
-    delete: (args: { where: { id: string } }) => Promise<{ id: string }>;
-  };
-};
-
-const siteDb = db as unknown as SiteDb;
-
-// ── Transition DB type ─────────────────────────────────────────────────────────
-
 type TransitionRow = { projectId: string; weekStartDate: Date; status: string };
-
-type TransitionDb = {
-  projectStatusTransition: {
-    findMany: (args: {
-      where: { projectId: string };
-      orderBy: { weekStartDate: "asc" };
-    }) => Promise<TransitionRow[]>;
-    upsert: (args: {
-      where: { projectId_weekStartDate: { projectId: string; weekStartDate: Date } };
-      update: { status: string };
-      create: { projectId: string; weekStartDate: Date; status: string };
-    }) => Promise<unknown>;
-    updateMany: (args: {
-      where: { projectId: string; status: { in: string[] } };
-      data: { status: string };
-    }) => Promise<unknown>;
-    deleteMany: (args: {
-      where: { projectId: string; weekStartDate: Date };
-    }) => Promise<unknown>;
-  };
-};
-
-const transitionDb = db as unknown as TransitionDb;
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -102,7 +32,7 @@ export async function createSite(input: {
   constructionManagerId?: string | null;
 }) {
   await requireSession();
-  const site = await siteDb.project.create({
+  const site = await db.project.create({
     data: {
       name: input.name.trim(),
       description: input.description?.trim() ?? null,
@@ -123,7 +53,7 @@ export async function updateSite(input: {
   constructionManagerId?: string | null;
 }) {
   await requireSession();
-  await siteDb.project.update({
+  await db.project.update({
     where: { id: input.id },
     data: {
       name: input.name.trim(),
@@ -138,7 +68,7 @@ export async function updateSite(input: {
 
 export async function deleteSite(id: string) {
   await requireSession();
-  await siteDb.project.delete({ where: { id } });
+  await db.project.delete({ where: { id } });
   return { success: true };
 }
 
@@ -147,7 +77,7 @@ export async function deleteSite(id: string) {
 export async function getSiteTransitions(
   projectId: string,
 ): Promise<{ weekStartIso: string; status: ProjectStatus }[]> {
-  const rows = await transitionDb.projectStatusTransition.findMany({
+  const rows = await db.projectStatusTransition.findMany({
     where: { projectId },
     orderBy: { weekStartDate: "asc" },
   });
@@ -170,7 +100,7 @@ export async function setSiteTransition(
   force = false,
 ): Promise<SetTransitionResult> {
   await requireSession();
-  const existing = await transitionDb.projectStatusTransition.findMany({
+  const existing = await db.projectStatusTransition.findMany({
     where: { projectId },
     orderBy: { weekStartDate: "asc" },
   });
@@ -191,7 +121,7 @@ export async function setSiteTransition(
   }
 
   if (isCompletedToOngoing && force) {
-    await transitionDb.projectStatusTransition.updateMany({
+    await db.projectStatusTransition.updateMany({
       where: { projectId, status: { in: ["done", "inactive"] } },
       data: { status: "on_hold" },
     });
@@ -210,7 +140,7 @@ export async function setSiteTransition(
     }
     if (laterOngoing.length > 0 && force) {
       for (const t of laterOngoing) {
-        await transitionDb.projectStatusTransition.deleteMany({
+        await db.projectStatusTransition.deleteMany({
           where: { projectId, weekStartDate: t.weekStartDate },
         });
       }
@@ -218,21 +148,21 @@ export async function setSiteTransition(
   }
 
   const weekStart = normalizeWeekStart(weekStartIso);
-  await transitionDb.projectStatusTransition.upsert({
+  await db.projectStatusTransition.upsert({
     where: { projectId_weekStartDate: { projectId, weekStartDate: weekStart } },
     update: { status },
     create: { projectId, weekStartDate: weekStart, status },
   });
 
   // Prune transitions that are redundant (same status as the one before them).
-  const allAfter = await transitionDb.projectStatusTransition.findMany({
+  const allAfter = await db.projectStatusTransition.findMany({
     where: { projectId },
     orderBy: { weekStartDate: "asc" },
   });
   let prev: ProjectStatus = "planned";
   for (const t of allAfter) {
     if (t.status === prev) {
-      await transitionDb.projectStatusTransition.deleteMany({
+      await db.projectStatusTransition.deleteMany({
         where: { projectId, weekStartDate: t.weekStartDate },
       });
     } else {
@@ -256,7 +186,7 @@ export async function bulkCreateSites(
   let errors = 0;
   for (const item of items) {
     try {
-      await siteDb.project.create({
+      await db.project.create({
         data: {
           name: item.name.trim(),
           description: item.description?.trim() ?? null,
@@ -283,13 +213,13 @@ export async function bulkUpdateSites(
   for (const id of ids) {
     try {
       if ("constructionManagerId" in updates) {
-        await siteDb.project.update({
+        await db.project.update({
           where: { id },
           data: { constructionManagerId: updates.constructionManagerId },
         });
       }
       if (updates.status !== undefined) {
-        await transitionDb.projectStatusTransition.upsert({
+        await db.projectStatusTransition.upsert({
           where: { projectId_weekStartDate: { projectId: id, weekStartDate: weekStart } },
           update: { status: updates.status },
           create: { projectId: id, weekStartDate: weekStart, status: updates.status },
@@ -309,7 +239,7 @@ export async function deleteSiteTransition(
 ): Promise<{ success: true }> {
   await requireSession();
   const weekStart = normalizeWeekStart(weekStartIso);
-  await transitionDb.projectStatusTransition.deleteMany({
+  await db.projectStatusTransition.deleteMany({
     where: { projectId, weekStartDate: weekStart },
   });
   return { success: true };

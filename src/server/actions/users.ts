@@ -5,44 +5,8 @@ import { auth } from "~/server/better-auth";
 import { db } from "~/server/db";
 import { isAdmin, requireAdmin, type UserRole } from "~/server/better-auth/roles";
 
-type UserDb = {
-  user: {
-    findMany: (args: {
-      orderBy: { name: "asc" };
-      select: {
-        id: true;
-        name: true;
-        email: true;
-        image: true;
-        role: true;
-        createdAt: true;
-      };
-    }) => Promise<
-      Array<{
-        id: string;
-        name: string;
-        email: string;
-        image: string | null;
-        role: string;
-        createdAt: Date;
-      }>
-    >;
-    findFirst: (args: {
-      where: { name: string };
-      select: { email: true };
-    }) => Promise<{ email: string } | null>;
-    count: () => Promise<number>;
-    update: (args: {
-      where: { id: string };
-      data: { name?: string; email?: string; image?: string | null; role?: string };
-    }) => Promise<{ id: string }>;
-  };
-};
-
-const userDb = db as unknown as UserDb;
-
 export async function findEmailByUsername(name: string): Promise<string | null> {
-  const user = await userDb.user.findFirst({
+  const user = await db.user.findFirst({
     where: { name },
     select: { email: true },
   });
@@ -51,7 +15,7 @@ export async function findEmailByUsername(name: string): Promise<string | null> 
 
 export async function listUsers() {
   await requireAdmin();
-  return userDb.user.findMany({
+  return db.user.findMany({
     orderBy: { name: "asc" },
     select: {
       id: true,
@@ -65,7 +29,7 @@ export async function listUsers() {
 }
 
 export async function listConstructionManagers(): Promise<Array<{ id: string; name: string }>> {
-  const users = await userDb.user.findMany({
+  const users = await db.user.findMany({
     orderBy: { name: "asc" },
     select: {
       id: true,
@@ -89,7 +53,7 @@ export async function createUser(input: {
   image?: string | null;
 }) {
   const h = await headers();
-  const userCount = await userDb.user.count();
+  const userCount = await db.user.count();
 
   let userId: string;
 
@@ -119,7 +83,7 @@ export async function createUser(input: {
   }
 
   // Set role + image via Prisma (admin plugin createUser may not carry image).
-  await userDb.user.update({
+  await db.user.update({
     where: { id: userId },
     data: { role: input.role, image: input.image ?? null },
   });
@@ -135,7 +99,7 @@ export async function updateUser(input: {
   image?: string | null;
 }) {
   await requireAdmin();
-  await userDb.user.update({
+  await db.user.update({
     where: { id: input.id },
     data: {
       name: input.name.trim(),
@@ -227,7 +191,7 @@ export async function updateCurrentUser(input: {
   const session = await auth.api.getSession({ headers: h });
   if (!session?.user?.id) throw new Error("Not authenticated");
 
-  await userDb.user.update({
+  await db.user.update({
     where: { id: session.user.id },
     data: {
       name: input.name.trim(),

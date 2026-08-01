@@ -3,48 +3,6 @@
 import { db } from "~/server/db";
 import { requireSession } from "~/server/better-auth/roles";
 
-type EmployeeDb = {
-  employee: {
-    findMany: (args: { orderBy: { name: "asc" } }) => Promise<
-      Array<{
-        id: string;
-        name: string;
-        initials: string;
-        img: string | null;
-        role: string | null;
-        startDate: Date | null;
-        endDate: Date | null;
-        createdAt: Date;
-        updatedAt: Date;
-      }>
-    >;
-    create: (args: {
-      data: {
-        name: string;
-        initials: string;
-        img?: string | null;
-        role?: string | null;
-        startDate?: Date | null;
-        endDate?: Date | null;
-      };
-    }) => Promise<{ id: string }>;
-    update: (args: {
-      where: { id: string };
-      data: {
-        name?: string;
-        initials?: string;
-        img?: string | null;
-        role?: string | null;
-        startDate?: Date | null;
-        endDate?: Date | null;
-      };
-    }) => Promise<{ id: string }>;
-    delete: (args: { where: { id: string } }) => Promise<{ id: string }>;
-  };
-};
-
-const empDb = db as unknown as EmployeeDb;
-
 export async function createEmployee(input: {
   name: string;
   initials: string;
@@ -54,7 +12,7 @@ export async function createEmployee(input: {
   endDate?: string | null;
 }) {
   await requireSession();
-  const employee = await empDb.employee.create({
+  const employee = await db.employee.create({
     data: {
       name: input.name.trim(),
       initials: input.initials.trim().toUpperCase(),
@@ -77,7 +35,7 @@ export async function updateEmployee(input: {
   endDate?: string | null;
 }) {
   await requireSession();
-  await empDb.employee.update({
+  await db.employee.update({
     where: { id: input.id },
     data: {
       name: input.name.trim(),
@@ -93,7 +51,7 @@ export async function updateEmployee(input: {
 
 export async function deleteEmployee(id: string) {
   await requireSession();
-  await empDb.employee.delete({ where: { id } });
+  await db.employee.delete({ where: { id } });
   return { success: true };
 }
 
@@ -105,7 +63,7 @@ export async function bulkCreateEmployees(
   let errors = 0;
   for (const item of items) {
     try {
-      await empDb.employee.create({
+      await db.employee.create({
         data: {
           name: item.name.trim(),
           initials: item.initials.trim().toUpperCase(),

@@ -1,7 +1,7 @@
 import { getLocale } from "next-intl/server";
 import { db } from "~/server/db";
 import { StatsClient } from "./StatsClient";
-import { getStatsPageData, type StatsDb } from "~/server/services/statistics";
+import { getStatsPageData } from "~/server/services/statistics";
 
 type SearchParams = { from?: string | string[]; to?: string | string[] };
 
@@ -15,6 +15,6 @@ export default async function StatsPage({
   const toParam = Array.isArray(resolved.to) ? resolved.to[0] : resolved.to;
 
   const locale = await getLocale();
-  const data = await getStatsPageData(db as unknown as StatsDb, fromParam, toParam, locale);
+  const data = await getStatsPageData(db, fromParam, toParam, locale);
   return <StatsClient {...data} />;
 }

@@ -8,7 +8,6 @@ import {
   buildExportData,
   renderEmployeeDrivenCsv,
   renderSiteDrivenCsv,
-  type ExportDb,
   type ExportRangeParams,
   type CsvLabels,
 } from "~/server/services/export";
@@ -49,8 +48,7 @@ export async function GET(request: Request) {
   const locale = await getLocale();
   const t = await getTranslations("Export");
 
-  const exportDb = db as unknown as ExportDb;
-  const allWeeks = await listExportWeeks(exportDb, locale);
+  const allWeeks = await listExportWeeks(db, locale);
   const weeks = resolveWeeksForRange(allWeeks, range);
 
   if (weeks.length === 0) {
@@ -58,7 +56,7 @@ export async function GET(request: Request) {
   }
 
   const { hoursPerDay } = await getCompanySettings();
-  const sheets = await buildExportData(exportDb, weeks, hoursPerDay);
+  const sheets = await buildExportData(db, weeks, hoursPerDay);
 
   const labels: CsvLabels = {
     weekPrefix: t("csvWeek"),

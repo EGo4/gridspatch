@@ -4,14 +4,6 @@ import { headers } from "next/headers";
 import { prismaRaw } from "~/server/db";
 import { auth } from "~/server/better-auth";
 
-type AuditLogDb = {
-  auditLog: {
-    create: (args: {
-      data: { action: string; model: string; path: string | null; payload: object };
-    }) => Promise<unknown>;
-  };
-};
-
 /**
  * Records a client-side mutation failure (e.g. a board edit that couldn't reach
  * the server) so it shows up next to normal audit entries instead of vanishing
@@ -34,7 +26,7 @@ export async function reportClientError(
     // best-effort context only
   }
 
-  await (prismaRaw as unknown as AuditLogDb).auditLog.create({
+  await prismaRaw.auditLog.create({
     data: {
       action: "client_error",
       model: label,

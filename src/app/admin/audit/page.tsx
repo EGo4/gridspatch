@@ -14,29 +14,6 @@ export type AuditRow = {
   payload: Prisma.JsonValue;
 };
 
-// Prisma client cast helpers — AuditLog model added post-migration
-type RawAuditLog = {
-  id: string;
-  createdAt: Date;
-  action: string;
-  model: string;
-  path: string | null;
-  payload: Prisma.JsonValue;
-};
-
-type AuditDb = {
-  auditLog: {
-    findMany: (args: object) => Promise<RawAuditLog[]>;
-    count: (args: object) => Promise<number>;
-  };
-};
-
-type AuditDistinctDb = {
-  auditLog: {
-    findMany: (args: object) => Promise<{ model: string }[]>;
-  };
-};
-
 export default async function AuditPage({
   searchParams,
 }: {
@@ -62,19 +39,16 @@ export default async function AuditPage({
     }),
   };
 
-  const auditDb = prismaRaw as unknown as AuditDb;
-  const auditDistinct = prismaRaw as unknown as AuditDistinctDb;
-
   const [logs, total, distinctModels] = await Promise.all([
-    auditDb.auditLog.findMany({
+    prismaRaw.auditLog.findMany({
       where,
       orderBy: { createdAt: "desc" },
       skip: page * PAGE_SIZE,
       take: PAGE_SIZE,
       select: { id: true, createdAt: true, action: true, model: true, path: true, payload: true },
     }),
-    auditDb.auditLog.count({ where }),
-    auditDistinct.auditLog.findMany({
+    prismaRaw.auditLog.count({ where }),
+    prismaRaw.auditLog.findMany({
       select: { model: true },
       distinct: ["model"],
       orderBy: { model: "asc" },
