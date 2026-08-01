@@ -8,6 +8,7 @@ import { DragDropContext, Droppable } from "@hello-pangea/dnd";
 import type { DragStart } from "@hello-pangea/dnd";
 
 import { EmployeeCard } from "./EmployeeCard";
+import { StatusChip } from "./StatusChip";
 import {
   getDraggableId,
   fullDayDroppableId,
@@ -39,7 +40,7 @@ import {
   toDateParam,
 } from "~/lib/week";
 import type { Assignment, Availability, BoardWeek, Employee, Holiday, Project, ProjectStatus } from "~/types";
-import { ALLOWED_TRANSITIONS, getSuperStatus } from "~/types";
+import { getSuperStatus } from "~/types";
 import { setSiteTransition } from "~/server/actions/sites";
 import { saveThemePreference } from "~/server/actions/preferences";
 import { reportClientError } from "~/server/actions/errors";
@@ -71,15 +72,6 @@ const POOL_HEIGHT_LS_KEY = "gridspatch:pool-height";
 const POOL_DEFAULT_HEIGHT = 200;
 const POOL_MIN_HEIGHT = 60;
 const POOL_MAX_HEIGHT = 600;
-
-
-const STATUS_CHIP: Record<ProjectStatus, string> = {
-  planned:  "bg-[var(--color-status-planned-bg)] text-[var(--color-status-planned-txt)]",
-  active:   "bg-[var(--color-status-active-bg)] text-[var(--color-status-active-txt)]",
-  on_hold:  "bg-[var(--color-status-hold-bg)] text-[var(--color-status-hold-txt)]",
-  done:     "bg-[var(--color-status-done-bg)] text-[var(--color-status-done-txt)]",
-  inactive: "bg-[var(--color-status-inactive-bg)] text-[var(--color-status-inactive-txt)]",
-};
 
 // ── Theme toggle ──────────────────────────────────────────────────────────────
 
@@ -140,7 +132,6 @@ export function BoardClient({
 }: BoardClientProps) {
   const router = useRouter();
   const t = useTranslations("Board");
-  const tStatus = useTranslations("Status");
   const locale = useLocale();
   const [navSidebarOpen, setNavSidebarOpen] = useState(false);
   const [assignmentsState, setAssignmentsState] = useState<Record<string, EmployeeEntry[]>>({});
@@ -1172,42 +1163,14 @@ export function BoardClient({
                           </span>
                         )}
                       </button>
-                      {/* Quick status button + popover */}
-                      <div className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          disabled={applyingStatusChange}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setStatusPopoverProjectId(statusPopoverProjectId === project.id ? null : project.id);
-                          }}
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-opacity hover:opacity-80 disabled:opacity-40 ${STATUS_CHIP[es]}`}
-                        >
-                          {tStatus(es)}
-                        </button>
-                        {statusPopoverProjectId === project.id && (
-                          <div className="absolute left-0 top-full z-30 mt-1 min-w-[130px] overflow-hidden rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] py-1 shadow-xl">
-                            <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-                              {t("transitionTo")}
-                            </div>
-                            {ALLOWED_TRANSITIONS[es].map((toStatus) => {
-                              const isCompleting = getSuperStatus(toStatus) === "completed";
-                              return (
-                                <button
-                                  key={toStatus}
-                                  type="button"
-                                  onClick={() => handleStatusTransition(project.id, toStatus)}
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
-                                >
-                                  <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${STATUS_CHIP[toStatus].split(" ")[1] ?? ""}`} />
-                                  {tStatus(toStatus)}
-                                  {isCompleting && <span className="ml-auto text-[var(--color-warn-text)]">⚠</span>}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
+                      <StatusChip
+                        project={project}
+                        status={es}
+                        isOpen={statusPopoverProjectId === project.id}
+                        onToggle={() => setStatusPopoverProjectId(statusPopoverProjectId === project.id ? null : project.id)}
+                        applying={applyingStatusChange}
+                        onTransition={handleStatusTransition}
+                      />
                     </div>
                     {!isCollapsed && (
                       <div className="flex gap-4 items-stretch">
@@ -1243,42 +1206,14 @@ export function BoardClient({
                           </span>
                         )}
                       </span>
-                      {/* Quick status button + popover */}
-                      <div className="relative flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          disabled={applyingStatusChange}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setStatusPopoverProjectId(statusPopoverProjectId === project.id ? null : project.id);
-                          }}
-                          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold transition-opacity hover:opacity-80 disabled:opacity-40 ${STATUS_CHIP[es]}`}
-                        >
-                          {tStatus(es)}
-                        </button>
-                        {statusPopoverProjectId === project.id && (
-                          <div className="absolute left-0 top-full z-30 mt-1 min-w-[130px] overflow-hidden rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] py-1 shadow-xl">
-                            <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-                              {t("transitionTo")}
-                            </div>
-                            {ALLOWED_TRANSITIONS[es].map((toStatus) => {
-                              const isCompleting = getSuperStatus(toStatus) === "completed";
-                              return (
-                                <button
-                                  key={toStatus}
-                                  type="button"
-                                  onClick={() => handleStatusTransition(project.id, toStatus)}
-                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
-                                >
-                                  <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${STATUS_CHIP[toStatus].split(" ")[1] ?? ""}`} />
-                                  {tStatus(toStatus)}
-                                  {isCompleting && <span className="ml-auto text-[var(--color-warn-text)]">⚠</span>}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
+                      <StatusChip
+                        project={project}
+                        status={es}
+                        isOpen={statusPopoverProjectId === project.id}
+                        onToggle={() => setStatusPopoverProjectId(statusPopoverProjectId === project.id ? null : project.id)}
+                        applying={applyingStatusChange}
+                        onTransition={handleStatusTransition}
+                      />
                     </div>
                   </div>
                 );
