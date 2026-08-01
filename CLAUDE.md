@@ -51,7 +51,12 @@ src/
       upload/                # employee/user image upload (POST, writes to data/uploads/)
       files/                 # employee/user image serving (GET, authenticated, from data/uploads/)
   components/
-    board/BoardClient.tsx    # drag-and-drop board logic (large, ~2.4k lines)
+    board/BoardClient.tsx    # drag-and-drop board composition + orchestration (~1.5k lines)
+    board/hooks/             # useHolidays, useAvailability, useCopy, useBoardState — see below
+    board/modals/            # one component per dialog/confirmation (comments, site picker,
+                             #   copy day/week, filter, hold/complete/past-week confirmations)
+    board/StatusChip.tsx     # status pill + transition popover (shared by two swimlane types)
+    board/DayHeaderCell.tsx  # per-day header cell: label, holiday badge, copy/holiday popovers
     board/EmployeeCard.tsx   # card + fly-out action buttons
     board/boardIds.ts        # droppable/draggable id encode + parse (pure, tested)
     board/mutationQueue.ts   # optimistic mutation queue with retry/backoff
