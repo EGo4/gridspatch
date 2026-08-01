@@ -125,6 +125,8 @@ Guards in [roles.ts](src/server/better-auth/roles.ts): `requireAdminPage()` redi
 
 PostgreSQL runs in WSL; Prisma connects via `localhost:5432` from Windows. Docker Compose + Caddy configs live in the repo root for deployment.
 
+**The runtime image has no global npm/npx/corepack.** [Dockerfile](Dockerfile)'s `runner` stage deliberately deletes them — every CVE a container scan turns up on this image lives inside npm's own bundled dependency tree (baked into `node:20-alpine`, not ours or Alpine's), and the container never invokes global npm: [docker-entrypoint.sh](docker-entrypoint.sh) only runs local `node_modules/.bin/{prisma,next}`. If a future change needs the global `npm`/`npx` binary inside the running container, that's a sign something is being done at runtime that should happen at build time instead — don't just re-add the binaries back.
+
 ## Compaction Instructions
 
 When compacting, always preserve:

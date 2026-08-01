@@ -7,28 +7,19 @@ Feature work lives in [FEATURE_ROADMAP.md](FEATURE_ROADMAP.md) — this file is 
 
 ## Where to start
 
-Items are listed in the order they should be done. The order is not arbitrary — items 3 and 4 have a hard dependency, item 6 has a safety constraint that requires items 2 and 5 to land first.
+Items are listed in the order they should be done. The order is not arbitrary — items 2 and 3 have a hard dependency, item 5 has a safety constraint that requires items 1 and 4 to land first.
 
 | # | Item | Size | Why here |
 | --- | --- | --- | --- |
-| 1 | [Base Docker image has known vulnerabilities](#1-base-docker-image-has-known-vulnerabilities) | S | Independent, cheap to check |
-| 2 | [Drop the obsolete Prisma shims](#2-the-as-unknown-as-prisma-shims-are-obsolete) | M | Highest safety-per-hour; makes item 3 possible |
-| 3 | [Server-action invariant tests](#3-no-tests-cover-assignment-invariants) | M | Needs item 2 for injectable `db` |
-| 4 | [Finish splitting BoardClient.tsx](#4-boardclienttsx-is-2434-lines) | L | Do before the roadmap's board features land here |
-| 5 | [Validate action input with Zod](#5-zod-is-a-declared-dependency-that-is-never-used) | M | Also closes the export-route auth gap noted in item 6 |
-| 6 | [Trim the middleware round-trip](#6-middleware-does-an-http-round-trip-on-every-request) | S | **Strictly last** — see its ordering constraint |
+| 1 | [Drop the obsolete Prisma shims](#1-the-as-unknown-as-prisma-shims-are-obsolete) | M | Highest safety-per-hour; makes item 2 possible |
+| 2 | [Server-action invariant tests](#2-no-tests-cover-assignment-invariants) | M | Needs item 1 for injectable `db` |
+| 3 | [Finish splitting BoardClient.tsx](#3-boardclienttsx-is-2434-lines) | L | Do before the roadmap's board features land here |
+| 4 | [Validate action input with Zod](#4-zod-is-a-declared-dependency-that-is-never-used) | M | Also closes the export-route auth gap noted in item 5 |
+| 5 | [Trim the middleware round-trip](#5-middleware-does-an-http-round-trip-on-every-request) | S | **Strictly last** — see its ordering constraint |
 
 ---
 
-## 1. Base Docker image has known vulnerabilities
-
-An IDE container scanner flagged the `node:20-alpine` base image in [Dockerfile](Dockerfile) with 2 critical and 23 high-severity vulnerabilities. That's a summary count from a linter, not a CVE list — nobody has looked at what they actually are yet.
-
-**Fix:** run a real scanner against the built image (`docker scout cves gridspatch:latest` or `trivy image gridspatch:latest`) to see what's actually flagged, then either bump to the current `node:20-alpine` patch tag (Alpine base layers get rebuilt frequently; a stale local pull is a common cause of exactly this) or move to `node:22-alpine` (Node 20 support windows are finite — worth checking where 20 sits before investing more here). Re-scan after.
-
----
-
-## 2. The `as unknown as` Prisma shims are obsolete
+## 1. The `as unknown as` Prisma shims are obsolete
 
 32 occurrences across `src/`, 14 of them in [board.ts](src/server/actions/board.ts) alone.
 
@@ -50,17 +41,17 @@ so a misspelled or restructured `where` clause compiles cleanly and only fails a
 
 **Fix:** delete the hand-written `*Db` types and use `db` directly, file by file, running `npm run typecheck` after each. Expect the compiler to surface a handful of genuine mismatches; that is the point.
 
-**While you are in there — do this for item 3:** have the board actions take the Prisma client as a parameter instead of reaching for the module-level `db`, the way [export.ts](src/server/services/export.ts) already does with its `ExportDb` type. That is what makes item 3's tests possible, and it is much cheaper to do in the same pass than as a second edit of the same functions.
+**While you are in there — do this for item 2:** have the board actions take the Prisma client as a parameter instead of reaching for the module-level `db`, the way [export.ts](src/server/services/export.ts) already does with its `ExportDb` type. That is what makes item 2's tests possible, and it is much cheaper to do in the same pass than as a second edit of the same functions.
 
 **Afterwards:** update the "Prisma type shims" convention in [CLAUDE.md](CLAUDE.md), which currently documents the casts as intentional.
 
 ---
 
-## 3. No tests cover assignment invariants
+## 2. No tests cover assignment invariants
 
 Current suite: [week-planning.test.ts](test/week-planning.test.ts), [export.test.ts](test/export.test.ts), [board-ids.test.ts](test/board-ids.test.ts), [image-upload.test.ts](test/image-upload.test.ts) — pure date, aggregation, ID-encoding and upload-validation logic. None of it touches the mutation logic where the real complexity lives.
 
-**Depends on item 2** having made the board actions accept an injectable client.
+**Depends on item 1** having made the board actions accept an injectable client.
 
 Worth covering, roughly in this order:
 
@@ -73,7 +64,7 @@ Follow the existing style: a fake `db` object literal typed to the action's para
 
 ---
 
-## 4. BoardClient.tsx is 2434 lines
+## 3. BoardClient.tsx is 2434 lines
 
 [BoardClient.tsx](src/components/board/BoardClient.tsx) holds drag-and-drop, copy day, copy week, availability, holidays, comments, filters, the site picker, the mutation queue wiring and roughly fifteen inline modals in one component.
 
@@ -83,11 +74,11 @@ The ID helpers are already out (see [boardIds.ts](src/components/board/boardIds.
 
 **Read this before starting.** `assignmentsState` is touched by nearly every handler — `assignToSite`, `markAvailability`, `clearAvailability`, `copyDay`, `splitDay`, `mergeDay`, `onDragEnd`, `applyHoliday` — all closing over `dbEmployees` / `dbProjects` / `selectedWeek` / `enqueue` / `confirmPastEdit` / `weekDates`. On top of that sit `syncPendingRef` and `skippedRebuildRef`, which exist specifically to stop a rebuild from stale server props clobbering optimistic state that has not reached the DB yet. A slipped effect dependency or a closure captured at the wrong moment surfaces as "my drag silently reverted", days later, in production.
 
-**On the safety net — be realistic:** item 3's tests cover the *server actions*, not this client-side state machine. The project has no component-test infrastructure at all (no jsdom, no Testing Library, no runner beyond `node --experimental-strip-types`), so there is no automated net for this refactor unless you add one. Your two honest options are (a) stand up a component-test setup first, or (b) budget deliberate manual QA afterwards covering every board interaction: drag between cells and days, split, merge, copy day, copy previous week, sick/vacation, both holiday types, status transitions, and the past-week confirmation path — each with the sync badge watched to confirm the queue drains. Do not do this one in a hurry.
+**On the safety net — be realistic:** item 2's tests cover the *server actions*, not this client-side state machine. The project has no component-test infrastructure at all (no jsdom, no Testing Library, no runner beyond `node --experimental-strip-types`), so there is no automated net for this refactor unless you add one. Your two honest options are (a) stand up a component-test setup first, or (b) budget deliberate manual QA afterwards covering every board interaction: drag between cells and days, split, merge, copy day, copy previous week, sick/vacation, both holiday types, status transitions, and the past-week confirmation path — each with the sync badge watched to confirm the queue drains. Do not do this one in a hurry.
 
 ---
 
-## 5. Zod is a declared dependency that is never used
+## 4. Zod is a declared dependency that is never used
 
 `zod` is in `package.json` and listed in the stack, but the only import in the whole tree is [env.js](src/env.js). Every server action takes raw client input and hands it to Prisma unvalidated:
 
@@ -97,7 +88,7 @@ The ID helpers are already out (see [boardIds.ts](src/components/board/boardIds.
 
 **Fix:** define one schema per action input, parse at the top of the action, let the parsed value flow onward. Start with the bulk-import paths — they take the least trustworthy input.
 
-**Also fix here:** [api/export/route.ts](src/app/api/export/route.ts) has **no session check of its own** — middleware is its only auth, the same pattern the upload/serve routes had before they were fixed (see the guard note in [CLAUDE.md](CLAUDE.md)). Add `requireSession()` from [roles.ts](src/server/better-auth/roles.ts) while you are adding validation to its query-parameter parsing. Item 6 cannot safely land until this is done.
+**Also fix here:** [api/export/route.ts](src/app/api/export/route.ts) has **no session check of its own** — middleware is its only auth, the same pattern the upload/serve routes had before they were fixed (see the guard note in [CLAUDE.md](CLAUDE.md)). Add `requireSession()` from [roles.ts](src/server/better-auth/roles.ts) while you are adding validation to its query-parameter parsing. Item 5 cannot safely land until this is done.
 
 **While you're touching every action for validation, do one more pass for the class of bug already found twice in this codebase** (see the "`use server`" note in [CLAUDE.md](CLAUDE.md)): every exported function in a `"use server"` file is independently callable, regardless of which page imports it or what that page's guard checks. Skim every action module for one that assumes a page-level guard protects it and doesn't check for itself.
 
@@ -105,7 +96,7 @@ Until this item is finished, the "Validation: Zod" line in [CLAUDE.md](CLAUDE.md
 
 ---
 
-## 6. Middleware does an HTTP round-trip on every request
+## 5. Middleware does an HTTP round-trip on every request
 
 [middleware.ts](src/middleware.ts) calls `betterFetch("/api/auth/get-session")` against `http://localhost:${PORT}` for every non-static request, so each navigation costs an extra internal HTTP call plus a DB lookup.
 
@@ -113,9 +104,9 @@ Better Auth's recommended shape is an optimistic cookie-presence check in middle
 
 **Ordering constraint — this is why the item is last.** A cookie-*presence* check is spoofable: any value passes. Middleware is currently the *only* auth for two things, so weakening it before they are fixed leaves them open to anyone who sets a cookie:
 
-- [api/export/route.ts](src/app/api/export/route.ts) — no check of its own (see item 5)
+- [api/export/route.ts](src/app/api/export/route.ts) — no check of its own (see item 4)
 - [board.ts](src/server/actions/board.ts) — deliberately relies on middleware alone; see the note in [CLAUDE.md](CLAUDE.md). If middleware stops being a real check, that decision must be revisited and `requireSession()` added there after all.
 
-So: item 5 first, then re-decide `board.ts`, then this.
+So: item 4 first, then re-decide `board.ts`, then this.
 
 Also note the hardcoded `http://localhost:${PORT}` base URL — worth confirming it behaves under the Docker Compose + Caddy setup in the repo root.

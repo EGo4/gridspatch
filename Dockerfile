@@ -22,6 +22,14 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
+# The base image bundles a global npm/npx/corepack that this container never
+# uses — the entrypoint only runs local node_modules/.bin/{prisma,next}. That
+# bundle is also where every CVE flagged in this image lives (npm's own
+# dependency tree, not ours or Alpine's); removing it fixes the scan and
+# trims ~16 MB, without waiting on an upstream base-image patch.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
+
 RUN addgroup --system --gid 1001 nodejs && \
     adduser --system --uid 1001 nextjs
 
