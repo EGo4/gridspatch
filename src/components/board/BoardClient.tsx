@@ -21,7 +21,10 @@ import {
 } from "./boardIds";
 import { SyringeIcon, PalmTreeIcon, CopyIcon, AssignSiteIcon, FilterIcon, GearIcon } from "~/components/icons";
 import { Sidebar } from "~/components/Sidebar";
-import { updateAssignment, splitAssignment, mergeAssignment, copyDayAssignments, copyWeekAssignments, setAvailability as persistAvailability, clearAvailability as unpersistAvailability, clearProjectAssignmentsForWeek, setHoliday as persistHoliday, clearHoliday as unpersistHoliday } from "~/server/actions/board";
+import { updateAssignment, splitAssignment, mergeAssignment, clearProjectAssignmentsForWeek } from "~/server/actions/board";
+import { useHolidays } from "./hooks/useHolidays";
+import { useAvailability } from "./hooks/useAvailability";
+import { useCopy } from "./hooks/useCopy";
 import { DAYS } from "~/lib/constants";
 import {
   getCurrentWeekStart,
@@ -31,22 +34,16 @@ import {
   getWeekDateMap,
   toDateParam,
 } from "~/lib/week";
-import type { Assignment, Availability, BoardWeek, DayPart, Employee, Holiday, HolidayType, Project, ProjectStatus } from "~/types";
+import type { Assignment, Availability, BoardWeek, DayPart, Employee, Holiday, Project, ProjectStatus } from "~/types";
 import { ALLOWED_TRANSITIONS, getSuperStatus } from "~/types";
 import { setSiteTransition } from "~/server/actions/sites";
 import { saveThemePreference } from "~/server/actions/preferences";
 import { reportClientError } from "~/server/actions/errors";
 import { listComments, addComment, deleteComment, type EmployeeDayCommentDto } from "~/server/actions/comments";
 import { useMutationQueue } from "./mutationQueue";
+import type { AvailabilityStatus, EmployeeEntry } from "./types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-
-type AvailabilityStatus = "sick" | "vacation";
-
-type EmployeeEntry = {
-  employee: Employee;
-  dayPart: DayPart;
-};
 
 interface BoardClientProps {
   dbProjects: Project[];
@@ -151,7 +148,6 @@ export function BoardClient({
   const [draggingDay, setDraggingDay] = useState<string | null>(null);
   const [draggingDayPart, setDraggingDayPart] = useState<DayPart | null>(null);
   const [openCardId, setOpenCardId] = useState<string | null>(null);
-  const [availability, setAvailability] = useState<Record<string, AvailabilityStatus>>({});
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   const [commentsFor, setCommentsFor] = useState<{ employeeId: string; day: string } | null>(null);
   const [commentsList, setCommentsList] = useState<EmployeeDayCommentDto[] | null>(null);
@@ -159,7 +155,6 @@ export function BoardClient({
   const [commentSaving, setCommentSaving] = useState(false);
   const [commentError, setCommentError] = useState(false);
   const [collapsedRows, setCollapsedRows] = useState<Set<string> | null>(null);
-  const [copyPopoverDay, setCopyPopoverDay] = useState<string | null>(null);
   const [sitePickerFor, setSitePickerFor] = useState<{
     employeeId: string;
     day: string;
@@ -171,7 +166,6 @@ export function BoardClient({
   const [sideMenuOpen, setSideMenuOpen] = useState(false);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [pendingManagerId, setPendingManagerId] = useState<string | null>(null);
-  const [copyWeekModalOpen, setCopyWeekModalOpen] = useState(false);
   const sitePickerRef = useRef<HTMLDivElement>(null);
   const poolOverlayRef = useRef<HTMLDivElement>(null);
   const poolHeightRef = useRef(POOL_DEFAULT_HEIGHT);
@@ -265,86 +259,36 @@ export function BoardClient({
       new Date(weekDates[day as keyof typeof weekDates] ?? "1970-01-05"),
     );
 
+  // ── Availability (sick / vacation) ───────────────────────────────────────
+
+  const { availability, setAvailability, markAvailability, clearAvailability } = useAvailability({
+    dbEmployees,
+    weekDates,
+    weekId: selectedWeek.id,
+    enqueue,
+    confirmPastEdit,
+    setAssignmentsState,
+    setOpenCardId,
+  });
+
   // ── Holiday state ─────────────────────────────────────────────────────────
 
-  const [holidays, setHolidays] = useState<Record<string, HolidayType>>(() => {
-    const map: Record<string, HolidayType> = {};
-    for (const h of dbHolidays) map[h.dateIso] = h.type;
-    return map;
+  const {
+    holidayPopoverDay,
+    setHolidayPopoverDay,
+    getHolidayType,
+    isPublicHoliday,
+    applyHoliday,
+    removeHoliday,
+  } = useHolidays({
+    dbHolidays,
+    dbEmployees,
+    weekDates,
+    weekId: selectedWeek.id,
+    enqueue,
+    setAssignmentsState,
+    setAvailability,
   });
-  const [holidayPopoverDay, setHolidayPopoverDay] = useState<string | null>(null);
-
-  const getHolidayType = (day: string): HolidayType | null => {
-    const dateIso = weekDates[day as keyof typeof weekDates];
-    return dateIso ? (holidays[dateIso] ?? null) : null;
-  };
-  const isPublicHoliday = (day: string) => getHolidayType(day) === "public_holiday";
-
-  const applyHoliday = (day: string, type: HolidayType) => {
-    const dateIso = weekDates[day as keyof typeof weekDates];
-    if (!dateIso) return;
-
-    setHolidays((prev) => ({ ...prev, [dateIso]: type }));
-
-    if (type === "company_holiday") {
-      // Clear all project assignments for this day + move everyone to vacation
-      setAssignmentsState((prev) => {
-        const next = { ...prev };
-        for (const key of Object.keys(next)) {
-          if (key.includes(`-${day}`) && !key.startsWith("pool-")) next[key] = [];
-        }
-        next[poolFullDayId(day)] = [];
-        return next;
-      });
-      setAvailability((prev) => {
-        const next = { ...prev };
-        for (const emp of dbEmployees) next[`${emp.id}-${day}`] = "vacation";
-        return next;
-      });
-      const weekId = selectedWeek.id;
-      const employeeIds = dbEmployees.map((e) => e.id);
-      enqueue("setHoliday", () => persistHoliday(dateIso, weekId, type, employeeIds).then(() => router.refresh()));
-    } else {
-      // public_holiday: clear assignments + availability for this day
-      setAssignmentsState((prev) => {
-        const next = { ...prev };
-        for (const key of Object.keys(next)) {
-          if (key.includes(`-${day}`)) next[key] = [];
-        }
-        return next;
-      });
-      setAvailability((prev) => {
-        const next = { ...prev };
-        for (const key of Object.keys(next)) {
-          if (key.endsWith(`-${day}`)) delete next[key];
-        }
-        return next;
-      });
-      const weekId = selectedWeek.id;
-      enqueue("setHoliday", () => persistHoliday(dateIso, weekId, type, []).then(() => router.refresh()));
-    }
-  };
-
-  const removeHoliday = (day: string) => {
-    const dateIso = weekDates[day as keyof typeof weekDates];
-    if (!dateIso) return;
-    const previousType = holidays[dateIso];
-    if (!previousType) return;
-
-    setHolidays((prev) => { const next = { ...prev }; delete next[dateIso]; return next; });
-
-    if (previousType === "company_holiday") {
-      setAvailability((prev) => {
-        const next = { ...prev };
-        for (const key of Object.keys(next)) {
-          if (key.endsWith(`-${day}`)) delete next[key];
-        }
-        return next;
-      });
-    }
-
-    enqueue("clearHoliday", () => unpersistHoliday(dateIso, previousType).then(() => router.refresh()));
-  };
 
   // ── Close day dropdown on outside click or Escape ────────────────────────
   useEffect(() => {
@@ -370,20 +314,7 @@ export function BoardClient({
       document.removeEventListener("click", handleClick);
       document.removeEventListener("keydown", handleKey);
     };
-  }, [holidayPopoverDay]);
-
-  // ── Close copy popover on outside click or Escape ─────────────────────────
-  useEffect(() => {
-    if (!copyPopoverDay) return;
-    const handleClick = () => setCopyPopoverDay(null);
-    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") setCopyPopoverDay(null); };
-    document.addEventListener("click", handleClick);
-    document.addEventListener("keydown", handleKey);
-    return () => {
-      document.removeEventListener("click", handleClick);
-      document.removeEventListener("keydown", handleKey);
-    };
-  }, [copyPopoverDay]);
+  }, [holidayPopoverDay, setHolidayPopoverDay]);
 
   // ── Persist collapsed rows to localStorage ────────────────────────────────
   useEffect(() => {
@@ -580,14 +511,6 @@ export function BoardClient({
   const effectiveStatus = (project: Project): ProjectStatus =>
     ((weekStatusMap[project.id] ?? project.status) as ProjectStatus);
 
-  // ── Previous week (for copy-week feature) ────────────────────────────────
-  const previousWeek = React.useMemo(() => {
-    const selectedStart = new Date(selectedWeek.startDateIso).getTime();
-    return weeks.find((w) => new Date(w.startDateIso).getTime() < selectedStart) ?? null;
-  }, [weeks, selectedWeek.startDateIso]);
-
-  const targetWeekHasAssignments = dbAssignments.some((a) => a.projectId !== null);
-
   // ── Active filter label ───────────────────────────────────────────────────
   const activeManagerName = filterManagerId
     ? (managersWithSites.find((m) => m.id === filterManagerId)?.name ?? null)
@@ -746,138 +669,34 @@ export function BoardClient({
   const toggleOpenCard = (cardId: string) =>
     setOpenCardId((prev) => (prev === cardId ? null : cardId));
 
-  // ── Availability (sick / vacation) ───────────────────────────────────────
+  // ── Copy day / copy previous week ──────────────────────────────────────────
 
-  const markAvailability = (employeeId: string, day: string, status: AvailabilityStatus) => {
-    confirmPastEdit(() => {
-      setAvailability((prev) => ({ ...prev, [`${employeeId}-${day}`]: status }));
-      setAssignmentsState((prev) => {
-        const next = { ...prev };
-        for (const key of Object.keys(next)) {
-          if (getDayFromDroppableId(key) === day) {
-            next[key] = (next[key] ?? []).filter((e) => e.employee.id !== employeeId);
-          }
-        }
-        return next;
-      });
-      setOpenCardId(null);
-      const dateIso = weekDates[day as keyof typeof weekDates];
-      if (dateIso) {
-        const weekId = selectedWeek.id;
-        enqueue("persistAvailability", () => persistAvailability(employeeId, dateIso, weekId, status));
-      }
-    });
-  };
-
-  const clearAvailability = (employeeId: string, day: string) => {
-    const employee = dbEmployees.find((e) => e.id === employeeId);
-    confirmPastEdit(() => {
-      setAvailability((prev) => { const next = { ...prev }; delete next[`${employeeId}-${day}`]; return next; });
-      if (employee) {
-        setAssignmentsState((prev) => ({
-          ...prev,
-          [poolFullDayId(day)]: [...(prev[poolFullDayId(day)] ?? []), { employee, dayPart: "full_day" }],
-        }));
-      }
-      const dateIso = weekDates[day as keyof typeof weekDates];
-      if (dateIso) enqueue("unpersistAvailability", () => unpersistAvailability(employeeId, dateIso));
-    });
-  };
-
-  // ── Copy day ──────────────────────────────────────────────────────────────
-
-  const [dayCopyConfirm, setDayCopyConfirm] = useState<{ sourceDay: string; targetDay: string } | null>(null);
-
-  const dayHasAssignments = (day: string) =>
-    dbProjects.some(
-      (project) =>
-        (assignmentsState[fullDayDroppableId(project.id, day)] ?? []).length > 0 ||
-        (assignmentsState[preLunchDroppableId(project.id, day)] ?? []).length > 0 ||
-        (assignmentsState[afterLunchDroppableId(project.id, day)] ?? []).length > 0,
-    );
-
-  // Gate before overwriting: only prompt when the target day already has
-  // assignments that would be lost — mirrors the week-copy warning.
-  const requestCopyDay = (sourceDay: string, targetDay: string) => {
-    setCopyPopoverDay(null);
-    if (dayHasAssignments(targetDay)) {
-      setDayCopyConfirm({ sourceDay, targetDay });
-    } else {
-      copyDay(sourceDay, targetDay);
-    }
-  };
-
-  const copyDay = (sourceDay: string, targetDay: string) => {
-    confirmPastEdit(() => {
-    setAssignmentsState((prev) => {
-      const next = { ...prev };
-
-      // Clear all project cells for the target day.
-      dbProjects.forEach((project) => {
-        next[fullDayDroppableId(project.id, targetDay)]    = [];
-        next[preLunchDroppableId(project.id, targetDay)]   = [];
-        next[afterLunchDroppableId(project.id, targetDay)] = [];
-      });
-
-      // Copy each project cell from source to target.
-      dbProjects.forEach((project) => {
-        next[fullDayDroppableId(project.id, targetDay)]    = [...(prev[fullDayDroppableId(project.id, sourceDay)]    ?? [])];
-        next[preLunchDroppableId(project.id, targetDay)]   = [...(prev[preLunchDroppableId(project.id, sourceDay)]   ?? [])];
-        next[afterLunchDroppableId(project.id, targetDay)] = [...(prev[afterLunchDroppableId(project.id, sourceDay)] ?? [])];
-      });
-
-      // Rebuild the pool for the target day: anyone not in a project cell and
-      // not marked sick/vacation goes back to the pool.
-      const assignedInTarget = new Set<string>();
-      dbProjects.forEach((project) => {
-        [
-          fullDayDroppableId(project.id, targetDay),
-          preLunchDroppableId(project.id, targetDay),
-          afterLunchDroppableId(project.id, targetDay),
-        ].forEach((cellId) => {
-          (next[cellId] ?? []).forEach((e) => assignedInTarget.add(e.employee.id));
-        });
-      });
-
-      const unavailableInTarget = new Set(
-        Object.keys(availability)
-          .filter((key) => key.endsWith(`-${targetDay}`))
-          .map((key) => key.slice(0, -(targetDay.length + 1))),
-      );
-
-      next[poolFullDayId(targetDay)] = dbEmployees
-        .filter((e) => !assignedInTarget.has(e.id) && !unavailableInTarget.has(e.id))
-        .map((e) => ({ employee: e, dayPart: "full_day" as DayPart }));
-
-      return next;
-    });
-
-      setCopyPopoverDay(null);
-      const sourceDateIso = weekDates[sourceDay as keyof typeof weekDates];
-      const targetDateIso = weekDates[targetDay as keyof typeof weekDates];
-      if (sourceDateIso && targetDateIso) {
-        const weekId = selectedWeek.id;
-        enqueue("copyDayAssignments", () => copyDayAssignments(sourceDateIso, targetDateIso, weekId));
-      }
-    });
-  };
-
-  // ── Copy previous week ───────────────────────────────────────────────────
-
-  const copyPreviousWeek = () => {
-    if (!previousWeek) return;
-    confirmPastEdit(() => {
-      setCopyWeekModalOpen(false);
-      setSideMenuOpen(false);
-      const { id: sourceWeekId, startDateIso: sourceStartIso } = previousWeek;
-      const { id: targetWeekId, startDateIso: targetStartIso } = selectedWeek;
-      enqueue("copyWeekAssignments", () =>
-        copyWeekAssignments(sourceWeekId, targetWeekId, sourceStartIso, targetStartIso).then(() => {
-          router.refresh();
-        }),
-      );
-    });
-  };
+  const {
+    copyPopoverDay,
+    setCopyPopoverDay,
+    dayCopyConfirm,
+    setDayCopyConfirm,
+    copyWeekModalOpen,
+    setCopyWeekModalOpen,
+    previousWeek,
+    targetWeekHasAssignments,
+    requestCopyDay,
+    copyDay,
+    copyPreviousWeek,
+  } = useCopy({
+    dbProjects,
+    dbEmployees,
+    dbAssignments,
+    weeks,
+    selectedWeek,
+    weekDates,
+    assignmentsState,
+    setAssignmentsState,
+    availability,
+    enqueue,
+    confirmPastEdit,
+    setSideMenuOpen,
+  });
 
   // ── Split day ─────────────────────────────────────────────────────────────
   // Only allowed from project cells (pool cards don't have a split button).
