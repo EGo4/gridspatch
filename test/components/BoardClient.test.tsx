@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 
 import { BoardClient } from "~/components/board/BoardClient";
 import { getWeekDateMap, toDateParam } from "~/lib/week";
+import { DAYS } from "~/lib/constants";
 import type { Assignment, Availability, BoardWeek, Employee, Project } from "~/types";
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
@@ -55,8 +56,11 @@ vi.mock("~/server/actions/board", () => ({
   clearHoliday: boardActions.clearHoliday,
 }));
 
-vi.mock("~/server/actions/sites", () => ({
+const siteActions = vi.hoisted(() => ({
   setSiteTransition: vi.fn().mockResolvedValue({ success: true }),
+}));
+vi.mock("~/server/actions/sites", () => ({
+  setSiteTransition: siteActions.setSiteTransition,
 }));
 vi.mock("~/server/actions/preferences", () => ({
   saveThemePreference: vi.fn().mockResolvedValue({ success: true }),
@@ -133,8 +137,25 @@ const halfCell = (projectId: string, day: string, half: "pre" | "post") =>
 const cardOf = (scope: HTMLElement, name: string) =>
   within(scope).getByText(name).closest("[data-rfd-draggable-id]") as HTMLElement;
 
+// Mirrors the next-intl mock above: title/text built from t(key, params).
+const tp = (key: string, params: Record<string, unknown>) => `${key}:${JSON.stringify(params)}`;
+
+// The holiday gear button's title has no per-day param, so all five (one per
+// day) are identical strings — disambiguate by DOM order, which follows
+// DAYS.map's fixed Monday..Friday order.
+const holidayGearButton = (day: (typeof DAYS)[number]) => {
+  const buttons = document.querySelectorAll('[title="holidaySettings"]');
+  return buttons[DAYS.indexOf(day)] as HTMLElement;
+};
+
+// The mobile day-selector pill also renders the active day's name as a
+// button ("Monday" by default), so source-day picks in the copy popover
+// must be scoped to the popover itself, not queried document-wide.
+const copyFromPopover = () => within(document.body).getByText("copyFrom").parentElement as HTMLElement;
+
 beforeEach(() => {
   vi.clearAllMocks();
+  localStorage.clear();
 });
 
 describe("BoardClient", () => {
@@ -230,4 +251,250 @@ describe("BoardClient", () => {
       expect(routerRefresh).toHaveBeenCalled();
     },
   );
+
+  it(
+    "reorders cards within the same cell via the keyboard drag sensor " +
+      "(cross-list drag-and-drop is not covered — see note below)",
+    async () => {
+      // @hello-pangea/dnd's keyboard sensor (Space to lift, arrow keys to move,
+      // Space to drop) works here for same-list reordering, which needs no real
+      // layout. Moving a card BETWEEN droppables (the actual "assign via drag"
+      // feature) does not: the library picks the target droppable using real
+      // getBoundingClientRect measurements, which jsdom always reports as
+      // zero-sized, so cross-list movement silently does nothing in this
+      // environment. That gap needs either per-droppable rect mocking or a
+      // real browser (Playwright) — tracked as a follow-up, not covered here.
+      render(<BoardClient {...baseProps} />);
+      const monday = poolCell("Monday");
+      const handle = within(monday).getByText("Alice").closest("[data-rfd-drag-handle-draggable-id]") as HTMLElement;
+
+      handle.focus();
+      handle.dispatchEvent(new KeyboardEvent("keydown", { keyCode: 32, bubbles: true }));
+      await new Promise((r) => setTimeout(r, 20));
+      handle.dispatchEvent(new KeyboardEvent("keydown", { keyCode: 40, bubbles: true })); // ArrowDown
+      await new Promise((r) => setTimeout(r, 20));
+      handle.dispatchEvent(new KeyboardEvent("keydown", { keyCode: 32, bubbles: true }));
+      await new Promise((r) => setTimeout(r, 20));
+
+      const order = [...within(monday).getAllByText(/^(Alice|Bob)$/)].map((el) => el.textContent);
+      expect(order).toEqual(["Bob", "Alice"]);
+    },
+  );
+});
+
+describe("BoardClient — copy day", () => {
+  it("copies immediately when the target day has no existing assignments", async () => {
+    const dbAssignments: Assignment[] = [
+      { employeeId: "e1", projectId: "p1", date: new Date(weekDates.Monday), weekId: "week-1", dayPart: "full_day" },
+    ];
+    const user = userEvent.setup();
+    render(<BoardClient {...baseProps} dbAssignments={dbAssignments} />);
+
+    await user.click(within(document.body).getByTitle(tp("copyAssignmentsTo", { day: "Tuesday" })));
+    await user.click(within(copyFromPopover()).getByRole("button", { name: "Monday" }));
+
+    expect(boardActions.copyDayAssignments).toHaveBeenCalledWith(weekDates.Monday, weekDates.Tuesday, "week-1");
+    expect(within(projectCell("p1", "Tuesday")).getByText("Alice")).toBeInTheDocument();
+    // Source day is unaffected.
+    expect(within(projectCell("p1", "Monday")).getByText("Alice")).toBeInTheDocument();
+  });
+
+  it("asks for confirmation before overwriting a target day that already has assignments", async () => {
+    const dbAssignments: Assignment[] = [
+      { employeeId: "e1", projectId: "p1", date: new Date(weekDates.Monday), weekId: "week-1", dayPart: "full_day" },
+      { employeeId: "e2", projectId: "p1", date: new Date(weekDates.Tuesday), weekId: "week-1", dayPart: "full_day" },
+    ];
+    const user = userEvent.setup();
+    render(<BoardClient {...baseProps} dbAssignments={dbAssignments} />);
+
+    await user.click(within(document.body).getByTitle(tp("copyAssignmentsTo", { day: "Tuesday" })));
+    await user.click(within(copyFromPopover()).getByRole("button", { name: "Monday" }));
+
+    expect(boardActions.copyDayAssignments).not.toHaveBeenCalled();
+    expect(document.body).toHaveTextContent("dayCopyTitle");
+
+    await user.click(within(document.body).getByRole("button", { name: "copy" }));
+
+    expect(boardActions.copyDayAssignments).toHaveBeenCalledWith(weekDates.Monday, weekDates.Tuesday, "week-1");
+    expect(within(projectCell("p1", "Tuesday")).getByText("Alice")).toBeInTheDocument();
+    expect(within(projectCell("p1", "Tuesday")).queryByText("Bob")).not.toBeInTheDocument();
+  });
+});
+
+describe("BoardClient — copy previous week", () => {
+  it("shows the copy-week modal via the side menu and persists on confirm", async () => {
+    const priorWeekDates = getWeekDateMap(toDateParam(new Date(new Date(WEEK_START).getTime() - 7 * 86400000)));
+    const previousWeek: BoardWeek = {
+      id: "week-0",
+      startDateIso: priorWeekDates.Monday,
+      endDateIso: priorWeekDates.Friday,
+      param: toDateParam(priorWeekDates.Monday),
+      label: "prior week",
+      isCurrent: false,
+    };
+
+    const user = userEvent.setup();
+    render(<BoardClient {...baseProps} weeks={[previousWeek, selectedWeek]} />);
+
+    // Two elements share the "openMenu" title (mobile hamburger + the
+    // floating side-menu toggle); the side-menu one is the second in the DOM.
+    await user.click(document.querySelectorAll('[title="openMenu"]')[1] as HTMLElement);
+    await user.click(within(document.body).getByText("copyPrevWeek"));
+
+    expect(document.body).toHaveTextContent("copyWeekTitle");
+    await user.click(within(document.body).getByRole("button", { name: "copy" }));
+
+    expect(boardActions.copyWeekAssignments).toHaveBeenCalledWith(
+      "week-0",
+      "week-1",
+      previousWeek.startDateIso,
+      selectedWeek.startDateIso,
+    );
+  });
+});
+
+describe("BoardClient — holidays", () => {
+  it("applying a public holiday clears that day's assignments and shows the badge", async () => {
+    const dbAssignments: Assignment[] = [
+      { employeeId: "e1", projectId: "p1", date: new Date(weekDates.Tuesday), weekId: "week-1", dayPart: "full_day" },
+    ];
+    const user = userEvent.setup();
+    render(<BoardClient {...baseProps} dbAssignments={dbAssignments} />);
+
+    await user.click(holidayGearButton("Tuesday"));
+    await user.click(within(document.body).getByText("setPublicHoliday"));
+
+    expect(boardActions.setHoliday).toHaveBeenCalledWith(weekDates.Tuesday, "week-1", "public_holiday", []);
+    expect(within(projectCell("p1", "Tuesday")).queryByText("Alice")).not.toBeInTheDocument();
+    expect(document.body).toHaveTextContent("publicHoliday");
+  });
+
+  it("applying a company holiday sends every employee and clears the whole day including the pool", async () => {
+    const user = userEvent.setup();
+    render(<BoardClient {...baseProps} />);
+
+    await user.click(holidayGearButton("Wednesday"));
+    await user.click(within(document.body).getByText("setCompanyHoliday"));
+
+    expect(boardActions.setHoliday).toHaveBeenCalledWith(weekDates.Wednesday, "week-1", "company_holiday", ["e1", "e2"]);
+    expect(within(poolCell("Wednesday")).queryByText("Alice")).not.toBeInTheDocument();
+    expect(within(poolCell("Wednesday")).queryByText("Bob")).not.toBeInTheDocument();
+    expect(document.body).toHaveTextContent("companyHoliday");
+  });
+
+  it("clearing a holiday removes the badge and persists the clear", async () => {
+    const user = userEvent.setup();
+    render(<BoardClient {...baseProps} dbHolidays={[{ dateIso: weekDates.Thursday, type: "public_holiday" }]} />);
+
+    expect(document.body).toHaveTextContent("publicHoliday");
+    await user.click(holidayGearButton("Thursday"));
+    await user.click(within(document.body).getByText("clearHoliday"));
+
+    expect(boardActions.clearHoliday).toHaveBeenCalledWith(weekDates.Thursday, "public_holiday");
+    expect(document.body).not.toHaveTextContent("publicHoliday");
+  });
+});
+
+describe("BoardClient — status transitions", () => {
+  it("applies a transition immediately when it doesn't touch existing assignments", async () => {
+    const user = userEvent.setup();
+    render(<BoardClient {...baseProps} />); // p1 is "active", no assignments
+
+    await user.click(within(document.body).getByText("active")); // status chip
+    await user.click(within(document.body).getByText("on_hold")); // transition option
+
+    expect(siteActions.setSiteTransition).toHaveBeenCalledWith("p1", selectedWeek.param, "on_hold");
+    expect(boardActions.clearProjectAssignmentsForWeek).not.toHaveBeenCalled();
+    expect(document.body).not.toHaveTextContent("holdTitle");
+  });
+
+  it("confirms before putting a project with existing assignments on hold, then clears them", async () => {
+    const dbAssignments: Assignment[] = [
+      { employeeId: "e1", projectId: "p1", date: new Date(weekDates.Monday), weekId: "week-1", dayPart: "full_day" },
+    ];
+    const user = userEvent.setup();
+    render(<BoardClient {...baseProps} dbAssignments={dbAssignments} />);
+
+    await user.click(within(document.body).getByText("active"));
+    await user.click(within(document.body).getByText("on_hold"));
+
+    expect(siteActions.setSiteTransition).not.toHaveBeenCalled();
+    expect(document.body).toHaveTextContent("holdTitle");
+
+    await user.click(within(document.body).getByText("putOnHold"));
+
+    expect(siteActions.setSiteTransition).toHaveBeenCalledWith("p1", selectedWeek.param, "on_hold");
+    expect(boardActions.clearProjectAssignmentsForWeek).toHaveBeenCalledWith("p1", "week-1");
+  });
+
+  it("confirms before marking a project done, warns about assignment count, and applies on confirm", async () => {
+    const dbAssignments: Assignment[] = [
+      { employeeId: "e1", projectId: "p1", date: new Date(weekDates.Monday), weekId: "week-1", dayPart: "full_day" },
+    ];
+    const user = userEvent.setup();
+    render(<BoardClient {...baseProps} dbAssignments={dbAssignments} />);
+
+    await user.click(within(document.body).getByText("active"));
+    await user.click(within(document.body).getByText("done"));
+
+    expect(siteActions.setSiteTransition).not.toHaveBeenCalled();
+    expect(document.body).toHaveTextContent("completeWarn");
+
+    await user.click(within(document.body).getByText("apply"));
+
+    expect(siteActions.setSiteTransition).toHaveBeenCalledWith("p1", selectedWeek.param, "done", true);
+  });
+});
+
+describe("BoardClient — past-week edits", () => {
+  // confirmPastEdit() compares selectedWeek.startDateIso against real new Date(),
+  // so this fixture must be dated before whenever the test actually runs.
+  const pastWeekDates = getWeekDateMap("2020-01-06T00:00:00.000Z");
+  const pastWeek: BoardWeek = {
+    id: "past-week",
+    startDateIso: pastWeekDates.Monday,
+    endDateIso: pastWeekDates.Friday,
+    param: toDateParam(pastWeekDates.Monday),
+    label: "past week",
+    isCurrent: false,
+  };
+  const pastProps = { ...baseProps, selectedWeek: pastWeek, weeks: [pastWeek] };
+
+  it("defers a mutation behind a confirmation modal, then runs it once confirmed", async () => {
+    const user = userEvent.setup();
+    render(<BoardClient {...pastProps} />);
+
+    const monday = poolCell("Monday");
+    await user.click(within(monday).getByText("Alice"));
+    await user.click(within(cardOf(monday, "Alice")).getByTitle("markAsSick"));
+
+    // Nothing happened yet — the edit is parked behind the modal.
+    expect(boardActions.setAvailability).not.toHaveBeenCalled();
+    expect(within(poolCell("Monday")).getByText("Alice")).toBeInTheDocument();
+    expect(document.body).toHaveTextContent("pastWeekTitle");
+
+    await user.click(within(document.body).getByText("pastWeekConfirm"));
+
+    expect(boardActions.setAvailability).toHaveBeenCalledWith("e1", pastWeekDates.Monday, "past-week", "sick");
+    expect(within(poolCell("Monday")).queryByText("Alice")).not.toBeInTheDocument();
+  });
+
+  it("muting past-week warnings lets a later edit in the same week run immediately", async () => {
+    const user = userEvent.setup();
+    render(<BoardClient {...pastProps} />);
+
+    const monday = poolCell("Monday");
+    await user.click(within(monday).getByText("Alice"));
+    await user.click(within(cardOf(monday, "Alice")).getByTitle("markAsSick"));
+    await user.click(within(document.body).getByText("pastWeekMute"));
+
+    expect(boardActions.setAvailability).toHaveBeenCalledWith("e1", pastWeekDates.Monday, "past-week", "sick");
+
+    // Second edit, same session: no modal this time.
+    await user.click(within(monday).getByText("Bob"));
+    await user.click(within(cardOf(monday, "Bob")).getByTitle("markAsVacation"));
+
+    expect(document.body).not.toHaveTextContent("pastWeekTitle");
+    expect(boardActions.setAvailability).toHaveBeenCalledWith("e2", pastWeekDates.Monday, "past-week", "vacation");
+  });
 });
