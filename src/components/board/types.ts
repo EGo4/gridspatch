@@ -11,3 +11,11 @@ export type EmployeeEntry = {
   employee: Employee;
   dayPart: DayPart;
 };
+
+export type SitePickerTarget = {
+  employeeId: string;
+  day: string;
+  sourceCellId: string;
+  left: number;
+  top: number;
+};

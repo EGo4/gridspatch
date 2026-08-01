@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
+import React, { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -10,19 +10,26 @@ import type { DragStart } from "@hello-pangea/dnd";
 import { EmployeeCard } from "./EmployeeCard";
 import {
   getDraggableId,
-  getProjectIdFromDroppableId,
   fullDayDroppableId,
   preLunchDroppableId,
   afterLunchDroppableId,
   poolFullDayId,
 } from "./boardIds";
-import { SyringeIcon, PalmTreeIcon, CopyIcon, AssignSiteIcon, FilterIcon, GearIcon } from "~/components/icons";
+import { SyringeIcon, PalmTreeIcon, CopyIcon, FilterIcon, GearIcon } from "~/components/icons";
 import { Sidebar } from "~/components/Sidebar";
 import { clearProjectAssignmentsForWeek } from "~/server/actions/board";
 import { useHolidays } from "./hooks/useHolidays";
 import { useAvailability } from "./hooks/useAvailability";
 import { useCopy } from "./hooks/useCopy";
 import { useBoardState } from "./hooks/useBoardState";
+import { SitePickerPopover } from "./modals/SitePickerPopover";
+import { CommentsDialog } from "./modals/CommentsDialog";
+import { CopyWeekModal } from "./modals/CopyWeekModal";
+import { DayCopyConfirmModal } from "./modals/DayCopyConfirmModal";
+import { FilterModal } from "./modals/FilterModal";
+import { HoldConfirmModal } from "./modals/HoldConfirmModal";
+import { CompleteConfirmModal } from "./modals/CompleteConfirmModal";
+import { PastWeekModal } from "./modals/PastWeekModal";
 import { DAYS } from "~/lib/constants";
 import {
   getCurrentWeekStart,
@@ -38,7 +45,7 @@ import { saveThemePreference } from "~/server/actions/preferences";
 import { reportClientError } from "~/server/actions/errors";
 import { listComments, addComment, deleteComment, type EmployeeDayCommentDto } from "~/server/actions/comments";
 import { useMutationQueue } from "./mutationQueue";
-import type { AvailabilityStatus, EmployeeEntry } from "./types";
+import type { AvailabilityStatus, EmployeeEntry, SitePickerTarget } from "./types";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -134,7 +141,6 @@ export function BoardClient({
   const router = useRouter();
   const t = useTranslations("Board");
   const tStatus = useTranslations("Status");
-  const tCommon = useTranslations("Common");
   const locale = useLocale();
   const [navSidebarOpen, setNavSidebarOpen] = useState(false);
   const [assignmentsState, setAssignmentsState] = useState<Record<string, EmployeeEntry[]>>({});
@@ -149,18 +155,11 @@ export function BoardClient({
   const [commentSaving, setCommentSaving] = useState(false);
   const [commentError, setCommentError] = useState(false);
   const [collapsedRows, setCollapsedRows] = useState<Set<string> | null>(null);
-  const [sitePickerFor, setSitePickerFor] = useState<{
-    employeeId: string;
-    day: string;
-    sourceCellId: string;
-    left: number;
-    top: number;
-  } | null>(null);
+  const [sitePickerFor, setSitePickerFor] = useState<SitePickerTarget | null>(null);
   const [filterManagerId, setFilterManagerId] = useState<string | null>(null);
   const [sideMenuOpen, setSideMenuOpen] = useState(false);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [pendingManagerId, setPendingManagerId] = useState<string | null>(null);
-  const sitePickerRef = useRef<HTMLDivElement>(null);
   const poolOverlayRef = useRef<HTMLDivElement>(null);
   const poolHeightRef = useRef(POOL_DEFAULT_HEIGHT);
   const [statusPopoverProjectId, setStatusPopoverProjectId] = useState<string | null>(null);
@@ -509,14 +508,6 @@ export function BoardClient({
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
   }, [filterModalOpen]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ── Position site picker via CSS custom properties ───────────────────────
-  useLayoutEffect(() => {
-    if (!sitePickerRef.current || !sitePickerFor) return;
-    const el = sitePickerRef.current;
-    el.style.setProperty("--picker-left", `${Math.min(sitePickerFor.left, window.innerWidth - 196)}px`);
-    el.style.setProperty("--picker-bottom", `${window.innerHeight - sitePickerFor.top + 8}px`);
-  }, [sitePickerFor]);
 
   // ── Close status popover on outside click or Escape ─────────────────────
   useEffect(() => {
@@ -1560,470 +1551,82 @@ export function BoardClient({
     )}
 
     {/* Site picker — fixed overlay, pops up above the "assign to site" button */}
-    {sitePickerFor && (
-      <div
-        ref={sitePickerRef}
-        onClick={(e) => e.stopPropagation()}
-        className="site-picker z-[100] min-w-[180px] overflow-hidden rounded-xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] py-1 shadow-2xl"
-      >
-        <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-          {t("assignToSite")}
-        </div>
-        {dbProjects
-          .filter((p) => effectiveStatus(p) !== "on_hold")
-          .map((project) => {
-            const isCurrent = getProjectIdFromDroppableId(sitePickerFor.sourceCellId) === project.id;
-            return (
-              <button
-                key={project.id}
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  assignToSite(sitePickerFor.employeeId, sitePickerFor.day, project.id, sitePickerFor.sourceCellId);
-                }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
-              >
-                <AssignSiteIcon size={12} className="flex-shrink-0 text-[var(--color-text-muted)]" />
-                <span className="flex-1 truncate">{project.name}</span>
-                {isCurrent && (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0 text-accent">
-                    <path d="M20 6L9 17l-5-5" />
-                  </svg>
-                )}
-              </button>
-            );
-          })}
-      </div>
-    )}
+    <SitePickerPopover
+      sitePickerFor={sitePickerFor}
+      projects={dbProjects.filter((p) => effectiveStatus(p) !== "on_hold")}
+      onAssign={assignToSite}
+    />
 
     {/* Comments dialog */}
-    {commentsFor && (
-      <>
-        <div className="fixed inset-0 z-40 bg-black/60" onClick={closeComments} />
-        <div
-          className="fixed left-1/2 top-1/2 z-50 w-96 max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] shadow-2xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
-            <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
-              {t("commentsTitle", { name: dbEmployees.find((e) => e.id === commentsFor.employeeId)?.name ?? "" })}
-            </h3>
-            <button
-              type="button"
-              onClick={closeComments}
-              title={tCommon("close")}
-              className="flex items-center rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="max-h-80 overflow-y-auto px-5 py-4 flex flex-col gap-3">
-            {commentsList === null ? (
-              <p className="text-xs text-[var(--color-text-muted)]">…</p>
-            ) : commentsList.length === 0 ? (
-              <p className="text-xs text-[var(--color-text-muted)]">{t("commentsEmpty")}</p>
-            ) : (
-              commentsList.map((c) => (
-                <div key={c.id} className="flex items-start justify-between gap-2 rounded-lg bg-[var(--color-bg-hover)] px-3 py-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs text-[var(--color-text-primary)] whitespace-pre-wrap break-words">{c.text}</p>
-                    <p className="mt-1 text-[10px] text-[var(--color-text-muted)]">
-                      {c.authorName} · {new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(new Date(c.createdAtIso))}
-                    </p>
-                  </div>
-                  {c.canDelete && (
-                    <button
-                      type="button"
-                      onClick={() => removeComment(c.id)}
-                      title={t("deleteComment")}
-                      className="flex-shrink-0 rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="3 6 5 6 21 6" />
-                        <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                        <path d="M10 11v6" /><path d="M14 11v6" />
-                        <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                      </svg>
-                    </button>
-                  )}
-                </div>
-              ))
-            )}
-            {commentError && <p className="text-xs text-red-500">{t("commentError")}</p>}
-          </div>
-
-          <div className="flex items-center gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4">
-            <input
-              type="text"
-              value={commentDraft}
-              onChange={(e) => setCommentDraft(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") submitComment(); }}
-              placeholder={t("commentsPlaceholder")}
-              className="flex-1 min-w-0 rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] px-3 py-2 text-xs text-[var(--color-text-primary)] outline-none focus:border-accent"
-            />
-            <button
-              type="button"
-              onClick={submitComment}
-              disabled={commentSaving || !commentDraft.trim()}
-              className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white transition-colors hover:opacity-90 disabled:opacity-50"
-            >
-              {t("addComment")}
-            </button>
-          </div>
-        </div>
-      </>
-    )}
+    <CommentsDialog
+      commentsFor={commentsFor}
+      employeeName={dbEmployees.find((e) => e.id === commentsFor?.employeeId)?.name ?? ""}
+      commentsList={commentsList}
+      commentDraft={commentDraft}
+      onDraftChange={setCommentDraft}
+      commentSaving={commentSaving}
+      commentError={commentError}
+      locale={locale}
+      onClose={closeComments}
+      onSubmit={submitComment}
+      onRemove={removeComment}
+    />
 
     {/* Copy previous week confirmation modal */}
-    {copyWeekModalOpen && previousWeek && (
-      <>
-        <div
-          className="fixed inset-0 z-40 bg-black/60"
-          onClick={() => setCopyWeekModalOpen(false)}
-        />
-        <div
-          className="fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] shadow-2xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
-            <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("copyWeekTitle")}</h3>
-            <button
-              type="button"
-              onClick={() => setCopyWeekModalOpen(false)}
-              title={tCommon("close")}
-              className="flex items-center rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Body */}
-          <div className="px-5 py-4 flex flex-col gap-3">
-            <p className="text-sm text-[var(--color-text-secondary)]">
-              {t("copyWeekBody", { from: previousWeek.label, to: selectedWeek.label })}
-            </p>
-
-            {targetWeekHasAssignments && (
-              <div className="flex items-start gap-2 rounded-lg border border-[var(--color-warn-border)] bg-[var(--color-warn-bg)] px-3 py-2.5 text-xs text-[var(--color-warn-text)]">
-                <svg className="mt-0.5 flex-shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                  <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-                {t("copyWeekWarn")}
-              </div>
-            )}
-
-            <p className="text-xs text-[var(--color-text-muted)]">
-              {t("copyWeekNote")}
-            </p>
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4">
-            <button
-              type="button"
-              onClick={() => setCopyWeekModalOpen(false)}
-              className="rounded-lg px-4 py-2 text-xs font-semibold text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
-            >
-              {t("cancel")}
-            </button>
-            <button
-              type="button"
-              onClick={() => void copyPreviousWeek()}
-              className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white transition-colors hover:opacity-90"
-            >
-              {t("copy")}
-            </button>
-          </div>
-        </div>
-      </>
-    )}
+    <CopyWeekModal
+      open={copyWeekModalOpen}
+      previousWeek={previousWeek}
+      selectedWeekLabel={selectedWeek.label}
+      targetWeekHasAssignments={targetWeekHasAssignments}
+      onClose={() => setCopyWeekModalOpen(false)}
+      onConfirm={() => void copyPreviousWeek()}
+    />
 
     {/* Day-copy overwrite confirmation — only shown when the target day already has assignments */}
-    {dayCopyConfirm && (
-      <>
-        <div
-          className="fixed inset-0 z-40 bg-black/60"
-          onClick={() => setDayCopyConfirm(null)}
-        />
-        <div
-          className="fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] shadow-2xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
-            <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("dayCopyTitle")}</h3>
-            <button
-              type="button"
-              onClick={() => setDayCopyConfirm(null)}
-              title={tCommon("close")}
-              className="flex items-center rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="px-5 py-4 flex flex-col gap-3">
-            <p className="text-sm text-[var(--color-text-secondary)]">
-              {t("dayCopyBody", { from: dayLabel(dayCopyConfirm.sourceDay), to: dayLabel(dayCopyConfirm.targetDay) })}
-            </p>
-            <div className="flex items-start gap-2 rounded-lg border border-[var(--color-warn-border)] bg-[var(--color-warn-bg)] px-3 py-2.5 text-xs text-[var(--color-warn-text)]">
-              <svg className="mt-0.5 flex-shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-              </svg>
-              {t("dayCopyWarn", { day: dayLabel(dayCopyConfirm.targetDay) })}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4">
-            <button
-              type="button"
-              onClick={() => setDayCopyConfirm(null)}
-              className="rounded-lg px-4 py-2 text-xs font-semibold text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]"
-            >
-              {t("cancel")}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                copyDay(dayCopyConfirm.sourceDay, dayCopyConfirm.targetDay);
-                setDayCopyConfirm(null);
-              }}
-              className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white transition-colors hover:opacity-90"
-            >
-              {t("copy")}
-            </button>
-          </div>
-        </div>
-      </>
-    )}
+    <DayCopyConfirmModal
+      confirm={dayCopyConfirm}
+      dayLabel={dayLabel}
+      onCancel={() => setDayCopyConfirm(null)}
+      onConfirm={(sourceDay, targetDay) => {
+        copyDay(sourceDay, targetDay);
+        setDayCopyConfirm(null);
+      }}
+    />
 
     {/* Filter modal */}
-    {filterModalOpen && (
-      <>
-        {/* Backdrop */}
-        <div
-          className="fixed inset-0 z-40 bg-black/60"
-          onClick={() => setFilterModalOpen(false)}
-        />
-
-        {/* Dialog */}
-        <div
-          className="fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] shadow-2xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
-            <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("filtersTitle")}</h3>
-            <button
-              type="button"
-              onClick={() => setFilterModalOpen(false)}
-              title={tCommon("close")}
-              className="flex items-center rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Section: Construction manager */}
-          <div className="px-5 py-4">
-            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
-              {t("filterManager")}
-            </div>
-            <div className="flex flex-col gap-1">
-              <button
-                type="button"
-                onClick={() => setPendingManagerId(null)}
-                className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
-                  pendingManagerId === null
-                    ? "bg-[var(--color-nav-active-bg)] text-accent"
-                    : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]"
-                }`}
-              >
-                {t("allManagers")}
-              </button>
-              {managersWithSites.length === 0 ? (
-                <p className="px-3 py-2 text-sm text-[var(--color-text-faint)]">{t("noManagers")}</p>
-              ) : (
-                managersWithSites.map((m) => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => setPendingManagerId(m.id)}
-                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
-                      pendingManagerId === m.id
-                        ? "bg-[var(--color-nav-active-bg)] text-accent"
-                        : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]"
-                    }`}
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
-                    </svg>
-                    {m.name}
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-between border-t border-[var(--color-border-subtle)] px-5 py-4">
-            <button
-              type="button"
-              onClick={() => setPendingManagerId(null)}
-              className="text-xs text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-secondary)]"
-            >
-              {t("clearAll")}
-            </button>
-            <button
-              type="button"
-              onClick={() => { setFilterManagerId(pendingManagerId); setFilterModalOpen(false); }}
-              className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white transition-colors hover:opacity-90"
-            >
-              {t("apply")}
-            </button>
-          </div>
-        </div>
-      </>
-    )}
+    <FilterModal
+      open={filterModalOpen}
+      managersWithSites={managersWithSites}
+      pendingManagerId={pendingManagerId}
+      onSelectManager={setPendingManagerId}
+      onApply={() => { setFilterManagerId(pendingManagerId); setFilterModalOpen(false); }}
+      onClose={() => setFilterModalOpen(false)}
+    />
 
     {/* On-hold confirmation modal — warns that assignments will be removed */}
-    {holdingTransition && (() => {
-      const project = dbProjects.find((p) => p.id === holdingTransition.projectId);
-      return (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/60" onClick={() => setHoldingTransition(null)} />
-          <div
-            className="fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
-              <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("holdTitle")}</h3>
-              <button type="button" title={tCommon("close")} onClick={() => setHoldingTransition(null)}
-                className="flex items-center rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-            <div className="px-5 py-4 flex flex-col gap-3">
-              <p className="text-sm text-[var(--color-text-secondary)]">
-                {t("holdBody", { name: project?.name ?? "" })}
-              </p>
-              <div className="flex items-start gap-2 rounded-lg border border-[var(--color-warn-border)] bg-[var(--color-warn-bg)] px-3 py-2.5 text-xs text-[var(--color-warn-text)]">
-                <svg className="mt-0.5 flex-shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                  <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-                {t("holdWarn", { count: holdingTransition.assignmentCount })}
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4">
-              <button type="button" onClick={() => setHoldingTransition(null)}
-                className="rounded-lg px-4 py-2 text-xs font-semibold text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]">
-                {t("cancel")}
-              </button>
-              <button type="button" onClick={() => void handleConfirmHold()} disabled={applyingStatusChange}
-                className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
-                {applyingStatusChange ? t("applying") : t("putOnHold")}
-              </button>
-            </div>
-          </div>
-        </>
-      );
-    })()}
+    <HoldConfirmModal
+      transition={holdingTransition}
+      projectName={dbProjects.find((p) => p.id === holdingTransition?.projectId)?.name}
+      applying={applyingStatusChange}
+      onCancel={() => setHoldingTransition(null)}
+      onConfirm={() => void handleConfirmHold()}
+    />
 
     {/* Complete site confirmation modal */}
-    {completingTransition && (() => {
-      const project = dbProjects.find((p) => p.id === completingTransition.projectId);
-      return (
-        <>
-          <div className="fixed inset-0 z-40 bg-black/60" onClick={() => setCompletingTransition(null)} />
-          <div
-            className="fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-[var(--color-border-subtle)] bg-[var(--color-bg-overlay)] shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-[var(--color-border-subtle)] px-5 py-4">
-              <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">
-                {t("markAsTitle", { status: tStatus(completingTransition.status) })}
-              </h3>
-              <button type="button" title={tCommon("close")} onClick={() => setCompletingTransition(null)}
-                className="flex items-center rounded p-1 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-            <div className="px-5 py-4 flex flex-col gap-3">
-              <p className="text-sm text-[var(--color-text-secondary)]">
-                {t("completeBody", { name: project?.name ?? "" })}
-              </p>
-              {completingTransition.assignmentCount > 0 && (
-                <div className="flex items-start gap-2 rounded-lg border border-[var(--color-warn-border)] bg-[var(--color-warn-bg)] px-3 py-2.5 text-xs text-[var(--color-warn-text)]">
-                  <svg className="mt-0.5 flex-shrink-0" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                    <line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
-                  </svg>
-                  {t("completeWarn", { count: completingTransition.assignmentCount })}
-                </div>
-              )}
-            </div>
-            <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4">
-              <button type="button" onClick={() => setCompletingTransition(null)}
-                className="rounded-lg px-4 py-2 text-xs font-semibold text-[var(--color-text-secondary)] transition-colors hover:text-[var(--color-text-primary)]">
-                {t("cancel")}
-              </button>
-              <button type="button" onClick={() => void handleConfirmComplete()} disabled={applyingStatusChange}
-                className="rounded-lg bg-accent px-4 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50">
-                {applyingStatusChange ? t("applying") : t("apply")}
-              </button>
-            </div>
-          </div>
-        </>
-      );
-    })()}
+    <CompleteConfirmModal
+      transition={completingTransition}
+      projectName={dbProjects.find((p) => p.id === completingTransition?.projectId)?.name}
+      applying={applyingStatusChange}
+      onCancel={() => setCompletingTransition(null)}
+      onConfirm={() => void handleConfirmComplete()}
+    />
 
-{showPastWeekModal && (
-      <>
-        <div className="fixed inset-0 z-40 bg-black/50" onClick={() => { setShowPastWeekModal(false); setPendingAction(null); }} />
-        <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-xl border border-[var(--color-warn-border)] bg-[var(--color-bg-overlay)] p-6 shadow-2xl">
-          <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-[var(--color-warn-text)]">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
-              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-            </svg>
-            {t("pastWeekTitle")}
-          </div>
-          <p className="mb-5 text-xs text-[var(--color-text-secondary)]">
-            {t("pastWeekBody")}
-          </p>
-          <div className="flex flex-col gap-2">
-            <button type="button" onClick={() => executePending(false)}
-              className="w-full rounded-lg bg-[var(--color-warn-text)] px-4 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90">
-              {t("pastWeekConfirm")}
-            </button>
-            <button type="button" onClick={() => executePending(true)}
-              className="w-full rounded-lg border border-[var(--color-warn-border)] bg-[var(--color-warn-bg)] px-4 py-2 text-xs font-medium text-[var(--color-warn-text)] transition-colors hover:opacity-90">
-              {t("pastWeekMute")}
-            </button>
-            <button type="button" onClick={() => { setShowPastWeekModal(false); setPendingAction(null); }}
-              className="w-full rounded-lg px-4 py-2 text-xs text-[var(--color-text-muted)] transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]">
-              {t("cancel")}
-            </button>
-          </div>
-        </div>
-      </>
-    )}
+    <PastWeekModal
+      open={showPastWeekModal}
+      onConfirm={() => executePending(false)}
+      onMute={() => executePending(true)}
+      onCancel={() => { setShowPastWeekModal(false); setPendingAction(null); }}
+    />
 
   </DragDropContext>
   );
