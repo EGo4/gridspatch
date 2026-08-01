@@ -415,7 +415,15 @@ function SortIcon({ dir }: { dir: SortDir }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function EmployeesClient({ employees: initialEmployees }: { employees: Employee[] }) {
+export function EmployeesClient({
+  employees: initialEmployees,
+  years,
+  employeeYears,
+}: {
+  employees: Employee[];
+  years: number[];
+  employeeYears: Record<string, number[]>;
+}) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const t = useTranslations("Employees");
@@ -430,6 +438,7 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
 
   const [sortKey, setSortKey] = useState<EmpSortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>(null);
+  const [yearFilter, setYearFilter] = useState<number | "all">("all");
 
   const [importMenuOpen, setImportMenuOpen] = useState(false);
   const [listImportOpen, setListImportOpen] = useState(false);
@@ -458,7 +467,11 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
     else { setSortKey(null); setSortDir(null); }
   };
 
-  const sortedEmployees = [...initialEmployees].sort((a, b) => {
+  const yearFilteredEmployees = yearFilter === "all"
+    ? initialEmployees
+    : initialEmployees.filter((e) => (employeeYears[e.id] ?? []).includes(yearFilter));
+
+  const sortedEmployees = [...yearFilteredEmployees].sort((a, b) => {
     if (!sortKey || !sortDir) return 0;
     const va = (a[sortKey] ?? "").toLowerCase();
     const vb = (b[sortKey] ?? "").toLowerCase();
@@ -623,6 +636,18 @@ export function EmployeesClient({ employees: initialEmployees }: { employees: Em
           <h1 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("title")}</h1>
 
           <div className="ml-auto flex items-center gap-2">
+            <select
+              value={yearFilter}
+              onChange={(e) => setYearFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
+              aria-label={tCommon("yearFilterLabel")}
+              className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] px-2 py-1.5 text-xs text-[var(--color-text-secondary)] focus:outline-none"
+            >
+              <option value="all">{tCommon("allYears")}</option>
+              {years.map((year) => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+
             <div className="relative">
               <button
                 ref={importBtnRef}

@@ -4,10 +4,11 @@ import { listConstructionManagers } from "~/server/actions/users";
 import type { ProjectStatus } from "~/types";
 import { toDateParam } from "~/lib/week";
 import { requireSessionPage } from "~/server/better-auth/roles";
+import { getActivityYears } from "~/server/services/activityYears";
 
 export default async function SitesPage() {
   await requireSessionPage();
-  const [rows, managers] = await Promise.all([
+  const [rows, managers, activityYears] = await Promise.all([
     db.project.findMany({
       orderBy: { name: "asc" },
       include: {
@@ -16,6 +17,7 @@ export default async function SitesPage() {
       },
     }),
     listConstructionManagers(),
+    getActivityYears(db),
   ]);
 
   const todayIso = toDateParam(new Date());
@@ -41,5 +43,12 @@ export default async function SitesPage() {
     };
   });
 
-  return <SitesClient sites={sites} managers={managers} />;
+  return (
+    <SitesClient
+      sites={sites}
+      managers={managers}
+      years={activityYears.years}
+      siteYears={activityYears.projectYears}
+    />
+  );
 }

@@ -1,6 +1,6 @@
 // src/components/board/modals/FilterModal.tsx
 //
-// Filters the board's project swimlanes down to one construction manager.
+// Filters the board's project swimlanes by construction manager and/or a year of activity.
 
 import { useTranslations } from "next-intl";
 
@@ -11,11 +11,26 @@ type FilterModalProps = {
   managersWithSites: Manager[];
   pendingManagerId: string | null;
   onSelectManager: (id: string | null) => void;
+  years: number[];
+  pendingYear: number | null;
+  onSelectYear: (year: number | null) => void;
   onApply: () => void;
+  onClearAll: () => void;
   onClose: () => void;
 };
 
-export function FilterModal({ open, managersWithSites, pendingManagerId, onSelectManager, onApply, onClose }: FilterModalProps) {
+export function FilterModal({
+  open,
+  managersWithSites,
+  pendingManagerId,
+  onSelectManager,
+  years,
+  pendingYear,
+  onSelectYear,
+  onApply,
+  onClearAll,
+  onClose,
+}: FilterModalProps) {
   const t = useTranslations("Board");
   const tCommon = useTranslations("Common");
 
@@ -87,11 +102,45 @@ export function FilterModal({ open, managersWithSites, pendingManagerId, onSelec
           </div>
         </div>
 
+        {/* Section: Year */}
+        <div className="border-t border-[var(--color-border-subtle)] px-5 py-4">
+          <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+            {tCommon("yearFilterLabel")}
+          </div>
+          <div className="flex flex-wrap gap-1">
+            <button
+              type="button"
+              onClick={() => onSelectYear(null)}
+              className={`rounded-lg px-3 py-1.5 text-left text-sm font-medium transition-colors ${
+                pendingYear === null
+                  ? "bg-[var(--color-nav-active-bg)] text-accent"
+                  : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]"
+              }`}
+            >
+              {tCommon("allYears")}
+            </button>
+            {years.map((year) => (
+              <button
+                key={year}
+                type="button"
+                onClick={() => onSelectYear(year)}
+                className={`rounded-lg px-3 py-1.5 text-left text-sm font-medium transition-colors ${
+                  pendingYear === year
+                    ? "bg-[var(--color-nav-active-bg)] text-accent"
+                    : "text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-surface)] hover:text-[var(--color-text-primary)]"
+                }`}
+              >
+                {year}
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-[var(--color-border-subtle)] px-5 py-4">
           <button
             type="button"
-            onClick={() => onSelectManager(null)}
+            onClick={onClearAll}
             className="text-xs text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-secondary)]"
           >
             {t("clearAll")}

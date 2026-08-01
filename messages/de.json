@@ -22,7 +22,9 @@
     "photoHint": "JPEG, PNG, WebP · max. 5 MB",
     "preview": "Vorschau",
     "errorPhotoUpload": "Foto-Upload fehlgeschlagen",
-    "errorGeneric": "Etwas ist schiefgelaufen"
+    "errorGeneric": "Etwas ist schiefgelaufen",
+    "yearFilterLabel": "Jahr",
+    "allYears": "Alle Jahre"
   },
   "Status": {
     "planned": "Geplant",

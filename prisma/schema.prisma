@@ -154,6 +154,7 @@ model Assignment {
 
   @@unique([employeeId, date, dayPart])
   @@index([weekId, date])
+  @@index([projectId, date])
 }
 
 model Availability {

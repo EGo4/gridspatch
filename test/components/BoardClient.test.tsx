@@ -120,6 +120,8 @@ const baseProps = {
   weekStatusMap: {},
   selectedWeek,
   weeks: [selectedWeek],
+  years: [] as number[],
+  projectYears: {} as Record<string, number[]>,
 };
 
 const poolCell = (day: string) => document.querySelector(`[data-rfd-droppable-id="pool-${day}"]`) as HTMLElement;

@@ -62,12 +62,17 @@ interface BoardClientProps {
   weekStatusMap: Record<string, string>;
   selectedWeek: BoardWeek;
   weeks: BoardWeek[];
+  /** Years with at least one assignment anywhere, newest first. */
+  years: number[];
+  /** projectId -> years that project had at least one assignment in. */
+  projectYears: Record<string, number[]>;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const COLLAPSED_LS_KEY  = "gridspatch:collapsed-rows";
 const FILTER_MANAGER_KEY = "gridspatch:filter-manager";
+const FILTER_YEAR_KEY = "gridspatch:filter-year";
 const PAST_WEEK_MUTE_KEY = "gridspatch:past-week-mute-until";
 const POOL_HEIGHT_LS_KEY = "gridspatch:pool-height";
 const POOL_DEFAULT_HEIGHT = 200;
@@ -130,6 +135,8 @@ export function BoardClient({
   weekStatusMap,
   selectedWeek,
   weeks,
+  years,
+  projectYears,
 }: BoardClientProps) {
   const router = useRouter();
   const t = useTranslations("Board");
@@ -149,9 +156,11 @@ export function BoardClient({
   const [collapsedRows, setCollapsedRows] = useState<Set<string> | null>(null);
   const [sitePickerFor, setSitePickerFor] = useState<SitePickerTarget | null>(null);
   const [filterManagerId, setFilterManagerId] = useState<string | null>(null);
+  const [filterYear, setFilterYear] = useState<number | null>(null);
   const [sideMenuOpen, setSideMenuOpen] = useState(false);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [pendingManagerId, setPendingManagerId] = useState<string | null>(null);
+  const [pendingYear, setPendingYear] = useState<number | null>(null);
   const poolOverlayRef = useRef<HTMLDivElement>(null);
   const poolHeightRef = useRef(POOL_DEFAULT_HEIGHT);
   const [statusPopoverProjectId, setStatusPopoverProjectId] = useState<string | null>(null);
@@ -424,6 +433,11 @@ export function BoardClient({
   useEffect(() => {
     const stored = localStorage.getItem(FILTER_MANAGER_KEY);
     if (stored) setFilterManagerId(stored);
+    const storedYear = localStorage.getItem(FILTER_YEAR_KEY);
+    if (storedYear) {
+      const y = Number(storedYear);
+      if (!isNaN(y)) setFilterYear(y);
+    }
   }, []);
 
   // ── Persist filter to localStorage ───────────────────────────────────────
@@ -434,6 +448,14 @@ export function BoardClient({
       localStorage.removeItem(FILTER_MANAGER_KEY);
     }
   }, [filterManagerId]);
+
+  useEffect(() => {
+    if (filterYear !== null) {
+      localStorage.setItem(FILTER_YEAR_KEY, String(filterYear));
+    } else {
+      localStorage.removeItem(FILTER_YEAR_KEY);
+    }
+  }, [filterYear]);
 
   // ── Pool height — hydrate from localStorage ───────────────────────────────
   useEffect(() => {
@@ -496,6 +518,7 @@ export function BoardClient({
   useEffect(() => {
     if (!filterModalOpen) return;
     setPendingManagerId(filterManagerId);
+    setPendingYear(filterYear);
     const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") setFilterModalOpen(false); };
     document.addEventListener("keydown", handleKey);
     return () => document.removeEventListener("keydown", handleKey);
@@ -533,11 +556,17 @@ export function BoardClient({
   const activeManagerName = filterManagerId
     ? (managersWithSites.find((m) => m.id === filterManagerId)?.name ?? null)
     : null;
+  const isFilterActive = filterManagerId !== null || filterYear !== null;
+  const activeFilterLabel = activeManagerName && filterYear !== null
+    ? `${activeManagerName} · ${filterYear}`
+    : (activeManagerName ?? (filterYear !== null ? String(filterYear) : null));
 
   // ── Filtered projects ─────────────────────────────────────────────────────
-  const visibleProjects = filterManagerId
-    ? dbProjects.filter((p) => p.constructionManagerId === filterManagerId)
-    : dbProjects;
+  const visibleProjects = dbProjects.filter((p) => {
+    if (filterManagerId && p.constructionManagerId !== filterManagerId) return false;
+    if (filterYear !== null && !(projectYears[p.id] ?? []).includes(filterYear)) return false;
+    return true;
+  });
 
   // ── Card toggle ───────────────────────────────────────────────────────────
 
@@ -1226,20 +1255,20 @@ export function BoardClient({
                     type="button"
                     onClick={() => { setSideMenuOpen(false); setFilterModalOpen(true); }}
                     className={`flex h-10 items-center gap-1.5 rounded-lg px-3.5 text-xs font-medium shadow-md transition-colors ${
-                      filterManagerId
+                      isFilterActive
                         ? "bg-accent text-white"
                         : "bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
                     }`}
                   >
                     <FilterIcon size={14} />
-                    {activeManagerName ?? t("filter")}
+                    {activeFilterLabel ?? t("filter")}
                   </button>
 
                   {/* Reset — only when a filter is active */}
-                  {filterManagerId && (
+                  {isFilterActive && (
                     <button
                       type="button"
-                      onClick={() => setFilterManagerId(null)}
+                      onClick={() => { setFilterManagerId(null); setFilterYear(null); }}
                       title={t("clearFilter")}
                       className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] shadow-md transition-colors hover:bg-[var(--color-border-subtle)] hover:text-[var(--color-text-primary)]"
                     >
@@ -1257,7 +1286,7 @@ export function BoardClient({
                 onClick={() => setSideMenuOpen((o) => !o)}
                 title={sideMenuOpen ? t("closeMenu") : t("openMenu")}
                 className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg shadow-md transition-colors ${
-                  filterManagerId
+                  isFilterActive
                     ? "bg-accent text-white"
                     : "bg-[var(--color-border-subtle)] text-[var(--color-text-secondary)] hover:bg-[var(--color-border-muted)] hover:text-[var(--color-text-primary)]"
                 }`}
@@ -1431,7 +1460,11 @@ export function BoardClient({
       managersWithSites={managersWithSites}
       pendingManagerId={pendingManagerId}
       onSelectManager={setPendingManagerId}
-      onApply={() => { setFilterManagerId(pendingManagerId); setFilterModalOpen(false); }}
+      years={years}
+      pendingYear={pendingYear}
+      onSelectYear={setPendingYear}
+      onApply={() => { setFilterManagerId(pendingManagerId); setFilterYear(pendingYear); setFilterModalOpen(false); }}
+      onClearAll={() => { setPendingManagerId(null); setPendingYear(null); }}
       onClose={() => setFilterModalOpen(false)}
     />
 

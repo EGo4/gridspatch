@@ -830,7 +830,17 @@ function SiteJsonImportPanel({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; managers: Manager[] }) {
+export function SitesClient({
+  sites: initialSites,
+  managers,
+  years,
+  siteYears,
+}: {
+  sites: Site[];
+  managers: Manager[];
+  years: number[];
+  siteYears: Record<string, number[]>;
+}) {
   const router = useRouter();
   const t = useTranslations("Sites");
   const tCommon = useTranslations("Common");
@@ -843,6 +853,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
 
   const [sortKey, setSortKey] = useState<SiteSortKey | null>(null);
   const [sortDir, setSortDir] = useState<SiteSortDir>(null);
+  const [yearFilter, setYearFilter] = useState<number | "all">("all");
 
   const handleSort = (key: SiteSortKey) => {
     if (sortKey !== key) { setSortKey(key); setSortDir("asc"); }
@@ -850,9 +861,14 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
     else { setSortKey(null); setSortDir(null); }
   };
 
+  const yearFilteredSites = useMemo(() => {
+    if (yearFilter === "all") return sites;
+    return sites.filter((s) => (siteYears[s.id] ?? []).includes(yearFilter));
+  }, [sites, yearFilter, siteYears]);
+
   const sortedSites = useMemo(() => {
-    if (!sortKey || !sortDir) return sites;
-    return [...sites].sort((a, b) => {
+    if (!sortKey || !sortDir) return yearFilteredSites;
+    return [...yearFilteredSites].sort((a, b) => {
       let va: string | number = "";
       let vb: string | number = "";
       if (sortKey === "startDate" || sortKey === "endDate") {
@@ -864,7 +880,7 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
       vb = (sortKey === "manager" ? (b.constructionManagerName ?? "") : (b[sortKey as keyof Site] as string | null) ?? "").toLowerCase();
       return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
     });
-  }, [sites, sortKey, sortDir]);
+  }, [yearFilteredSites, sortKey, sortDir]);
 
   const [formOpen, setFormOpen] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -1127,6 +1143,19 @@ export function SitesClient({ sites: initialSites, managers }: { sites: Site[]; 
         <h1 className="text-sm font-semibold text-[var(--color-text-primary)]">{t("title")}</h1>
 
         <div className="ml-auto flex items-center gap-2">
+          {/* Year filter */}
+          <select
+            value={yearFilter}
+            onChange={(e) => setYearFilter(e.target.value === "all" ? "all" : Number(e.target.value))}
+            aria-label={tCommon("yearFilterLabel")}
+            className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-page)] px-2 py-1.5 text-xs text-[var(--color-text-secondary)] focus:outline-none"
+          >
+            <option value="all">{tCommon("allYears")}</option>
+            {years.map((year) => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
+
           {/* Import dropdown */}
           <div className="relative">
             <button
