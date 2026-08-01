@@ -24,7 +24,9 @@ Planned work lives in [FEATURE_ROADMAP.md](FEATURE_ROADMAP.md) — check it befo
 npm run dev          # start dev server (Turbopack)
 npm run check        # lint + typecheck — run this before calling work done
 npm run typecheck    # tsc --noEmit only
-npm run test         # runs test/week-planning.test.ts + test/export.test.ts
+npm run test         # runs every test/*.test.ts via node --experimental-strip-types, then test:components
+npm run test:components         # vitest run — component tests under test/components/*.test.tsx (jsdom + RTL)
+npm run test:components:watch   # same, in watch mode
 npm run db:seed      # re-seed after a reset
 npm run db:studio    # Prisma Studio
 
@@ -122,6 +124,13 @@ Guards in [roles.ts](src/server/better-auth/roles.ts): `requireAdminPage()` redi
 **Board cell ids.** All in [boardIds.ts](src/components/board/boardIds.ts): droppable ids are built by `fullDayDroppableId(projectId, day)` / `preLunchDroppableId` / `afterLunchDroppableId` / `poolFullDayId(day)`, and parsed back with `getProjectIdFromDroppableId` / `getDayPartFromDroppableId`. Never hand-assemble these strings. That module imports by relative path (not the `~/` alias) so the tests can load it under `node --experimental-strip-types`.
 
 **Past-week edits** go through `confirmPastEdit(...)`, which asks the user before mutating a week that has already passed.
+
+**Component tests run on a second, separate test runner.** The `test/*.test.ts` files loaded by `node --experimental-strip-types` (pure logic, no DOM) can't render React components — there's no JSX transform and no `document`. `test/components/*.test.tsx` files instead run under Vitest + jsdom + React Testing Library (`vitest.config.ts`, setup in `test/components/setup.ts`), wired in as `npm run test:components` and chained onto the end of `npm run test`. Keep pure-logic tests in `test/*.test.ts` and component tests in `test/components/*.test.tsx` — don't move one runner's tests into the other's directory. Things that bit us setting this up, worth knowing before adding more:
+
+- `@hello-pangea/dnd` renders its drag attributes as `data-rfd-*` (its own fork prefix), not `data-rbd-*` — query droppables/draggables in tests via `[data-rfd-droppable-id="..."]` / `[data-rfd-draggable-id="..."]`.
+- Vitest has no Jest-style auto-registration for React Testing Library's cleanup; without `afterEach(cleanup)` in `setup.ts`, every `render()` in a file leaves its tree in `document.body` and a later `document.querySelector` in the same file can silently match a *previous* test's stale, empty element instead of the current render's.
+- CSS classes that hide inactive days (`hidden`, `lg:flex`) do nothing in jsdom — no stylesheet is loaded — so every day column and every unassigned employee's pool card across all five days are simultaneously present in the DOM. Scope queries to one day/cell's container (via its `data-rfd-droppable-id`) rather than querying by employee name alone.
+- Fixture weeks must resolve to a date **after** the real system clock, not just after some fictional "today" — `confirmPastEdit()` compares `selectedWeek.startDateIso` against `getCurrentWeekStart()`, which calls real `new Date()`. A fixture dated in the actual past silently routes every mutation through the past-week confirmation modal instead of running it, and the test just sees nothing happen.
 
 ## DB Connection
 
