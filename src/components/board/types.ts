@@ -20,3 +20,11 @@ export type SitePickerTarget = {
   left: number;
   top: number;
 };
+
+/** Anchors the per-site day-cell "copy from" popover (site-selective day copy, variant 2). */
+export type SiteDayCopyTarget = {
+  projectId: string;
+  day: string;
+  left: number;
+  top: number;
+};

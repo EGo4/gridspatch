@@ -34,7 +34,8 @@ const boardActions = vi.hoisted(() => ({
   updateAssignment: vi.fn().mockResolvedValue({ success: true }),
   splitAssignment: vi.fn().mockResolvedValue({ success: true }),
   mergeAssignment: vi.fn().mockResolvedValue({ success: true }),
-  copyDayAssignments: vi.fn().mockResolvedValue({ success: true }),
+  copyDayAssignments: vi.fn().mockResolvedValue({ success: true, skipped: 0 }),
+  copySiteDayAssignments: vi.fn().mockResolvedValue({ success: true, skipped: 0 }),
   copyWeekAssignments: vi.fn().mockResolvedValue({ success: true }),
   setAvailability: vi.fn().mockResolvedValue({ success: true }),
   clearAvailability: vi.fn().mockResolvedValue({ success: true }),
@@ -48,6 +49,7 @@ vi.mock("~/server/actions/board", () => ({
   splitAssignment: boardActions.splitAssignment,
   mergeAssignment: boardActions.mergeAssignment,
   copyDayAssignments: boardActions.copyDayAssignments,
+  copySiteDayAssignments: boardActions.copySiteDayAssignments,
   copyWeekAssignments: boardActions.copyWeekAssignments,
   setAvailability: boardActions.setAvailability,
   clearAvailability: boardActions.clearAvailability,
@@ -353,7 +355,7 @@ describe("BoardClient", () => {
 });
 
 describe("BoardClient — copy day", () => {
-  it("copies immediately when the target day has no existing assignments", async () => {
+  it("opens the site-selection dialog and copies once confirmed", async () => {
     const dbAssignments: Assignment[] = [
       { employeeId: "e1", projectId: "p1", date: new Date(weekDates.Monday), weekId: "week-1", dayPart: "full_day" },
     ];
@@ -363,13 +365,18 @@ describe("BoardClient — copy day", () => {
     await user.click(within(document.body).getByTitle(tp("copyAssignmentsTo", { day: "Tuesday" })));
     await user.click(within(copyFromPopover()).getByRole("button", { name: "Monday" }));
 
-    expect(boardActions.copyDayAssignments).toHaveBeenCalledWith(weekDates.Monday, weekDates.Tuesday, "week-1");
+    expect(boardActions.copyDayAssignments).not.toHaveBeenCalled();
+    expect(document.body).toHaveTextContent("siteCopyTitle");
+
+    await user.click(within(document.body).getByRole("button", { name: "copy" }));
+
+    expect(boardActions.copyDayAssignments).toHaveBeenCalledWith(weekDates.Monday, weekDates.Tuesday, "week-1", ["p1"]);
     expect(within(projectCell("p1", "Tuesday")).getByText("Alice")).toBeInTheDocument();
     // Source day is unaffected.
     expect(within(projectCell("p1", "Monday")).getByText("Alice")).toBeInTheDocument();
   });
 
-  it("asks for confirmation before overwriting a target day that already has assignments", async () => {
+  it("overwrites existing target-day assignments once confirmed", async () => {
     const dbAssignments: Assignment[] = [
       { employeeId: "e1", projectId: "p1", date: new Date(weekDates.Monday), weekId: "week-1", dayPart: "full_day" },
       { employeeId: "e2", projectId: "p1", date: new Date(weekDates.Tuesday), weekId: "week-1", dayPart: "full_day" },
@@ -379,15 +386,25 @@ describe("BoardClient — copy day", () => {
 
     await user.click(within(document.body).getByTitle(tp("copyAssignmentsTo", { day: "Tuesday" })));
     await user.click(within(copyFromPopover()).getByRole("button", { name: "Monday" }));
-
-    expect(boardActions.copyDayAssignments).not.toHaveBeenCalled();
-    expect(document.body).toHaveTextContent("dayCopyTitle");
-
     await user.click(within(document.body).getByRole("button", { name: "copy" }));
 
-    expect(boardActions.copyDayAssignments).toHaveBeenCalledWith(weekDates.Monday, weekDates.Tuesday, "week-1");
+    expect(boardActions.copyDayAssignments).toHaveBeenCalledWith(weekDates.Monday, weekDates.Tuesday, "week-1", ["p1"]);
     expect(within(projectCell("p1", "Tuesday")).getByText("Alice")).toBeInTheDocument();
     expect(within(projectCell("p1", "Tuesday")).queryByText("Bob")).not.toBeInTheDocument();
+  });
+
+  it("deselecting the only site leaves the target day untouched", async () => {
+    const dbAssignments: Assignment[] = [
+      { employeeId: "e1", projectId: "p1", date: new Date(weekDates.Monday), weekId: "week-1", dayPart: "full_day" },
+    ];
+    const user = userEvent.setup();
+    render(<BoardClient {...baseProps} dbAssignments={dbAssignments} />);
+
+    await user.click(within(document.body).getByTitle(tp("copyAssignmentsTo", { day: "Tuesday" })));
+    await user.click(within(copyFromPopover()).getByRole("button", { name: "Monday" }));
+    await user.click(within(document.body).getByRole("button", { name: "siteCopyDeselectAll" }));
+
+    expect(within(document.body).getByRole("button", { name: "copy" })).toBeDisabled();
   });
 });
 

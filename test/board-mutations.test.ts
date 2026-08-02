@@ -8,6 +8,7 @@ import {
   clearAvailability,
   copyWeekAssignments,
   copyDayAssignments,
+  copySiteDayAssignments,
   type BoardMutationDb,
 } from "../src/server/services/boardMutations.ts";
 
@@ -257,8 +258,9 @@ await run("copyDayAssignments overwrites existing target-day project assignments
   await updateAssignment(db, "e1", "p1", sourceDay, WEEK, "full_day");
   await updateAssignment(db, "e2", "p2", targetDay, WEEK, "full_day"); // pre-existing, should be wiped
 
-  await copyDayAssignments(db, sourceDay, targetDay, WEEK);
+  const result = await copyDayAssignments(db, sourceDay, targetDay, WEEK);
 
+  assert.equal(result.skipped, 0);
   const targetRows = db.assignments.filter((a) => valueEquals(a.date, new Date(targetDay)));
   assert.deepEqual(
     targetRows.map((a) => ({ employeeId: a.employeeId, projectId: a.projectId })),
@@ -266,6 +268,138 @@ await run("copyDayAssignments overwrites existing target-day project assignments
   );
   // Source day is untouched.
   assert.equal(db.assignments.filter((a) => valueEquals(a.date, new Date(sourceDay))).length, 1);
+});
+
+await run("copyDayAssignments scoped to projectIds leaves unselected sites' target-day rows untouched", async () => {
+  const db = new FakeBoardDb();
+  const sourceDay = "2026-04-13T00:00:00.000Z";
+  const targetDay = "2026-04-14T00:00:00.000Z";
+  await updateAssignment(db, "e1", "p1", sourceDay, WEEK, "full_day"); // site A, source
+  await updateAssignment(db, "e2", "p2", sourceDay, WEEK, "full_day"); // site B, source
+  await updateAssignment(db, "e3", "p2", targetDay, WEEK, "full_day"); // site B, pre-existing on target — must survive
+
+  const result = await copyDayAssignments(db, sourceDay, targetDay, WEEK, ["p1"]);
+
+  assert.equal(result.skipped, 0);
+  const targetRows = db.assignments
+    .filter((a) => valueEquals(a.date, new Date(targetDay)))
+    .map((a) => ({ employeeId: String(a.employeeId), projectId: a.projectId }))
+    .sort((a, b) => a.employeeId.localeCompare(b.employeeId));
+  assert.deepEqual(targetRows, [
+    { employeeId: "e1", projectId: "p1" },
+    { employeeId: "e3", projectId: "p2" },
+  ]);
+});
+
+await run("copyDayAssignments skips an employee already booked on an unselected site on the target day", async () => {
+  const db = new FakeBoardDb();
+  const sourceDay = "2026-04-13T00:00:00.000Z";
+  const targetDay = "2026-04-14T00:00:00.000Z";
+  await updateAssignment(db, "e1", "p1", sourceDay, WEEK, "full_day"); // site A, source: e1
+  await updateAssignment(db, "e1", "p2", targetDay, WEEK, "full_day"); // site B, target: e1 already booked elsewhere
+
+  const result = await copyDayAssignments(db, sourceDay, targetDay, WEEK, ["p1"]);
+
+  assert.equal(result.skipped, 1);
+  const targetRows = db.assignments.filter((a) => valueEquals(a.date, new Date(targetDay)));
+  // e1 was not stolen from site B, and no row was created for site A.
+  assert.deepEqual(targetRows.map((a) => ({ employeeId: a.employeeId, projectId: a.projectId })), [
+    { employeeId: "e1", projectId: "p2" },
+  ]);
+});
+
+await run("copyDayAssignments skips an employee absent on the target day", async () => {
+  const db = new FakeBoardDb();
+  const sourceDay = "2026-04-13T00:00:00.000Z";
+  const targetDay = "2026-04-14T00:00:00.000Z";
+  await updateAssignment(db, "e1", "p1", sourceDay, WEEK, "full_day");
+  await setAvailability(db, "e1", targetDay, WEEK, "vacation");
+
+  const result = await copyDayAssignments(db, sourceDay, targetDay, WEEK, ["p1"]);
+
+  assert.equal(result.skipped, 1);
+  assert.equal(db.assignments.filter((a) => valueEquals(a.date, new Date(targetDay))).length, 0);
+});
+
+await run(
+  "copyDayAssignments skips both halves of an employee split across two sites when only one site is selected",
+  async () => {
+    const db = new FakeBoardDb();
+    const sourceDay = "2026-04-13T00:00:00.000Z";
+    const targetDay = "2026-04-14T00:00:00.000Z";
+    await updateAssignment(db, "e1", "p1", sourceDay, WEEK, "pre_lunch"); // AM at site A
+    await updateAssignment(db, "e1", "p2", sourceDay, WEEK, "after_lunch"); // PM at site B
+
+    const result = await copyDayAssignments(db, sourceDay, targetDay, WEEK, ["p1"]);
+
+    // Only the morning row was ever a copy candidate (site B isn't in scope
+    // at all), and it's blocked because copying it alone would place e1 at
+    // site A with no record of their afternoon anywhere.
+    assert.equal(result.skipped, 1);
+    assert.equal(db.assignments.filter((a) => valueEquals(a.date, new Date(targetDay))).length, 0);
+  },
+);
+
+await run("copyDayAssignments copies both halves of a split employee when both sites are selected", async () => {
+  const db = new FakeBoardDb();
+  const sourceDay = "2026-04-13T00:00:00.000Z";
+  const targetDay = "2026-04-14T00:00:00.000Z";
+  await updateAssignment(db, "e1", "p1", sourceDay, WEEK, "pre_lunch");
+  await updateAssignment(db, "e1", "p2", sourceDay, WEEK, "after_lunch");
+
+  const result = await copyDayAssignments(db, sourceDay, targetDay, WEEK, ["p1", "p2"]);
+
+  assert.equal(result.skipped, 0);
+  const targetRows = db.assignments
+    .filter((a) => valueEquals(a.date, new Date(targetDay)))
+    .map((a) => ({ projectId: a.projectId, dayPart: a.dayPart }))
+    .sort((a, b) => String(a.dayPart).localeCompare(String(b.dayPart)));
+  assert.deepEqual(targetRows, [
+    { projectId: "p2", dayPart: "after_lunch" },
+    { projectId: "p1", dayPart: "pre_lunch" },
+  ]);
+});
+
+await run("copyDayAssignments does not flag a split pair sharing the same site as stranded", async () => {
+  const db = new FakeBoardDb();
+  const sourceDay = "2026-04-13T00:00:00.000Z";
+  const targetDay = "2026-04-14T00:00:00.000Z";
+  await updateAssignment(db, "e1", "p1", sourceDay, WEEK, "pre_lunch");
+  await updateAssignment(db, "e1", "p1", sourceDay, WEEK, "after_lunch");
+
+  const result = await copyDayAssignments(db, sourceDay, targetDay, WEEK, ["p1"]);
+
+  assert.equal(result.skipped, 0);
+  assert.equal(db.assignments.filter((a) => valueEquals(a.date, new Date(targetDay))).length, 2);
+});
+
+await run("copySiteDayAssignments skips a split employee whose other half sits on a different site", async () => {
+  const db = new FakeBoardDb();
+  const sourceDay = "2026-04-13T00:00:00.000Z";
+  const targetDay = "2026-04-14T00:00:00.000Z";
+  await updateAssignment(db, "e1", "p1", sourceDay, WEEK, "pre_lunch");
+  await updateAssignment(db, "e1", "p2", sourceDay, WEEK, "after_lunch");
+
+  const result = await copySiteDayAssignments(db, "p1", sourceDay, targetDay, WEEK);
+
+  assert.equal(result.skipped, 1);
+  assert.equal(db.assignments.filter((a) => valueEquals(a.date, new Date(targetDay))).length, 0);
+});
+
+await run("copySiteDayAssignments fills only the given site's target-day cell", async () => {
+  const db = new FakeBoardDb();
+  const sourceDay = "2026-04-13T00:00:00.000Z";
+  const targetDay = "2026-04-14T00:00:00.000Z";
+  await updateAssignment(db, "e1", "p1", sourceDay, WEEK, "full_day"); // site A, source
+  await updateAssignment(db, "e2", "p2", sourceDay, WEEK, "full_day"); // site B, source — must not be copied
+  await updateAssignment(db, "e3", "p1", targetDay, WEEK, "full_day"); // site A, pre-existing target — overwritten
+
+  await copySiteDayAssignments(db, "p1", sourceDay, targetDay, WEEK);
+
+  const targetRows = db.assignments.filter((a) => valueEquals(a.date, new Date(targetDay)));
+  assert.deepEqual(targetRows.map((a) => ({ employeeId: a.employeeId, projectId: a.projectId })), [
+    { employeeId: "e1", projectId: "p1" },
+  ]);
 });
 
 await run(

@@ -18,7 +18,7 @@ import {
   poolFullDayId,
   poolHalfDayId,
 } from "./boardIds";
-import { SyringeIcon, PalmTreeIcon, GraduationCapIcon, FilterIcon } from "~/components/icons";
+import { SyringeIcon, PalmTreeIcon, GraduationCapIcon, FilterIcon, CopyIcon } from "~/components/icons";
 import { Sidebar } from "~/components/Sidebar";
 import { clearProjectAssignmentsForWeek } from "~/server/actions/board";
 import { useHolidays } from "./hooks/useHolidays";
@@ -28,7 +28,8 @@ import { useBoardState } from "./hooks/useBoardState";
 import { SitePickerPopover } from "./modals/SitePickerPopover";
 import { CommentsDialog } from "./modals/CommentsDialog";
 import { CopyWeekModal } from "./modals/CopyWeekModal";
-import { DayCopyConfirmModal } from "./modals/DayCopyConfirmModal";
+import { SiteCopyDialog } from "./modals/SiteCopyDialog";
+import { SiteDayCopyPopover } from "./modals/SiteDayCopyPopover";
 import { FilterModal } from "./modals/FilterModal";
 import { HoldConfirmModal } from "./modals/HoldConfirmModal";
 import { CompleteConfirmModal } from "./modals/CompleteConfirmModal";
@@ -581,14 +582,24 @@ export function BoardClient({
   const {
     copyPopoverDay,
     setCopyPopoverDay,
-    dayCopyConfirm,
-    setDayCopyConfirm,
+    siteCopyDialog,
+    siteCopyResult,
+    projectDayCount,
+    requestCopyDay,
+    confirmSiteCopy,
+    closeSiteCopyDialog,
+    siteDayCopyFor,
+    setSiteDayCopyFor,
+    siteDayCopyConfirm,
+    setSiteDayCopyConfirm,
+    siteDayCopyResult,
+    closeSiteDayCopy,
+    requestSiteDayCopy,
+    copySiteDay,
     copyWeekModalOpen,
     setCopyWeekModalOpen,
     previousWeek,
     targetWeekHasAssignments,
-    requestCopyDay,
-    copyDay,
     copyPreviousWeek,
   } = useCopy({
     dbProjects,
@@ -709,7 +720,7 @@ export function BoardClient({
     return (
       <div
         key={day}
-        className={`day-cell w-full lg:min-w-max lg:flex-1 flex flex-col rounded-md border transition-opacity duration-150 overflow-hidden ${
+        className={`day-cell group/cell relative w-full lg:min-w-max lg:flex-1 flex flex-col rounded-md border transition-opacity duration-150 overflow-hidden ${
           day === activeDay ? "" : "hidden"
         } lg:flex lg:flex-col ${
           isDimmed ? "opacity-30 border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]"
@@ -717,6 +728,22 @@ export function BoardClient({
           : "border-[var(--color-border-subtle)] bg-[var(--color-bg-surface)]"
         }`}
       >
+        {/* Copy-from-another-day control — hidden until hover on desktop, always visible on touch (no hover support) */}
+        {!isPubHoliday && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              const rect = e.currentTarget.getBoundingClientRect();
+              setSiteDayCopyFor({ projectId, day, left: rect.left, top: rect.bottom });
+            }}
+            title={t("siteDayCopyControlTitle")}
+            className="absolute right-1.5 top-1.5 z-20 flex h-5 w-5 items-center justify-center rounded bg-[var(--color-copy-btn)] text-[var(--color-copy-btn-text)] opacity-0 transition-opacity hover:bg-[var(--color-copy-btn-hover)] hover:text-[var(--color-text-primary)] group-hover/cell:opacity-100 [@media(hover:none)]:opacity-100"
+          >
+            <CopyIcon size={11} />
+          </button>
+        )}
+
         {/* Full-day section */}
         <Droppable droppableId={fdId} type={day} isDropDisabled={isPubHoliday}>
           {(provided, snapshot) => (
@@ -1509,15 +1536,28 @@ export function BoardClient({
       onConfirm={() => void copyPreviousWeek()}
     />
 
-    {/* Day-copy overwrite confirmation — only shown when the target day already has assignments */}
-    <DayCopyConfirmModal
-      confirm={dayCopyConfirm}
+    {/* Site-selective day copy — replaces the old unconditional overwrite-confirm modal */}
+    <SiteCopyDialog
+      dialog={siteCopyDialog}
+      result={siteCopyResult}
+      projects={visibleProjects}
       dayLabel={dayLabel}
-      onCancel={() => setDayCopyConfirm(null)}
-      onConfirm={(sourceDay, targetDay) => {
-        copyDay(sourceDay, targetDay);
-        setDayCopyConfirm(null);
-      }}
+      projectDayCount={projectDayCount}
+      onConfirm={confirmSiteCopy}
+      onClose={closeSiteCopyDialog}
+    />
+
+    {/* Per-site day copy — small control on each site's day cell */}
+    <SiteDayCopyPopover
+      target={siteDayCopyFor}
+      confirm={siteDayCopyConfirm}
+      result={siteDayCopyResult}
+      dayLabel={dayLabel}
+      projectDayCount={projectDayCount}
+      onPickDay={requestSiteDayCopy}
+      onConfirm={copySiteDay}
+      onCancelConfirm={() => setSiteDayCopyConfirm(null)}
+      onCloseResult={closeSiteDayCopy}
     />
 
     {/* Filter modal */}

@@ -129,10 +129,26 @@ export async function copyDayAssignments(
   sourceDateIso: string,
   targetDateIso: string,
   weekId: string,
+  projectIds?: string[],
 ) {
   await requireSession();
   sourceDateIso = zDateIso.parse(sourceDateIso);
   targetDateIso = zDateIso.parse(targetDateIso);
   weekId = zId.parse(weekId);
-  return mutations.copyDayAssignments(db, sourceDateIso, targetDateIso, weekId);
+  projectIds = projectIds === undefined ? undefined : z.array(zId).parse(projectIds);
+  return mutations.copyDayAssignments(db, sourceDateIso, targetDateIso, weekId, projectIds);
+}
+
+export async function copySiteDayAssignments(
+  projectId: string,
+  sourceDateIso: string,
+  targetDateIso: string,
+  weekId: string,
+) {
+  await requireSession();
+  projectId = zId.parse(projectId);
+  sourceDateIso = zDateIso.parse(sourceDateIso);
+  targetDateIso = zDateIso.parse(targetDateIso);
+  weekId = zId.parse(weekId);
+  return mutations.copySiteDayAssignments(db, projectId, sourceDateIso, targetDateIso, weekId);
 }

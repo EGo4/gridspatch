@@ -1,22 +1,24 @@
 // src/components/board/hooks/useCopy.ts
 //
-// Copy-day and copy-previous-week state and actions. Both overwrite the
-// target and both gate behind a confirmation when the target already holds
-// assignments that would be lost.
+// Copy-day (site-selective, two variants) and copy-previous-week state and
+// actions.
+//
+// Both day-copy variants share applyScopedDayCopy (copyScoped.ts) for the
+// optimistic state update and copyDayAssignments/copySiteDayAssignments
+// (same server implementation) for persistence — variant 1 (the dialog)
+// passes whichever sites the planner checked, variant 2 (the per-site cell
+// control) always passes a single-element list. Neither variant copies
+// availability (sick/vacation/school) — see copyWeekAssignments below for
+// why that's also true for the week-copy path.
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  fullDayDroppableId,
-  preLunchDroppableId,
-  afterLunchDroppableId,
-  poolFullDayId,
-} from "../boardIds";
-import { parseAvailabilityKey } from "../availabilityKey";
-import type { AvailabilityStatus, EmployeeEntry } from "../types";
+import { fullDayDroppableId, preLunchDroppableId, afterLunchDroppableId } from "../boardIds";
+import { applyScopedDayCopy } from "../copyScoped";
+import type { AvailabilityStatus, EmployeeEntry, SiteDayCopyTarget } from "../types";
 import type { DayName } from "~/lib/constants";
-import type { Assignment, BoardWeek, DayPart, Employee, Project } from "~/types";
-import { copyDayAssignments, copyWeekAssignments } from "~/server/actions/board";
+import type { Assignment, BoardWeek, Employee, Project } from "~/types";
+import { copyDayAssignments, copySiteDayAssignments, copyWeekAssignments } from "~/server/actions/board";
 
 type UseCopyArgs = {
   dbProjects: Project[];
@@ -50,10 +52,14 @@ export function useCopy({
   const router = useRouter();
 
   const [copyPopoverDay, setCopyPopoverDay] = useState<string | null>(null);
-  const [dayCopyConfirm, setDayCopyConfirm] = useState<{ sourceDay: string; targetDay: string } | null>(null);
+  const [siteCopyDialog, setSiteCopyDialog] = useState<{ sourceDay: string; targetDay: string } | null>(null);
+  const [siteCopyResult, setSiteCopyResult] = useState<number | null>(null);
   const [copyWeekModalOpen, setCopyWeekModalOpen] = useState(false);
+  const [siteDayCopyFor, setSiteDayCopyFor] = useState<SiteDayCopyTarget | null>(null);
+  const [siteDayCopyConfirm, setSiteDayCopyConfirm] = useState<{ projectId: string; sourceDay: string; targetDay: string } | null>(null);
+  const [siteDayCopyResult, setSiteDayCopyResult] = useState<number | null>(null);
 
-  // ── Close copy popover on outside click or Escape ─────────────────────────
+  // ── Close popovers on outside click or Escape ─────────────────────────────
   useEffect(() => {
     if (!copyPopoverDay) return;
     const handleClick = () => setCopyPopoverDay(null);
@@ -66,6 +72,24 @@ export function useCopy({
     };
   }, [copyPopoverDay]);
 
+  const closeSiteDayCopy = () => {
+    setSiteDayCopyFor(null);
+    setSiteDayCopyConfirm(null);
+    setSiteDayCopyResult(null);
+  };
+
+  useEffect(() => {
+    if (!siteDayCopyFor) return;
+    const handleClick = () => closeSiteDayCopy();
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") closeSiteDayCopy(); };
+    document.addEventListener("click", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("click", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [siteDayCopyFor]);
+
   // ── Previous week (for copy-week feature) ────────────────────────────────
   const previousWeek = useMemo(() => {
     const selectedStart = new Date(selectedWeek.startDateIso).getTime();
@@ -74,79 +98,92 @@ export function useCopy({
 
   const targetWeekHasAssignments = dbAssignments.some((a) => a.projectId !== null);
 
-  // ── Copy day ──────────────────────────────────────────────────────────────
+  // ── Site-selective day copy (variant 1: dialog over every visible site) ───
 
-  const dayHasAssignments = (day: string) =>
-    dbProjects.some(
-      (project) =>
-        (assignmentsState[fullDayDroppableId(project.id, day)] ?? []).length > 0 ||
-        (assignmentsState[preLunchDroppableId(project.id, day)] ?? []).length > 0 ||
-        (assignmentsState[afterLunchDroppableId(project.id, day)] ?? []).length > 0,
-    );
+  const projectDayCount = (projectId: string, day: string): number =>
+    (assignmentsState[fullDayDroppableId(projectId, day)] ?? []).length +
+    (assignmentsState[preLunchDroppableId(projectId, day)] ?? []).length +
+    (assignmentsState[afterLunchDroppableId(projectId, day)] ?? []).length;
 
-  // Gate before overwriting: only prompt when the target day already has
-  // assignments that would be lost — mirrors the week-copy warning.
+  // Opens the site-selection dialog instead of copying immediately — replaces
+  // the old unconditional overwrite-confirm modal.
   const requestCopyDay = (sourceDay: string, targetDay: string) => {
     setCopyPopoverDay(null);
-    if (dayHasAssignments(targetDay)) {
-      setDayCopyConfirm({ sourceDay, targetDay });
-    } else {
-      copyDay(sourceDay, targetDay);
-    }
+    setSiteCopyResult(null);
+    setSiteCopyDialog({ sourceDay, targetDay });
   };
 
-  const copyDay = (sourceDay: string, targetDay: string) => {
+  const closeSiteCopyDialog = () => {
+    setSiteCopyDialog(null);
+    setSiteCopyResult(null);
+  };
+
+  const confirmSiteCopy = (projectIds: string[]) => {
+    if (!siteCopyDialog || projectIds.length === 0) return;
+    const { sourceDay, targetDay } = siteCopyDialog;
     confirmPastEdit(() => {
-      setAssignmentsState((prev) => {
-        const next = { ...prev };
+      const { state, skipped } = applyScopedDayCopy(
+        assignmentsState,
+        dbProjects,
+        dbEmployees,
+        availability,
+        projectIds,
+        sourceDay,
+        targetDay,
+      );
+      setAssignmentsState(state);
+      setSiteCopyResult(skipped);
 
-        // Clear all project cells for the target day.
-        dbProjects.forEach((project) => {
-          next[fullDayDroppableId(project.id, targetDay)]    = [];
-          next[preLunchDroppableId(project.id, targetDay)]   = [];
-          next[afterLunchDroppableId(project.id, targetDay)] = [];
-        });
-
-        // Copy each project cell from source to target.
-        dbProjects.forEach((project) => {
-          next[fullDayDroppableId(project.id, targetDay)]    = [...(prev[fullDayDroppableId(project.id, sourceDay)]    ?? [])];
-          next[preLunchDroppableId(project.id, targetDay)]   = [...(prev[preLunchDroppableId(project.id, sourceDay)]   ?? [])];
-          next[afterLunchDroppableId(project.id, targetDay)] = [...(prev[afterLunchDroppableId(project.id, sourceDay)] ?? [])];
-        });
-
-        // Rebuild the pool for the target day: anyone not in a project cell and
-        // not marked sick/vacation goes back to the pool.
-        const assignedInTarget = new Set<string>();
-        dbProjects.forEach((project) => {
-          [
-            fullDayDroppableId(project.id, targetDay),
-            preLunchDroppableId(project.id, targetDay),
-            afterLunchDroppableId(project.id, targetDay),
-          ].forEach((cellId) => {
-            (next[cellId] ?? []).forEach((e) => assignedInTarget.add(e.employee.id));
-          });
-        });
-
-        const unavailableInTarget = new Set(
-          Object.keys(availability)
-            .map((key) => parseAvailabilityKey(key))
-            .filter((parsed) => parsed !== null && parsed.day === targetDay)
-            .map((parsed) => parsed!.employeeId),
-        );
-
-        next[poolFullDayId(targetDay)] = dbEmployees
-          .filter((e) => !assignedInTarget.has(e.id) && !unavailableInTarget.has(e.id))
-          .map((e) => ({ employee: e, dayPart: "full_day" as DayPart }));
-
-        return next;
-      });
-
-      setCopyPopoverDay(null);
       const sourceDateIso = weekDates[sourceDay as DayName];
       const targetDateIso = weekDates[targetDay as DayName];
       if (sourceDateIso && targetDateIso) {
         const weekId = selectedWeek.id;
-        enqueue("copyDayAssignments", () => copyDayAssignments(sourceDateIso, targetDateIso, weekId));
+        enqueue("copyDayAssignments", () => copyDayAssignments(sourceDateIso, targetDateIso, weekId, projectIds));
+      }
+    });
+  };
+
+  // ── Per-site day copy (variant 2: control on the site's own day cell) ────
+
+  // Only closes the popover immediately when no confirmation step is needed —
+  // otherwise it stays open, showing the inline overwrite-confirm instead.
+  // (copySiteDay itself decides whether to close or show a skipped-count
+  // result, so it doesn't close here either.)
+  const requestSiteDayCopy = (projectId: string, sourceDay: string, targetDay: string) => {
+    if (projectDayCount(projectId, targetDay) > 0) {
+      setSiteDayCopyConfirm({ projectId, sourceDay, targetDay });
+    } else {
+      copySiteDay(projectId, sourceDay, targetDay);
+    }
+  };
+
+  const copySiteDay = (projectId: string, sourceDay: string, targetDay: string) => {
+    confirmPastEdit(() => {
+      const { state, skipped } = applyScopedDayCopy(
+        assignmentsState,
+        dbProjects,
+        dbEmployees,
+        availability,
+        [projectId],
+        sourceDay,
+        targetDay,
+      );
+      setAssignmentsState(state);
+      setSiteDayCopyConfirm(null);
+      // Nothing to report — close immediately. Otherwise keep the popover
+      // open showing the skipped count until the planner dismisses it.
+      if (skipped > 0) {
+        setSiteDayCopyResult(skipped);
+      } else {
+        setSiteDayCopyFor(null);
+        setSiteDayCopyResult(null);
+      }
+
+      const sourceDateIso = weekDates[sourceDay as DayName];
+      const targetDateIso = weekDates[targetDay as DayName];
+      if (sourceDateIso && targetDateIso) {
+        const weekId = selectedWeek.id;
+        enqueue("copySiteDayAssignments", () => copySiteDayAssignments(projectId, sourceDateIso, targetDateIso, weekId));
       }
     });
   };
@@ -171,14 +208,24 @@ export function useCopy({
   return {
     copyPopoverDay,
     setCopyPopoverDay,
-    dayCopyConfirm,
-    setDayCopyConfirm,
+    siteCopyDialog,
+    siteCopyResult,
+    projectDayCount,
+    requestCopyDay,
+    confirmSiteCopy,
+    closeSiteCopyDialog,
+    siteDayCopyFor,
+    setSiteDayCopyFor,
+    siteDayCopyConfirm,
+    setSiteDayCopyConfirm,
+    siteDayCopyResult,
+    closeSiteDayCopy,
+    requestSiteDayCopy,
+    copySiteDay,
     copyWeekModalOpen,
     setCopyWeekModalOpen,
     previousWeek,
     targetWeekHasAssignments,
-    requestCopyDay,
-    copyDay,
     copyPreviousWeek,
   };
 }
