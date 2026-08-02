@@ -274,6 +274,7 @@ export function BoardClient({
     draggingDay,
     draggingDayPart,
     assignToSite,
+    sendToPool,
     splitDay,
     mergeDay,
     onDragStart: onBoardDragStart,
@@ -1475,6 +1476,7 @@ export function BoardClient({
       sitePickerFor={sitePickerFor}
       projects={dbProjects.filter((p) => effectiveStatus(p) !== "on_hold")}
       onAssign={assignToSite}
+      onSendToPool={sendToPool}
     />
 
     {/* Comments dialog */}

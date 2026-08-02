@@ -275,6 +275,7 @@
     "deleteComment": "Kommentar löschen",
     "commentError": "Kommentar konnte nicht gespeichert werden. Bitte erneut versuchen.",
     "assignToSite": "Zur Baustelle zuweisen",
+    "backToPool": "Zurück in den Pool",
     "mergeToFullDay": "Zu Ganztag zusammenführen",
     "splitIntoHalfDays": "In Halbtage aufteilen",
     "markAsSick": "Als krank markieren",

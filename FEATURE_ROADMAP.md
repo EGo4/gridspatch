@@ -3,80 +3,11 @@
 This file is meant to be a working checklist for the next product steps.
 Order is based on practical relevance: core planning workflow first, security/admin next, and reporting/polish last.
 
-## Year filters for construction sites and employees
+## Completed
 
-Goal:
-Site and employee filters get a year option: show only sites/employees that were **active in that year** (i.e. have at least one assignment dated in that year).
-
-Requirements:
-
-- Year dropdown added wherever site/employee filters exist (board filter panel, admin sites table, admin employees table).
-- "Active in year X" = has ≥1 assignment with `date` in year X (for employees additionally counts absences? default: assignments only).
-- Year list derived from the data (years that actually have assignments), plus "all".
-
-Acceptance criteria:
-
-- Selecting 2025 hides sites/employees without any 2025 assignment.
-- Combines with existing filters (status, search) as AND.
-
-Technical notes:
-
-- Needs a lightweight aggregate query (distinct years, activity per year); avoid loading all assignments client-side.
-
-## Half-day sickness and vacation
-
-Goal:
-Sickness and vacation can be recorded for half a day. The other half of that day stays fully planable — the employee appears both in the absence swimlane and on a site (or in the pool) on the same day.
-
-Requirements:
-
-- `Availability` gains a `dayPart` (`full_day` | `pre_lunch` | `after_lunch`); unique key becomes `[employeeId, date, dayPart]`.
-- Entry point: split an employee's day with the existing split button, then use the sick/vacation buttons on the resulting half card. Half-day cards must expose sick/vacation fly-outs (today only full-day cards do).
-- Full-day cards keep the current behaviour: sick/vacation there means the whole day.
-- Marking one half absent deletes only that half's assignment. A `full_day` assignment on the same date is converted into the surviving half (site kept), not deleted.
-- Marking a full day absent removes any half-day absence records for that date. Marking both halves absent with the same status collapses into a single `full_day` record.
-- The absence swimlane renders half-day chips distinguishable from full-day ones, using the existing AM/PM colour variables (`--am-card` / `--pm-card`).
-- The free half shows up in the pool as a half card when it is not assigned to a site.
-
-Acceptance criteria:
-
-- Employee marked sick `pre_lunch` while assigned full day to site A → after reload: absence chip AM, half-day card on site A PM.
-- Marking `after_lunch` sick as well → the two records collapse to one full-day sick entry, no assignment left that day.
-- Clearing a half-day absence returns only that half to the pool; the other half's assignment is untouched.
-- Hours export counts a half-day absence as 0.5 day, not 1.
-
-Technical notes:
-
-- Migration: `ALTER TABLE "Availability" ADD COLUMN "dayPart"` defaulting to `full_day`, drop old unique, add the 3-column unique.
-- `setAvailability` / `clearAvailability` in [board.ts](src/server/actions/board.ts) take a `dayPart` argument.
-- `BoardClient`'s `availability` state is keyed `${employeeId}-${day}`; it must become `${employeeId}-${day}-${dayPart}`. The `unavailableSet` filtering that currently drops assignments and pool entries for absent employees has to become day-part aware, otherwise the worked half disappears.
-- `setHoliday` (company holiday → everyone on vacation) writes `full_day` records.
-- Copy day / copy week must not resurrect assignments that collide with an absence on the target day — see the conflict rule under "Site-selective day copy".
-- [export.ts](src/server/services/export.ts) already weights assignments via `DAY_WEIGHT`; availability records need the same weighting.
-
-## "Back to pool" in the employee site picker
-
-Goal:
-The site picker that opens from an employee card (the "assign to site" fly-out) gets a "Back to pool" entry, so a worker can be removed from a site without dragging.
-
-Requirements:
-
-- Entry rendered in the site picker overlay, visually separated from the site list (divider + own icon), only when the card is currently in a project cell.
-- Works for full-day and half-day cards; only the card's own `dayPart` moves back.
-- Optimistic UI like the existing `assignToSite` path, persisted through the mutation queue.
-- Respects the existing past-week edit confirmation (`confirmPastEdit`).
-
-Acceptance criteria:
-
-- Clicking an employee on a site → picker shows "Back to pool" → click → card moves to that day's pool cell and survives reload.
-- On a half-day card only that half leaves the site; the other half stays where it is.
-- Pool cards do not show the entry (nothing to send back).
-
-Technical notes:
-
-- Add a `sendToPool(employeeId, day, sourceCellId)` next to `assignToSite` in [BoardClient.tsx](src/components/board/BoardClient.tsx); target cell is `poolFullDayId(day)` regardless of day part.
-- Persists via `updateAssignment(employeeId, null, dateIso, weekId, dayPart)` — the existing action already deletes on a null project.
-- Needs new i18n keys in `messages/en.json` and `messages/de.json` ("Back to pool" / "Zurück in den Pool").
+- **Year filters for construction sites and employees** — year dropdown in board filter panel, admin sites table, admin employees table; hides sites/employees with no assignment in the selected year.
+- **Half-day sickness and vacation** — `Availability.dayPart`, half-day sick/vacation fly-outs, absence swimlane half-day chips, export weights half-day absences as 0.5 day.
+- **"Back to pool" in the employee site picker** — divider + entry in `SitePickerPopover` when the card sits on a project cell; `sendToPool` in [useBoardState.ts](src/components/board/hooks/useBoardState.ts) mirrors `assignToSite`.
 
 ## Apprentice role and school days
 

@@ -125,6 +125,38 @@ export function useBoardState({
     });
   };
 
+  // ── Send a worker back to the pool from the site picker ───────────────────
+  // Only meaningful when sourceCellId is a project cell; the picker itself
+  // only offers this entry in that case. Mirrors assignToSite but the target
+  // is always the day's full-day pool cell, regardless of the card's dayPart
+  // — pool cards land in poolFullDayId and get merged into a half card by
+  // the pool-rendering logic if the sibling half is already free there.
+  const sendToPool = (employeeId: string, day: string, sourceCellId: string, dayPart: DayPart) => {
+    const employee = dbEmployees.find((e) => e.id === employeeId);
+    if (!employee) return;
+    confirmPastEdit(() => {
+      const targetId = poolFullDayId(day);
+      setAssignmentsState((prev) => {
+        const withSourceRemoved = { ...prev };
+        withSourceRemoved[sourceCellId] = (withSourceRemoved[sourceCellId] ?? []).filter(
+          (e) => !(e.employee.id === employeeId && e.dayPart === dayPart),
+        );
+        if (dayPart === "pre_lunch" || dayPart === "after_lunch") {
+          return addHalfToPool(withSourceRemoved, day, employee, dayPart);
+        }
+        withSourceRemoved[targetId] = [...(withSourceRemoved[targetId] ?? []), { employee, dayPart: "full_day" }];
+        return withSourceRemoved;
+      });
+      setSitePickerFor(null);
+      setOpenCardId(null);
+      const dateIso = weekDates[day as DayName];
+      if (dateIso) {
+        const weekId = selectedWeek.id;
+        enqueue("updateAssignment", () => updateAssignment(employeeId, null, dateIso, weekId, dayPart));
+      }
+    });
+  };
+
   // ── Initialise state from DB ───────────────────────────────────────────────
 
   useEffect(() => {
@@ -376,6 +408,7 @@ export function useBoardState({
     draggingDay,
     draggingDayPart,
     assignToSite,
+    sendToPool,
     splitDay,
     mergeDay,
     onDragStart,

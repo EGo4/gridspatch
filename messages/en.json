@@ -275,6 +275,7 @@
     "deleteComment": "Delete comment",
     "commentError": "Couldn't save comment. Try again.",
     "assignToSite": "Assign to building site",
+    "backToPool": "Back to pool",
     "mergeToFullDay": "Merge back to full day",
     "splitIntoHalfDays": "Split into half-days",
     "markAsSick": "Mark as sick",

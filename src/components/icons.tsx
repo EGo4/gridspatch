@@ -116,6 +116,27 @@ export function AssignSiteIcon({ size = 20, className }: IconProps) {
   );
 }
 
+export function BackToPoolIcon({ size = 20, className }: IconProps) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
+      {/* Log-out arrow — mirror of AssignSiteIcon, represents "move out of a site" */}
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="14 7 19 12 14 17" />
+      <line x1="19" y1="12" x2="7" y2="12" />
+    </svg>
+  );
+}
+
 export function UserIcon({ size = 20, className }: IconProps) {
   return (
     <svg
