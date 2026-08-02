@@ -32,16 +32,12 @@ function getEffectiveStatus(
 const createSiteSchema = z.object({
   name: zSiteName,
   description: zDescription,
-  startDate: zDateIso.nullable().optional(),
-  endDate: zDateIso.nullable().optional(),
   constructionManagerId: zId.nullable().optional(),
 });
 
 export async function createSite(input: {
   name: string;
   description?: string | null;
-  startDate?: string | null;
-  endDate?: string | null;
   constructionManagerId?: string | null;
 }) {
   await requireSession();
@@ -50,8 +46,6 @@ export async function createSite(input: {
     data: {
       name: parsed.name,
       description: parsed.description?.trim() ?? null,
-      startDate: parsed.startDate ? new Date(parsed.startDate) : null,
-      endDate: parsed.endDate ? new Date(parsed.endDate) : null,
       constructionManagerId: parsed.constructionManagerId ?? null,
     },
   });
@@ -62,8 +56,6 @@ const updateSiteSchema = z.object({
   id: zId,
   name: zSiteName,
   description: zDescription,
-  startDate: zDateIso.nullable().optional(),
-  endDate: zDateIso.nullable().optional(),
   constructionManagerId: zId.nullable().optional(),
 });
 
@@ -71,8 +63,6 @@ export async function updateSite(input: {
   id: string;
   name: string;
   description?: string | null;
-  startDate?: string | null;
-  endDate?: string | null;
   constructionManagerId?: string | null;
 }) {
   await requireSession();
@@ -83,8 +73,6 @@ export async function updateSite(input: {
       name: parsed.name,
       constructionManagerId: parsed.constructionManagerId ?? null,
       ...("description" in parsed && { description: parsed.description?.trim() ?? null }),
-      ...("startDate" in parsed && { startDate: parsed.startDate ? new Date(parsed.startDate) : null }),
-      ...("endDate" in parsed && { endDate: parsed.endDate ? new Date(parsed.endDate) : null }),
     },
   });
   return { success: true };
@@ -205,16 +193,12 @@ export async function setSiteTransition(
 const bulkSiteItemSchema = z.object({
   name: zSiteName,
   description: zDescription,
-  startDate: zDateIso.nullable().optional(),
-  endDate: zDateIso.nullable().optional(),
 });
 
 export async function bulkCreateSites(
   items: Array<{
     name: string;
     description?: string | null;
-    startDate?: string | null;
-    endDate?: string | null;
   }>,
 ): Promise<{ created: number; errors: number }> {
   await requireSession();
@@ -232,8 +216,6 @@ export async function bulkCreateSites(
         data: {
           name: item.name,
           description: item.description?.trim() ?? null,
-          startDate: item.startDate ? new Date(item.startDate) : null,
-          endDate: item.endDate ? new Date(item.endDate) : null,
         },
       });
       created++;

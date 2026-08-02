@@ -24,8 +24,6 @@ const project = (id: string): Project => ({
   id,
   name: id,
   description: null,
-  startDate: null,
-  endDate: null,
   status: "active",
   constructionManagerId: null,
   constructionManagerName: null,

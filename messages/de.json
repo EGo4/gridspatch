@@ -155,7 +155,9 @@
     "managerNoChange": "Bauleiter — keine Änderung",
     "removeManagerOption": "— Bauleiter entfernen",
     "selectAllAria": "Alle auswählen",
-    "selectRowAria": "{name} auswählen"
+    "selectRowAria": "{name} auswählen",
+    "firstActiveDate": "Start",
+    "doneDate": "Ende"
   },
   "Users": {
     "title": "Benutzer",

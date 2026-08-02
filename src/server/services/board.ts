@@ -45,8 +45,6 @@ export type BoardDb = {
       id: string;
       name: string;
       description: string | null;
-      startDate: Date | null;
-      endDate: Date | null;
       status: string;
       constructionManagerId: string | null;
       constructionManager?: { id: string; name: string } | null;
@@ -159,8 +157,6 @@ export const getBoardPageData = async (database: BoardDb, requestedWeekParam?: s
       id: p.id,
       name: p.name,
       description: p.description,
-      startDate: p.startDate,
-      endDate: p.endDate,
       status: p.status as ProjectStatus,
       constructionManagerId: p.constructionManagerId,
       constructionManagerName: p.constructionManager?.name ?? null,

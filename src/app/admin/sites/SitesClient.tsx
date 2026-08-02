@@ -9,11 +9,11 @@ import { getSuperStatus, ALLOWED_TRANSITIONS } from "~/types";
 import { createSite, updateSite, deleteSite, getSiteTransitions, setSiteTransition, deleteSiteTransition, bulkCreateSites, bulkUpdateSites } from "~/server/actions/sites";
 import { addUtcDays, normalizeWeekStart, toDateParam, formatWeekLabel } from "~/lib/week";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type Manager = { id: string; name: string };
 
-type SiteSortKey = "name" | "status" | "startDate" | "endDate" | "manager" | "description";
+type SiteSortKey = "name" | "status" | "firstActiveDate" | "doneDate" | "manager" | "description";
 type SiteSortDir = "asc" | "desc" | null;
 
 function SortIcon({ dir }: { dir: SiteSortDir }) {
@@ -38,31 +38,27 @@ type Site = {
   id: string;
   name: string;
   description: string | null;
-  startDate: Date | null;
-  endDate: Date | null;
   status: ProjectStatus;
   constructionManagerId: string | null;
   constructionManagerName: string | null;
+  firstActiveDate: Date | null;
+  doneDate: Date | null;
 };
 
 type FormState = {
   id?: string;
   name: string;
   description: string;
-  startDate: string;
-  endDate: string;
   constructionManagerId: string;
 };
 
 const EMPTY_FORM: FormState = {
   name: "",
   description: "",
-  startDate: "",
-  endDate: "",
   constructionManagerId: "",
 };
 
-// ── Status meta ───────────────────────────────────────────────────────────────
+// â”€â”€ Status meta â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const STATUS_BADGE: Record<ProjectStatus, string> = {
   planned:  "bg-[var(--color-status-planned-bg)] text-[var(--color-status-planned-txt)] border border-[var(--color-border-subtle)]",
@@ -88,9 +84,7 @@ const STATUS_CHIP_TEXT: Record<ProjectStatus, string> = {
   inactive: "text-[var(--color-status-inactive-txt)]",
 };
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-const toInputDate = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
+// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const formatDate = (d: Date | null, locale: string) =>
   d ? d.toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric" }) : "—";
@@ -98,7 +92,7 @@ const formatDate = (d: Date | null, locale: string) =>
 const LOAD_STEP = 4;
 const INIT_RANGE = 4;
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// â”€â”€ Sub-components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function StatusBadge({ status }: { status: ProjectStatus }) {
   const tStatus = useTranslations("Status");
@@ -115,7 +109,7 @@ const CloseIcon = () => (
   </svg>
 );
 
-// ── Site form panel ───────────────────────────────────────────────────────────
+// â”€â”€ Site form panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function SiteFormPanel({
   form, managers, saving, onClose, onChange, onSave,
@@ -167,16 +161,6 @@ function SiteFormPanel({
               {managers.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
             </select>,
           )}
-          <div className="grid grid-cols-2 gap-3">
-            {field(tCommon("startDate"),
-              <input type="date" value={form.startDate} title={tCommon("startDate")}
-                onChange={(e) => onChange({ ...form, startDate: e.target.value })} className={inputCls} />,
-            )}
-            {field(tCommon("endDate"),
-              <input type="date" value={form.endDate} title={tCommon("endDate")}
-                onChange={(e) => onChange({ ...form, endDate: e.target.value })} className={inputCls} />,
-            )}
-          </div>
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border-subtle)] px-5 py-4">
           <button type="button" onClick={onClose}
@@ -193,7 +177,7 @@ function SiteFormPanel({
   );
 }
 
-// ── Delete confirm panel ──────────────────────────────────────────────────────
+// â”€â”€ Delete confirm panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function DeleteConfirmPanel({
   site, deleting, onClose, onConfirm,
@@ -225,7 +209,7 @@ function DeleteConfirmPanel({
   );
 }
 
-// ── Status transition panel ───────────────────────────────────────────────────
+// â”€â”€ Status transition panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type TransitionEntry = { weekStartIso: string; status: ProjectStatus };
 
@@ -509,7 +493,7 @@ function SiteStatusPanel({
                       >
                         {tStatus(s)}
                         {(getSuperStatus(currentEffective) === "completed" && getSuperStatus(s) === "ongoing") || wouldAffectLater ? (
-                          <span className="ml-1 text-[var(--color-warn-text)]">⚠</span>
+                          <span className="ml-1 text-[var(--color-warn-text)]">âš </span>
                         ) : null}
                       </button>
                     );
@@ -528,7 +512,7 @@ function SiteStatusPanel({
               </div>
             )}
 
-            {/* Warning: completed → ongoing */}
+            {/* Warning: completed â†’ ongoing */}
             {warnOngoing && isCompletedToOngoing && (
               <div className="flex items-start gap-3 rounded-lg border border-[var(--color-warn-border)] bg-[var(--color-warn-bg)] px-3 py-3">
                 <svg className="mt-0.5 flex-shrink-0 text-[var(--color-warn-text)]" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -665,13 +649,11 @@ function SiteStatusPanel({
   );
 }
 
-// ── Import/export types & panels ──────────────────────────────────────────────
+// â”€â”€ Import/export types & panels â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type ImportedSite = {
   name: string;
   description: string | null;
-  startDate: string | null;
-  endDate: string | null;
 };
 
 function SiteListImportPanel({
@@ -690,7 +672,7 @@ function SiteListImportPanel({
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean)
-    .map((name) => ({ name, description: null, startDate: null, endDate: null }));
+    .map((name) => ({ name, description: null }));
 
   const inputCls =
     "w-full rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-base)] px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder-[#4a4950] outline-none focus:border-[var(--color-accent)] transition-colors";
@@ -800,11 +782,6 @@ function SiteJsonImportPanel({
                 {parsed.map((item, i) => (
                   <div key={i} className="px-3 py-2">
                     <p className="text-sm text-[var(--color-text-primary)]">{item.name}</p>
-                    {(item.startDate ?? item.endDate) && (
-                      <p className="text-[11px] text-[var(--color-text-muted)] mt-0.5">
-                        {item.startDate ?? "—"} → {item.endDate ?? "—"}
-                      </p>
-                    )}
                   </div>
                 ))}
               </div>
@@ -828,7 +805,7 @@ function SiteJsonImportPanel({
   );
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// â”€â”€ Main component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export function SitesClient({
   sites: initialSites,
@@ -869,15 +846,13 @@ export function SitesClient({
   const sortedSites = useMemo(() => {
     if (!sortKey || !sortDir) return yearFilteredSites;
     return [...yearFilteredSites].sort((a, b) => {
-      let va: string | number = "";
-      let vb: string | number = "";
-      if (sortKey === "startDate" || sortKey === "endDate") {
-        va = a[sortKey] ? a[sortKey].getTime() : sortDir === "asc" ? Infinity : -Infinity;
-        vb = b[sortKey] ? b[sortKey].getTime() : sortDir === "asc" ? Infinity : -Infinity;
+      if (sortKey === "firstActiveDate" || sortKey === "doneDate") {
+        const va = a[sortKey] ? a[sortKey].getTime() : sortDir === "asc" ? Infinity : -Infinity;
+        const vb = b[sortKey] ? b[sortKey].getTime() : sortDir === "asc" ? Infinity : -Infinity;
         return sortDir === "asc" ? va - vb : vb - va;
       }
-      va = (sortKey === "manager" ? (a.constructionManagerName ?? "") : (a[sortKey as keyof Site] as string | null) ?? "").toLowerCase();
-      vb = (sortKey === "manager" ? (b.constructionManagerName ?? "") : (b[sortKey as keyof Site] as string | null) ?? "").toLowerCase();
+      const va = (sortKey === "manager" ? (a.constructionManagerName ?? "") : (a[sortKey] ?? "")).toLowerCase();
+      const vb = (sortKey === "manager" ? (b.constructionManagerName ?? "") : (b[sortKey] ?? "")).toLowerCase();
       return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
     });
   }, [yearFilteredSites, sortKey, sortDir]);
@@ -920,8 +895,6 @@ export function SitesClient({
     const data = sites.map((s) => ({
       name: s.name,
       description: s.description ?? null,
-      startDate: s.startDate ? s.startDate.toISOString().slice(0, 10) : null,
-      endDate: s.endDate ? s.endDate.toISOString().slice(0, 10) : null,
     }));
     const blob = new Blob(
       [JSON.stringify({ version: 1, type: "sites", exported: new Date().toISOString(), data }, null, 2)],
@@ -961,8 +934,6 @@ export function SitesClient({
             return {
               name: String(i.name).trim(),
               description: typeof i.description === "string" ? i.description.trim() || null : null,
-              startDate: typeof i.startDate === "string" && i.startDate ? i.startDate : null,
-              endDate: typeof i.endDate === "string" && i.endDate ? i.endDate : null,
             };
           })
           .filter((s) => s.name);
@@ -1013,8 +984,6 @@ export function SitesClient({
       id: site.id,
       name: site.name,
       description: site.description ?? "",
-      startDate: toInputDate(site.startDate),
-      endDate: toInputDate(site.endDate),
       constructionManagerId: site.constructionManagerId ?? "",
     });
     setFormOpen(true);
@@ -1029,16 +998,12 @@ export function SitesClient({
           id: form.id,
           name: form.name,
           description: form.description || null,
-          startDate: form.startDate || null,
-          endDate: form.endDate || null,
           constructionManagerId: form.constructionManagerId || null,
         });
       } else {
         await createSite({
           name: form.name,
           description: form.description || null,
-          startDate: form.startDate || null,
-          endDate: form.endDate || null,
           constructionManagerId: form.constructionManagerId || null,
         });
       }
@@ -1115,8 +1080,8 @@ export function SitesClient({
   const tableColumns: [SiteSortKey, string][] = [
     ["name", tCommon("name")],
     ["status", t("statusColumn")],
-    ["startDate", tCommon("startDate")],
-    ["endDate", tCommon("endDate")],
+    ["firstActiveDate", t("firstActiveDate")],
+    ["doneDate", t("doneDate")],
     ["manager", t("manager")],
     ["description", t("description")],
   ];
@@ -1321,8 +1286,8 @@ export function SitesClient({
                     </td>
                     <td className="px-4 py-3 font-medium text-[var(--color-text-primary)]">{site.name}</td>
                     <td className="px-4 py-3"><StatusBadge status={site.status} /></td>
-                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">{formatDate(site.startDate, locale)}</td>
-                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">{formatDate(site.endDate, locale)}</td>
+                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">{formatDate(site.firstActiveDate, locale)}</td>
+                    <td className="px-4 py-3 text-[var(--color-text-secondary)]">{formatDate(site.doneDate, locale)}</td>
                     <td className="px-4 py-3 text-[var(--color-text-secondary)]">
                       {site.constructionManagerName ?? <span className="text-[var(--color-text-faint)]">—</span>}
                     </td>
@@ -1403,3 +1368,4 @@ export function SitesClient({
     </div>
   );
 }
+

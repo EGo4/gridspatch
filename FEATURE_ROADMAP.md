@@ -10,29 +10,7 @@ Order is based on practical relevance: core planning workflow first, security/ad
 - **"Back to pool" in the employee site picker** — divider + entry in `SitePickerPopover` when the card sits on a project cell; `sendToPool` in [useBoardState.ts](src/components/board/hooks/useBoardState.ts) mirrors `assignToSite`.
 - **Apprentice role and school days** — role key list in [roles.ts](src/lib/roles.ts), intentionally limited to `apprentice` and `staff` for now; admin role select; one-off free-text migration ([normalize-employee-roles.ts](scripts/normalize-employee-roles.ts), already run against the local dev DB); `Availability.status` widened to include `school`; apprentice-only school fly-out button (graduation-cap icon); swimlane/statistics/export school bucket.
 - **Site-selective day copy, both variants** — shipped together as planned, sharing one server implementation. Variant 1: picking a source day from the day-header popover opens [SiteCopyDialog](src/components/board/modals/SiteCopyDialog.tsx) (all sites checked by default, per-site source/target counts, replaces the old unconditional overwrite-confirm modal) instead of copying immediately. Variant 2: a small copy control on each site's own day cell opens [SiteDayCopyPopover](src/components/board/modals/SiteDayCopyPopover.tsx) listing the week's other days with per-day counts for that one site. Both call `copyDayAssignments`/`copySiteDayAssignments` ([board.ts](src/server/actions/board.ts)), which now takes an optional `projectIds` scope and skips (and counts) employees already booked on an unselected site or absent on the target day rather than silently dropping or stealing them — see [copyScoped.ts](src/components/board/copyScoped.ts) for the shared optimistic-state/conflict logic used by both variants' UI.
-
-## Remove start and end date from construction sites
-
-Goal:
-Sites no longer carry a start/end date. The fields are unused by any logic and only confuse planners.
-
-Requirements:
-
-- Drop `startDate` and `endDate` from `Project` in the schema (verified: no scheduling, filtering, statistics or export logic reads them — they are CRUD and display only).
-- Remove the two form fields, the two table columns, their sort keys, and the two columns from the site CSV import/export.
-- CSV import stays tolerant: a file that still contains the old columns imports fine, the extra columns are ignored.
-
-Acceptance criteria:
-
-- Site create/edit dialog has no date fields; the sites table has no date columns.
-- Importing an old export file (with date columns) succeeds without an error.
-- `npm run check` passes with no unused type members left behind.
-
-Technical notes:
-
-- Touches [SitesClient.tsx](src/app/admin/sites/SitesClient.tsx), [sites/page.tsx](src/app/admin/sites/page.tsx), [sites.ts](src/server/actions/sites.ts), [types/index.ts](src/types/index.ts), [board.ts](src/server/services/board.ts) (pass-through only), and the schema.
-- Migration name suggestion: `remove_project_start_end_date`. Destructive — the column data is gone; take a dump first if the dates might still be wanted.
-- Employee `startDate`/`endDate` and `Week.startDate`/`endDate` are unrelated and stay.
+- **Remove start and end date from construction sites** — dropped from the `Project` schema (migration `remove_project_start_end_date`), the type, the create/edit form, table columns/sort keys, and JSON import/export in [SitesClient.tsx](src/app/admin/sites/SitesClient.tsx); pass-through mapping removed from [sites.ts](src/server/actions/sites.ts) and [board.ts](src/server/services/board.ts). Import stays tolerant of old exports carrying the extra fields — they're just not read. Employee `startDate`/`endDate` and `Week.startDate`/`endDate` were unrelated and untouched.
 
 ## Fix all npm vulnerabilities
 

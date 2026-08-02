@@ -104,8 +104,6 @@ await run(
               id: "project-1",
               name: "Site A",
               description: null,
-              startDate: null,
-              endDate: null,
               status: "active",
               constructionManagerId: null,
               constructionManager: null,

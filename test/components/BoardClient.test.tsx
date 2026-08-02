@@ -104,8 +104,6 @@ const projects: Project[] = [
     id: "p1",
     name: "Site One",
     description: null,
-    startDate: null,
-    endDate: null,
     status: "active",
     constructionManagerId: null,
     constructionManagerName: null,

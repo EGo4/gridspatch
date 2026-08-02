@@ -155,7 +155,9 @@
     "managerNoChange": "Manager — no change",
     "removeManagerOption": "— Remove manager",
     "selectAllAria": "Select all",
-    "selectRowAria": "Select {name}"
+    "selectRowAria": "Select {name}",
+    "firstActiveDate": "Start",
+    "doneDate": "End"
   },
   "Users": {
     "title": "Users",

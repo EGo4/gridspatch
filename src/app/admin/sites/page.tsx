@@ -35,11 +35,11 @@ export default async function SitesPage() {
       id: r.id,
       name: r.name,
       description: r.description,
-      startDate: r.startDate,
-      endDate: r.endDate,
       status: effectiveStatus,
       constructionManagerId: r.constructionManagerId,
       constructionManagerName: r.constructionManager?.name ?? null,
+      firstActiveDate: r.statusTransitions.find((t) => t.status === "active")?.weekStartDate ?? null,
+      doneDate: effectiveStatus === "done" ? applicable[applicable.length - 1]!.weekStartDate : null,
     };
   });
 

@@ -32,8 +32,6 @@ export type Project = {
   id: string;
   name: string;
   description: string | null;
-  startDate: Date | null;
-  endDate: Date | null;
   status: ProjectStatus;
   constructionManagerId: string | null;
   constructionManagerName: string | null;
