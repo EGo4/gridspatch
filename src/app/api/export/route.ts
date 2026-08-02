@@ -71,6 +71,7 @@ export async function GET(request: Request) {
     employee: t("csvEmployee"),
     sick: t("csvSick"),
     vacation: t("csvVacation"),
+    school: t("csvSchool"),
     total: t("csvTotal"),
     days: [t("csvMon"), t("csvTue"), t("csvWed"), t("csvThu"), t("csvFri")],
   };

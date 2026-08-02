@@ -18,7 +18,7 @@ import {
   poolFullDayId,
   poolHalfDayId,
 } from "./boardIds";
-import { SyringeIcon, PalmTreeIcon, FilterIcon } from "~/components/icons";
+import { SyringeIcon, PalmTreeIcon, GraduationCapIcon, FilterIcon } from "~/components/icons";
 import { Sidebar } from "~/components/Sidebar";
 import { clearProjectAssignmentsForWeek } from "~/server/actions/board";
 import { useHolidays } from "./hooks/useHolidays";
@@ -742,6 +742,7 @@ export function BoardClient({
                   onToggle={() => toggleOpenCard(getDraggableId(entry.employee.id, day, "full_day"))}
                   onMarkSick={() => markAvailability(entry.employee.id, day, "sick", entry.dayPart)}
                   onMarkVacation={() => markAvailability(entry.employee.id, day, "vacation", entry.dayPart)}
+                  onMarkSchool={entry.employee.role === "apprentice" ? () => markAvailability(entry.employee.id, day, "school", entry.dayPart) : undefined}
                   onSplitDay={() => splitDay(entry.employee.id, day, fdId)}
                   onAssignToSite={isPubHoliday ? undefined : (anchor) => {
                     setOpenCardId(null);
@@ -799,6 +800,7 @@ export function BoardClient({
                       onToggle={() => toggleOpenCard(getDraggableId(entry.employee.id, day, "pre_lunch"))}
                       onMarkSick={() => markAvailability(entry.employee.id, day, "sick", entry.dayPart)}
                       onMarkVacation={() => markAvailability(entry.employee.id, day, "vacation", entry.dayPart)}
+                      onMarkSchool={entry.employee.role === "apprentice" ? () => markAvailability(entry.employee.id, day, "school", entry.dayPart) : undefined}
                       onMergeDay={() => mergeDay(entry.employee.id, day, preId)}
                       onAssignToSite={isPubHoliday ? undefined : (anchor) => {
                         setOpenCardId(null);
@@ -852,6 +854,7 @@ export function BoardClient({
                       onToggle={() => toggleOpenCard(getDraggableId(entry.employee.id, day, "after_lunch"))}
                       onMarkSick={() => markAvailability(entry.employee.id, day, "sick", entry.dayPart)}
                       onMarkVacation={() => markAvailability(entry.employee.id, day, "vacation", entry.dayPart)}
+                      onMarkSchool={entry.employee.role === "apprentice" ? () => markAvailability(entry.employee.id, day, "school", entry.dayPart) : undefined}
                       onMergeDay={() => mergeDay(entry.employee.id, day, postId)}
                       onAssignToSite={isPubHoliday ? undefined : (anchor) => {
                         setOpenCardId(null);
@@ -1221,7 +1224,7 @@ export function BoardClient({
                               </span>
                             )}
                             <span className="ml-auto pl-1 text-[var(--color-text-secondary)]">
-                              {status === "sick" ? <SyringeIcon size={16} /> : <PalmTreeIcon size={16} />}
+                              {status === "sick" ? <SyringeIcon size={16} /> : status === "vacation" ? <PalmTreeIcon size={16} /> : <GraduationCapIcon size={16} />}
                             </span>
                           </button>
                         ))}
@@ -1387,6 +1390,7 @@ export function BoardClient({
                             onToggle={() => toggleOpenCard(getDraggableId(entry.employee.id, day, entry.dayPart))}
                             onMarkSick={() => { if (!pubHoliday) markAvailability(entry.employee.id, day, "sick", entry.dayPart); }}
                             onMarkVacation={() => { if (!pubHoliday) markAvailability(entry.employee.id, day, "vacation", entry.dayPart); }}
+                            onMarkSchool={entry.employee.role === "apprentice" ? () => { if (!pubHoliday) markAvailability(entry.employee.id, day, "school", entry.dayPart); } : undefined}
                             onAssignToSite={pubHoliday ? undefined : (anchor) => {
                               setOpenCardId(null);
                               setSitePickerFor({ employeeId: entry.employee.id, day, sourceCellId: fdId, dayPart: entry.dayPart, ...anchor });
@@ -1429,6 +1433,7 @@ export function BoardClient({
                             onToggle={() => toggleOpenCard(getDraggableId(entry.employee.id, day, entry.dayPart))}
                             onMarkSick={() => { if (!pubHoliday) markAvailability(entry.employee.id, day, "sick", entry.dayPart); }}
                             onMarkVacation={() => { if (!pubHoliday) markAvailability(entry.employee.id, day, "vacation", entry.dayPart); }}
+                            onMarkSchool={entry.employee.role === "apprentice" ? () => { if (!pubHoliday) markAvailability(entry.employee.id, day, "school", entry.dayPart); } : undefined}
                             onMergeDay={() => mergeDay(entry.employee.id, day, hdId)}
                             onAssignToSite={pubHoliday ? undefined : (anchor) => {
                               setOpenCardId(null);

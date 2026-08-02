@@ -36,7 +36,7 @@ export type BoardMutationDb = {
     findMany: (args: { where: Record<string, unknown> }) => Promise<AvailabilityRow[]>;
     upsert: (args: {
       where: { employeeId_date_dayPart: { employeeId: string; date: Date; dayPart: DayPart } };
-      update: { status: "sick" | "vacation"; weekId: string };
+      update: { status: "sick" | "vacation" | "school"; weekId: string };
       create: AvailabilityRow;
     }) => Promise<AvailabilityRow>;
     deleteMany: (args: { where: Record<string, unknown> }) => Promise<{ count: number }>;
@@ -183,7 +183,7 @@ export async function setAvailability(
   employeeId: string,
   dateIso: string,
   weekId: string,
-  status: "sick" | "vacation",
+  status: "sick" | "vacation" | "school",
   dayPart: DayPart = "full_day",
 ) {
   const date = new Date(dateIso);

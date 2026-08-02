@@ -6,6 +6,12 @@ import { useTranslations } from "next-intl";
 import { createEmployee, updateEmployee, deleteEmployee, bulkCreateEmployees } from "~/server/actions/employees";
 import { UserIcon } from "~/components/icons";
 import { Sidebar } from "~/components/Sidebar";
+import { ROLE_KEYS, isRoleKey, type RoleKey } from "~/lib/roles";
+
+const ROLE_MESSAGE_KEY: Record<RoleKey, string> = {
+  apprentice: "roleApprentice",
+  staff: "roleStaff",
+};
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -168,7 +174,14 @@ function EmployeeFormPanel({
           {field(tCommon("photo"), <PhotoPicker img={form.img} pendingFile={form.pendingFile} onChange={(img, pendingFile) => onChange({ ...form, img, pendingFile })} />)}
           {field(t("nameRequired"), <input type="text" value={form.name} onChange={(e) => onChange({ ...form, name: e.target.value })} placeholder={t("namePlaceholder")} className={inputCls} autoFocus />)}
           {field(t("initialsRequired"), <input type="text" value={form.initials} onChange={(e) => onChange({ ...form, initials: e.target.value.toUpperCase().slice(0, 4) })} placeholder={t("initialsPlaceholder")} maxLength={4} className={inputCls} />)}
-          {field(tCommon("role"), <input type="text" value={form.role} onChange={(e) => onChange({ ...form, role: e.target.value })} placeholder={t("rolePlaceholder")} className={inputCls} />)}
+          {field(tCommon("role"), (
+            <select value={form.role} onChange={(e) => onChange({ ...form, role: e.target.value })} className={inputCls}>
+              <option value="">{t("noRole")}</option>
+              {ROLE_KEYS.map((key) => (
+                <option key={key} value={key}>{t(ROLE_MESSAGE_KEY[key])}</option>
+              ))}
+            </select>
+          ))}
           {field(tCommon("startDate"), <input type="date" title={tCommon("startDate")} value={form.startDate} onChange={(e) => onChange({ ...form, startDate: e.target.value })} className={inputCls} />)}
           {field(tCommon("endDate"), <input type="date" title={tCommon("endDate")} value={form.endDate} onChange={(e) => onChange({ ...form, endDate: e.target.value })} className={inputCls} />)}
         </div>
@@ -744,7 +757,9 @@ export function EmployeesClient({
                         </div>
                       </td>
                       <td className="px-4 py-3 font-mono text-xs text-[var(--color-text-secondary)]">{employee.initials}</td>
-                      <td className="px-4 py-3 text-[var(--color-text-secondary)]">{employee.role ?? "—"}</td>
+                      <td className="px-4 py-3 text-[var(--color-text-secondary)]">
+                        {employee.role ? (isRoleKey(employee.role) ? t(ROLE_MESSAGE_KEY[employee.role]) : employee.role) : "—"}
+                      </td>
                       <td className="px-4 py-3 text-xs text-[var(--color-text-muted)] tabular-nums">
                         {employee.startDate ?? "∞"} — {employee.endDate ?? "∞"}
                       </td>

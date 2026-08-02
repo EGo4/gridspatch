@@ -8,37 +8,7 @@ Order is based on practical relevance: core planning workflow first, security/ad
 - **Year filters for construction sites and employees** — year dropdown in board filter panel, admin sites table, admin employees table; hides sites/employees with no assignment in the selected year.
 - **Half-day sickness and vacation** — `Availability.dayPart`, half-day sick/vacation fly-outs, absence swimlane half-day chips, export weights half-day absences as 0.5 day.
 - **"Back to pool" in the employee site picker** — divider + entry in `SitePickerPopover` when the card sits on a project cell; `sendToPool` in [useBoardState.ts](src/components/board/hooks/useBoardState.ts) mirrors `assignToSite`.
-
-## Apprentice role and school days
-
-Goal:
-Employees get a structured role. Employees with the apprentice role ("Lehrling") can be marked as being at vocational school for a day (or half a day), which is a third absence type next to sick and vacation.
-
-Requirements:
-
-- Roles become a known key list (`src/lib/roles.ts`, e.g. `apprentice`, plus the roles actually in use today), with translated labels per locale — German UI shows "Lehrling", English shows "Apprentice".
-- Admin employee form: role free-text input becomes a select over those keys, "no role" allowed.
-- One-off data migration maps existing free-text role values case-insensitively onto the new keys; unmapped values are set to null and listed in the migration output so nothing is silently lost.
-- `Availability.status` gains `school` alongside `sick` / `vacation`.
-- The school action is only offered on cards of employees whose role is `apprentice`.
-- School supports the same day parts as the other absence types (see "Half-day sickness and vacation").
-- Absence swimlane renders school entries with their own icon and colour; the swimlane heading/label covers all three statuses.
-- Statistics and the hours export report school as its own bucket — it is absence, but neither sick nor vacation.
-
-Acceptance criteria:
-
-- An employee with role apprentice shows a school button on the card; a non-apprentice does not.
-- Marking school for a day clears that day's assignments and shows the employee in the absence swimlane with the school icon.
-- Changing an employee's role away from apprentice in admin leaves existing school records intact.
-- Export/statistics show school days separately from sick and vacation.
-
-Technical notes:
-
-- Keep the DB column as `String` and validate against the key list with Zod rather than introducing a Prisma enum — avoids a lock-in migration every time a role is added.
-- The board's `Employee` type ([types/index.ts](src/types/index.ts)) carries only `id`/`name`/`img`; it needs `role`, and [board.ts](src/server/services/board.ts) has to select it.
-- `AvailabilityStatus` in [BoardClient.tsx](src/components/board/BoardClient.tsx) widens to `"sick" | "vacation" | "school"`.
-- New icon in `src/components/icons` (backpack/school).
-- Depends on half-day absences if school should be half-day capable; can ship full-day first.
+- **Apprentice role and school days** — role key list in [roles.ts](src/lib/roles.ts), intentionally limited to `apprentice` and `staff` for now; admin role select; one-off free-text migration ([normalize-employee-roles.ts](scripts/normalize-employee-roles.ts), already run against the local dev DB); `Availability.status` widened to include `school`; apprentice-only school fly-out button (graduation-cap icon); swimlane/statistics/export school bucket.
 
 ## Site-selective day copy (variant 1)
 

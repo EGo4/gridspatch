@@ -5,7 +5,7 @@ import React from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import { useTranslations } from "next-intl";
 import type { DayPart, Employee } from "~/types";
-import { SyringeIcon, PalmTreeIcon, SplitDayIcon, MergeIcon, AssignSiteIcon, UserIcon, CommentIcon } from "~/components/icons";
+import { SyringeIcon, PalmTreeIcon, GraduationCapIcon, SplitDayIcon, MergeIcon, AssignSiteIcon, UserIcon, CommentIcon } from "~/components/icons";
 
 interface EmployeeCardProps {
   employee: Employee;
@@ -16,6 +16,8 @@ interface EmployeeCardProps {
   onToggle: () => void;
   onMarkSick: () => void;
   onMarkVacation: () => void;
+  /** Only passed for apprentice-role employees. */
+  onMarkSchool?: () => void;
   /** Only passed for full-day cards inside a project cell (not pool). */
   onSplitDay?: () => void;
   /** Only passed for half-day cards. */
@@ -39,6 +41,7 @@ export function EmployeeCard({
   onToggle,
   onMarkSick,
   onMarkVacation,
+  onMarkSchool,
   onSplitDay,
   onMergeDay,
   onAssignToSite,
@@ -145,6 +148,17 @@ export function EmployeeCard({
                 <PalmTreeIcon />
               </button>
 
+              {onMarkSchool && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onMarkSchool(); }}
+                  title={t("markAsSchool")}
+                  className="fly-btn fly-btn-school-half text-[var(--color-text-secondary)]"
+                >
+                  <GraduationCapIcon />
+                </button>
+              )}
+
               {onMergeDay && (
                 <button
                   type="button"
@@ -215,6 +229,19 @@ export function EmployeeCard({
               >
                 <PalmTreeIcon />
               </button>
+
+              {onMarkSchool && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onMarkSchool(); }}
+                  title={t("markAsSchool")}
+                  className={`fly-btn text-[var(--color-text-secondary)] ${
+                    onSplitDay ? "fly-btn-school-fullday-split" : "fly-btn-school-fullday"
+                  }`}
+                >
+                  <GraduationCapIcon />
+                </button>
+              )}
             </>
           )}
         </div>

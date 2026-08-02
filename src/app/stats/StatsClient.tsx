@@ -186,6 +186,7 @@ function EmployeesTable({
             <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("colDaysAssigned")}</th>
             <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("colSickDays")}</th>
             <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("colVacationDays")}</th>
+            <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">{t("colSchoolDays")}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--color-border-subtle)]">
@@ -210,9 +211,14 @@ function EmployeesTable({
                       ? <span className="text-[var(--color-status-hold-txt)]">{s.vacationDays}</span>
                       : <span className="text-[var(--color-text-faint)]">—</span>}
                   </td>
+                  <td className="px-4 py-3 text-right tabular-nums">
+                    {s.schoolDays > 0
+                      ? <span className="text-[var(--color-status-planned-txt)]">{s.schoolDays}</span>
+                      : <span className="text-[var(--color-text-faint)]">—</span>}
+                  </td>
                 </tr>
                 {isOpen && (
-                  <ExpandPanel colSpan={5}>
+                  <ExpandPanel colSpan={6}>
                     <HBarChart
                       points={siteData[s.employeeId] ?? []}
                       title={t("chartDaysPerSite", { name: s.employeeName })}

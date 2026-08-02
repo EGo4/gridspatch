@@ -87,8 +87,10 @@
     "uploadPhotoAria": "Mitarbeiterfoto hochladen",
     "namePlaceholder": "z. B. John Smith",
     "initialsPlaceholder": "z. B. JS",
-    "rolePlaceholder": "z. B. Vorarbeiter, Auszubildender",
-    "pasteListPlaceholder": "John Smith\nJane Doe\nBob Johnson"
+    "pasteListPlaceholder": "John Smith\nJane Doe\nBob Johnson",
+    "noRole": "Keine Rolle",
+    "roleApprentice": "Lehrling",
+    "roleStaff": "Angestellter"
   },
   "Sites": {
     "title": "Baustellen",
@@ -202,6 +204,7 @@
     "colDaysAssigned": "Zugewiesene Tage",
     "colSickDays": "Krankheitstage",
     "colVacationDays": "Urlaubstage",
+    "colSchoolDays": "Schultage",
     "colStatus": "Status",
     "colEmployeeDays": "Mitarbeiter-Tage",
     "colActiveSites": "Aktive Baustellen",
@@ -251,7 +254,7 @@
     "transitionTo": "Übergang zu",
     "copyFrom": "Kopieren von",
     "copyAssignmentsTo": "Zuweisungen kopieren nach {day}",
-    "sickVacation": "Krank & Urlaub",
+    "sickVacation": "Krank, Urlaub & Schule",
     "pool": "Pool (Verfügbar)",
     "am": "Vormittag",
     "pm": "Nachmittag",
@@ -280,6 +283,7 @@
     "splitIntoHalfDays": "In Halbtage aufteilen",
     "markAsSick": "Als krank markieren",
     "markAsVacation": "Als im Urlaub markieren",
+    "markAsSchool": "Als in der Schule markieren",
     "commentsCount": "{count, plural, one {# Kommentar} other {# Kommentare}}",
     "copyAssignmentsFrom": "Zuweisungen von {week} kopieren",
     "loading": "Board wird geladen…"
@@ -334,6 +338,7 @@
     "csvEmployee": "Mitarbeiter",
     "csvSick": "Krank",
     "csvVacation": "Urlaub",
+    "csvSchool": "Schule",
     "csvTotal": "Gesamt",
     "csvMon": "Mo",
     "csvTue": "Di",

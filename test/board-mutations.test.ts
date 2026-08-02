@@ -225,6 +225,19 @@ await run("marking the second half with a different status keeps two half-day re
   );
 });
 
+await run("marking a full day as school clears assignments and records a school absence", async () => {
+  const db = new FakeBoardDb();
+  await updateAssignment(db, "e1", "p1", DAY, WEEK, "full_day");
+
+  await setAvailability(db, "e1", DAY, WEEK, "school");
+
+  assert.equal(db.assignments.filter((a) => a.employeeId === "e1").length, 0);
+  assert.deepEqual(
+    db.availabilities.map((a) => ({ dayPart: a.dayPart, status: a.status })),
+    [{ dayPart: "full_day", status: "school" }],
+  );
+});
+
 await run("clearAvailability removes only the matching dayPart", async () => {
   const db = new FakeBoardDb();
   await setAvailability(db, "e1", DAY, WEEK, "sick", "pre_lunch");

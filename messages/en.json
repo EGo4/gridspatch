@@ -87,8 +87,10 @@
     "uploadPhotoAria": "Upload employee photo",
     "namePlaceholder": "e.g. John Smith",
     "initialsPlaceholder": "e.g. JS",
-    "rolePlaceholder": "e.g. Foreman, Apprentice",
-    "pasteListPlaceholder": "John Smith\nJane Doe\nBob Johnson"
+    "pasteListPlaceholder": "John Smith\nJane Doe\nBob Johnson",
+    "noRole": "No role",
+    "roleApprentice": "Apprentice",
+    "roleStaff": "Employee"
   },
   "Sites": {
     "title": "Building Sites",
@@ -202,6 +204,7 @@
     "colDaysAssigned": "Days Assigned",
     "colSickDays": "Sick Days",
     "colVacationDays": "Vacation Days",
+    "colSchoolDays": "School Days",
     "colStatus": "Status",
     "colEmployeeDays": "Employee-Days",
     "colActiveSites": "Active Sites",
@@ -251,7 +254,7 @@
     "transitionTo": "Transition to",
     "copyFrom": "Copy from",
     "copyAssignmentsTo": "Copy assignments to {day}",
-    "sickVacation": "Sick & Vacation",
+    "sickVacation": "Sick, Vacation & School",
     "pool": "Pool (Available)",
     "am": "AM",
     "pm": "PM",
@@ -280,6 +283,7 @@
     "splitIntoHalfDays": "Split into half-days",
     "markAsSick": "Mark as sick",
     "markAsVacation": "Mark as on vacation",
+    "markAsSchool": "Mark as at school",
     "commentsCount": "{count, plural, one {# comment} other {# comments}}",
     "copyAssignmentsFrom": "Copy assignments from {week}",
     "loading": "Loading board…"
@@ -334,6 +338,7 @@
     "csvEmployee": "Employee",
     "csvSick": "Sick",
     "csvVacation": "Vacation",
+    "csvSchool": "School",
     "csvTotal": "Total",
     "csvMon": "Mon",
     "csvTue": "Tue",

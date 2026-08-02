@@ -81,7 +81,7 @@ export const resolveWeeksForRange = (weeks: WeekOption[], range: ExportRangePara
 
 // ── Aggregation ───────────────────────────────────────────────────────────────
 
-export type EmployeeDrivenRow = { employeeName: string; hoursPerSite: number[]; sick: number; vacation: number };
+export type EmployeeDrivenRow = { employeeName: string; hoursPerSite: number[]; sick: number; vacation: number; school: number };
 export type EmployeeDrivenSheet = { siteNames: string[]; rows: EmployeeDrivenRow[] };
 
 export type SiteDrivenDayRow = { employeeName: string; days: number[]; total: number };
@@ -89,6 +89,7 @@ export type SiteDrivenSheet = {
   sites: { siteName: string; rows: SiteDrivenDayRow[] }[];
   sickRows: SiteDrivenDayRow[];
   vacationRows: SiteDrivenDayRow[];
+  schoolRows: SiteDrivenDayRow[];
 };
 
 export type ExportSheet = {
@@ -168,16 +169,18 @@ const buildWeekSheet = (
   // employeeId -> day count
   const empSick = new Map<string, number>();
   const empVacation = new Map<string, number>();
+  const empSchool = new Map<string, number>();
   // employeeId -> 0/1 per day
   const empSickDays = new Map<string, number[]>();
   const empVacationDays = new Map<string, number[]>();
+  const empSchoolDays = new Map<string, number[]>();
 
   for (const av of weekAvailabilities) {
     const dayName = getDayNameFromDate(av.date, week.startDateIso);
     if (!dayName) continue;
     const dayIndex = DAYS.indexOf(dayName);
-    const countMap = av.status === "sick" ? empSick : av.status === "vacation" ? empVacation : null;
-    const dayMap = av.status === "sick" ? empSickDays : av.status === "vacation" ? empVacationDays : null;
+    const countMap = av.status === "sick" ? empSick : av.status === "vacation" ? empVacation : av.status === "school" ? empSchool : null;
+    const dayMap = av.status === "sick" ? empSickDays : av.status === "vacation" ? empVacationDays : av.status === "school" ? empSchoolDays : null;
     if (!countMap || !dayMap) continue;
 
     const weight = DAY_WEIGHT[av.dayPart as DayPart] ?? 1;
@@ -192,13 +195,14 @@ const buildWeekSheet = (
     .sort((a, b) => (projNameById.get(a) ?? a).localeCompare(projNameById.get(b) ?? b));
   const siteNames = siteIdsWithAssignments.map((id) => projNameById.get(id) ?? id);
 
-  const activeEmpIds = new Set([...empSiteHours.keys(), ...empSick.keys(), ...empVacation.keys()]);
+  const activeEmpIds = new Set([...empSiteHours.keys(), ...empSick.keys(), ...empVacation.keys(), ...empSchool.keys()]);
   const employeeDrivenRows: EmployeeDrivenRow[] = Array.from(activeEmpIds)
     .map((empId) => ({
       employeeName: empNameById.get(empId) ?? empId,
       hoursPerSite: siteIdsWithAssignments.map((siteId) => round1(empSiteHours.get(empId)?.get(siteId) ?? 0)),
       sick: empSick.get(empId) ?? 0,
       vacation: empVacation.get(empId) ?? 0,
+      school: empSchool.get(empId) ?? 0,
     }))
     .sort((a, b) => a.employeeName.localeCompare(b.employeeName));
 
@@ -227,7 +231,12 @@ const buildWeekSheet = (
   return {
     weekLabel: week.label,
     employeeDriven: { siteNames, rows: employeeDrivenRows },
-    siteDriven: { sites, sickRows: toAbsenceRows(empSickDays), vacationRows: toAbsenceRows(empVacationDays) },
+    siteDriven: {
+      sites,
+      sickRows: toAbsenceRows(empSickDays),
+      vacationRows: toAbsenceRows(empVacationDays),
+      schoolRows: toAbsenceRows(empSchoolDays),
+    },
   };
 };
 
@@ -239,6 +248,7 @@ export type CsvLabels = {
   employee: string;
   sick: string;
   vacation: string;
+  school: string;
   total: string;
   days: string[]; // Mon..Fri, length 5
 };
@@ -253,8 +263,8 @@ const csvRow = (fields: Array<string | number>): string => fields.map(escapeCsvF
 
 export const renderEmployeeDrivenCsv = (sheets: ExportSheet[], labels: CsvLabels): string => {
   const blocks = sheets.map((sheet) => {
-    const header = [labels.employee, ...sheet.employeeDriven.siteNames, labels.sick, labels.vacation];
-    const rows = sheet.employeeDriven.rows.map((r) => csvRow([r.employeeName, ...r.hoursPerSite, r.sick, r.vacation]));
+    const header = [labels.employee, ...sheet.employeeDriven.siteNames, labels.sick, labels.vacation, labels.school];
+    const rows = sheet.employeeDriven.rows.map((r) => csvRow([r.employeeName, ...r.hoursPerSite, r.sick, r.vacation, r.school]));
     return [`${labels.weekPrefix}: ${sheet.weekLabel}`, csvRow(header), ...rows].join("\n");
   });
   return blocks.join("\n\n");
@@ -271,8 +281,9 @@ export const renderSiteDrivenCsv = (sheets: ExportSheet[], labels: CsvLabels): s
 
     const sickBlock = [labels.sick, csvRow(dayHeader), ...sheet.siteDriven.sickRows.map((r) => csvRow([r.employeeName, ...r.days, r.total]))].join("\n");
     const vacationBlock = [labels.vacation, csvRow(dayHeader), ...sheet.siteDriven.vacationRows.map((r) => csvRow([r.employeeName, ...r.days, r.total]))].join("\n");
+    const schoolBlock = [labels.school, csvRow(dayHeader), ...sheet.siteDriven.schoolRows.map((r) => csvRow([r.employeeName, ...r.days, r.total]))].join("\n");
 
-    return [`${labels.weekPrefix}: ${sheet.weekLabel}`, ...siteBlocks, sickBlock, vacationBlock].join("\n\n");
+    return [`${labels.weekPrefix}: ${sheet.weekLabel}`, ...siteBlocks, sickBlock, vacationBlock, schoolBlock].join("\n\n");
   });
 
   return blocks.join("\n\n");

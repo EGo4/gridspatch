@@ -6,6 +6,7 @@
 // the action boundary itself, not deeper in the service/mutation layer.
 
 import { z } from "zod";
+import { ROLE_KEYS } from "~/lib/roles";
 
 /**
  * A DB id. Loosely validated (non-empty, bounded) rather than locked to
@@ -31,7 +32,9 @@ export const zDateIso = z
 export const zDateParam = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: "Expected YYYY-MM-DD" });
 
 export const zDayPart = z.enum(["full_day", "pre_lunch", "after_lunch"]);
-export const zAvailabilityStatus = z.enum(["sick", "vacation"]);
+export const zAvailabilityStatus = z.enum(["sick", "vacation", "school"]);
+/** Nullable/optional — "no role" is a valid, common employee state. */
+export const zEmployeeRole = z.enum(ROLE_KEYS).nullable().optional();
 export const zHolidayType = z.enum(["public_holiday", "company_holiday"]);
 export const zProjectStatus = z.enum(["planned", "active", "on_hold", "done", "inactive"]);
 export const zUserRole = z.enum(["construction_manager", "hr", "admin"]);

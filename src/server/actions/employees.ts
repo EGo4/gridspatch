@@ -3,17 +3,17 @@
 import { z } from "zod";
 import { db } from "~/server/db";
 import { requireSession } from "~/server/better-auth/roles";
-import { zDateIso, zId } from "~/server/validation";
+import { zDateIso, zEmployeeRole, zId } from "~/server/validation";
+import { normalizeRoleFreeText } from "~/lib/roles";
 
 const zInitials = z.string().trim().min(1).max(10);
 const zEmployeeName = z.string().trim().min(1).max(200);
-const zRole = z.string().trim().max(200).nullable().optional();
 
 const employeeSchema = z.object({
   name: zEmployeeName,
   initials: zInitials,
   img: z.string().trim().max(2000).nullable().optional(),
-  role: zRole,
+  role: zEmployeeRole,
   startDate: zDateIso.nullable().optional(),
   endDate: zDateIso.nullable().optional(),
 });
@@ -33,7 +33,7 @@ export async function createEmployee(input: {
       name: parsed.name,
       initials: parsed.initials.toUpperCase(),
       img: parsed.img?.trim() ?? null,
-      role: parsed.role?.trim() ?? null,
+      role: parsed.role ?? null,
       startDate: parsed.startDate ? new Date(parsed.startDate) : null,
       endDate: parsed.endDate ? new Date(parsed.endDate) : null,
     },
@@ -58,7 +58,7 @@ export async function updateEmployee(input: {
       name: parsed.name,
       initials: parsed.initials.toUpperCase(),
       img: parsed.img?.trim() ?? null,
-      role: parsed.role?.trim() ?? null,
+      role: parsed.role ?? null,
       startDate: parsed.startDate ? new Date(parsed.startDate) : null,
       endDate: parsed.endDate ? new Date(parsed.endDate) : null,
     },
@@ -73,10 +73,15 @@ export async function deleteEmployee(id: string) {
   return { success: true };
 }
 
+// Bulk import (paste list / JSON re-import) can still carry free text — e.g.
+// re-importing an export taken before this feature shipped. Normalised
+// case-insensitively onto a known role key the same way the one-off
+// migration does (scripts/normalize-employee-roles.ts); anything
+// unrecognised becomes "no role" rather than rejecting the whole row.
 const bulkEmployeeItemSchema = z.object({
   name: zEmployeeName,
   initials: zInitials,
-  role: zRole,
+  role: z.string().trim().max(200).nullable().optional(),
 });
 
 export async function bulkCreateEmployees(
@@ -97,7 +102,7 @@ export async function bulkCreateEmployees(
         data: {
           name: item.name,
           initials: item.initials.toUpperCase(),
-          role: item.role?.trim() ?? null,
+          role: normalizeRoleFreeText(item.role),
         },
       });
       created++;

@@ -12,7 +12,7 @@ const run = async (name: string, fn: () => void | Promise<void>) => {
   }
 };
 
-const alice = { id: "e1", name: "Alice", img: null };
+const alice = { id: "e1", name: "Alice", img: null, role: null };
 
 await run("adds a lone half card to the half-day pool bucket", () => {
   const next = addHalfToPool({}, "Monday", alice, "pre_lunch");
@@ -28,7 +28,7 @@ await run("merges with the sibling half already in the pool into one full_day ca
 });
 
 await run("does not merge halves belonging to different employees", () => {
-  const bob = { id: "e2", name: "Bob", img: null };
+  const bob = { id: "e2", name: "Bob", img: null, role: null };
   const state = { "pool-Monday-half": [{ employee: alice, dayPart: "pre_lunch" as const }] };
   const next = addHalfToPool(state, "Monday", bob, "after_lunch");
   assert.deepEqual(next["pool-Monday-half"], [
@@ -39,7 +39,7 @@ await run("does not merge halves belonging to different employees", () => {
 });
 
 await run("appends alongside an unrelated existing full_day pool entry for another employee", () => {
-  const bob = { id: "e2", name: "Bob", img: null };
+  const bob = { id: "e2", name: "Bob", img: null, role: null };
   const state = { "pool-Monday": [{ employee: bob, dayPart: "full_day" as const }] };
   const next = addHalfToPool(state, "Monday", alice, "pre_lunch");
   assert.deepEqual(next["pool-Monday"], [{ employee: bob, dayPart: "full_day" }]);

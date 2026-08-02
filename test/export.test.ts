@@ -26,6 +26,7 @@ const LABELS: CsvLabels = {
   employee: "Employee",
   sick: "Sick",
   vacation: "Vacation",
+  school: "School",
   total: "Total",
   days: ["Mon", "Tue", "Wed", "Thu", "Fri"],
 };
@@ -84,8 +85,8 @@ await run("buildExportData aggregates hours per site and absences per day", asyn
 
   assert.deepEqual(sheet.employeeDriven.siteNames, ["Site A", "Site B"]);
   assert.deepEqual(sheet.employeeDriven.rows, [
-    { employeeName: "Alice", hoursPerSite: [20, 4], sick: 1, vacation: 0 },
-    { employeeName: "Bob", hoursPerSite: [0, 16], sick: 0, vacation: 1 },
+    { employeeName: "Alice", hoursPerSite: [20, 4], sick: 1, vacation: 0, school: 0 },
+    { employeeName: "Bob", hoursPerSite: [0, 16], sick: 0, vacation: 1, school: 0 },
   ]);
 
   assert.equal(sheet.siteDriven.sites.length, 2);
@@ -101,6 +102,7 @@ await run("buildExportData aggregates hours per site and absences per day", asyn
 
   assert.deepEqual(sheet.siteDriven.sickRows, [{ employeeName: "Alice", days: [0, 0, 0, 0, 1], total: 1 }]);
   assert.deepEqual(sheet.siteDriven.vacationRows, [{ employeeName: "Bob", days: [1, 0, 0, 0, 0], total: 1 }]);
+  assert.deepEqual(sheet.siteDriven.schoolRows, []);
 });
 
 await run("buildExportData weights a half-day absence as 0.5 day, not 1", async () => {
@@ -119,8 +121,28 @@ await run("buildExportData weights a half-day absence as 0.5 day, not 1", async 
   const sheets = await buildExportData(db, [week1], 8);
   const sheet = sheets[0]!;
 
-  assert.deepEqual(sheet.employeeDriven.rows, [{ employeeName: "Alice", hoursPerSite: [], sick: 0.5, vacation: 0 }]);
+  assert.deepEqual(sheet.employeeDriven.rows, [{ employeeName: "Alice", hoursPerSite: [], sick: 0.5, vacation: 0, school: 0 }]);
   assert.deepEqual(sheet.siteDriven.sickRows, [{ employeeName: "Alice", days: [0.5, 0, 0, 0, 0], total: 0.5 }]);
+});
+
+await run("buildExportData weights a half-day school absence as 0.5 day, not 1", async () => {
+  const db: ExportDb = {
+    week: { findMany: async () => [{ id: "week-1", startDate: new Date("2026-04-13T00:00:00.000Z") }] },
+    assignment: { findMany: async () => [] },
+    availability: {
+      findMany: async () => [
+        { employeeId: "alice", weekId: "week-1", date: new Date("2026-04-13T00:00:00.000Z"), dayPart: "pre_lunch", status: "school" }, // Mon AM
+      ],
+    },
+    employee: { findMany: async () => [{ id: "alice", name: "Alice" }] },
+    project: { findMany: async () => [] },
+  };
+
+  const sheets = await buildExportData(db, [week1], 8);
+  const sheet = sheets[0]!;
+
+  assert.deepEqual(sheet.employeeDriven.rows, [{ employeeName: "Alice", hoursPerSite: [], sick: 0, vacation: 0, school: 0.5 }]);
+  assert.deepEqual(sheet.siteDriven.schoolRows, [{ employeeName: "Alice", days: [0.5, 0, 0, 0, 0], total: 0.5 }]);
 });
 
 await run("renderEmployeeDrivenCsv produces one section per week and escapes special characters", () => {
@@ -130,23 +152,23 @@ await run("renderEmployeeDrivenCsv produces one section per week and escapes spe
       employeeDriven: {
         siteNames: ["Site A"],
         rows: [
-          { employeeName: "Alice", hoursPerSite: [20], sick: 1, vacation: 0 },
-          { employeeName: 'Doe, "Jane"', hoursPerSite: [0], sick: 0, vacation: 0 },
+          { employeeName: "Alice", hoursPerSite: [20], sick: 1, vacation: 0, school: 0 },
+          { employeeName: 'Doe, "Jane"', hoursPerSite: [0], sick: 0, vacation: 0, school: 0 },
         ],
       },
-      siteDriven: { sites: [], sickRows: [], vacationRows: [] },
+      siteDriven: { sites: [], sickRows: [], vacationRows: [], schoolRows: [] },
     },
   ];
 
   const csv = renderEmployeeDrivenCsv(sheets, LABELS);
   const lines = csv.split("\n");
   assert.equal(lines[0], "Week: 13 - 17 Apr 26");
-  assert.equal(lines[1], "Employee,Site A,Sick,Vacation");
-  assert.equal(lines[2], "Alice,20,1,0");
-  assert.equal(lines[3], '"Doe, ""Jane""",0,0,0');
+  assert.equal(lines[1], "Employee,Site A,Sick,Vacation,School");
+  assert.equal(lines[2], "Alice,20,1,0,0");
+  assert.equal(lines[3], '"Doe, ""Jane""",0,0,0,0');
 });
 
-await run("renderSiteDrivenCsv sections sites then Sick/Vacation blocks per week", () => {
+await run("renderSiteDrivenCsv sections sites then Sick/Vacation/School blocks per week", () => {
   const sheets = [
     {
       weekLabel: "13 - 17 Apr 26",
@@ -155,6 +177,7 @@ await run("renderSiteDrivenCsv sections sites then Sick/Vacation blocks per week
         sites: [{ siteName: "Site A", rows: [{ employeeName: "Alice", days: [8, 8, 4, 0, 0], total: 20 }] }],
         sickRows: [{ employeeName: "Alice", days: [0, 0, 0, 0, 1], total: 1 }],
         vacationRows: [],
+        schoolRows: [{ employeeName: "Bob", days: [0, 0.5, 0, 0, 0], total: 0.5 }],
       },
     },
   ];
@@ -164,4 +187,5 @@ await run("renderSiteDrivenCsv sections sites then Sick/Vacation blocks per week
   assert.ok(csv.includes("Alice,8,8,4,0,0,20"));
   assert.ok(csv.includes("Sick\nEmployee,Mon,Tue,Wed,Thu,Fri,Total\nAlice,0,0,0,0,1,1"));
   assert.ok(csv.includes("Vacation\nEmployee,Mon,Tue,Wed,Thu,Fri,Total"));
+  assert.ok(csv.includes("School\nEmployee,Mon,Tue,Wed,Thu,Fri,Total\nBob,0,0.5,0,0,0,0.5"));
 });

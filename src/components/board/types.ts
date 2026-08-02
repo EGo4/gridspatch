@@ -5,7 +5,7 @@
 
 import type { DayPart, Employee } from "~/types";
 
-export type AvailabilityStatus = "sick" | "vacation";
+export type AvailabilityStatus = "sick" | "vacation" | "school";
 
 export type EmployeeEntry = {
   employee: Employee;

@@ -6,6 +6,7 @@ export type Employee = {
   id: string;
   name: string;
   img: string | null;
+  role: string | null;
 };
 
 export type ProjectStatus = "planned" | "active" | "on_hold" | "done" | "inactive";

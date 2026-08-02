@@ -60,7 +60,7 @@ export async function setAvailability(
   employeeId: string,
   dateIso: string,
   weekId: string,
-  status: "sick" | "vacation",
+  status: "sick" | "vacation" | "school",
   dayPart: DayPart = "full_day",
 ) {
   await requireSession();

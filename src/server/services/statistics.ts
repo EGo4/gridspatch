@@ -13,6 +13,7 @@ export type EmployeeStat = {
   totalDays: number;
   sickDays: number;
   vacationDays: number;
+  schoolDays: number;
 };
 
 export type SiteStat = {
@@ -211,6 +212,7 @@ export const getStatsPageData = async (
 
   const empSick     = new Map<string, number>();
   const empVacation = new Map<string, number>();
+  const empSchool   = new Map<string, number>();
 
   for (const av of availabilities) {
     const weight = DAY_WEIGHT[av.dayPart as DayPart] ?? 1;
@@ -218,12 +220,14 @@ export const getStatsPageData = async (
       empSick.set(av.employeeId, (empSick.get(av.employeeId) ?? 0) + weight);
     } else if (av.status === "vacation") {
       empVacation.set(av.employeeId, (empVacation.get(av.employeeId) ?? 0) + weight);
+    } else if (av.status === "school") {
+      empSchool.set(av.employeeId, (empSchool.get(av.employeeId) ?? 0) + weight);
     }
   }
 
   // ── Employee stats ─────────────────────────────────────────────────────────
 
-  const activeEmpIds = new Set([...empDays.keys(), ...empSick.keys(), ...empVacation.keys()]);
+  const activeEmpIds = new Set([...empDays.keys(), ...empSick.keys(), ...empVacation.keys(), ...empSchool.keys()]);
   const employeeStats: EmployeeStat[] = employees
     .filter((e) => activeEmpIds.has(e.id))
     .map((e) => ({
@@ -232,6 +236,7 @@ export const getStatsPageData = async (
       totalDays:    round1(empDays.get(e.id) ?? 0),
       sickDays:     round1(empSick.get(e.id) ?? 0),
       vacationDays: round1(empVacation.get(e.id) ?? 0),
+      schoolDays:   round1(empSchool.get(e.id) ?? 0),
     }))
     .sort((a, b) => b.totalDays - a.totalDays);
 

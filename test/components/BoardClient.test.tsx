@@ -93,8 +93,8 @@ const selectedWeek: BoardWeek = {
 };
 
 const employees: Employee[] = [
-  { id: "e1", name: "Alice", img: null },
-  { id: "e2", name: "Bob", img: null },
+  { id: "e1", name: "Alice", img: null, role: null },
+  { id: "e2", name: "Bob", img: null, role: null },
 ];
 
 const projects: Project[] = [
