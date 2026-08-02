@@ -6,7 +6,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { poolFullDayId } from "../boardIds";
+import { poolFullDayId, poolHalfDayId } from "../boardIds";
+import { availabilityKey, parseAvailabilityKey } from "../availabilityKey";
 import type { AvailabilityStatus, EmployeeEntry } from "../types";
 import type { DayName } from "~/lib/constants";
 import type { Employee, Holiday, HolidayType } from "~/types";
@@ -60,11 +61,16 @@ export function useHolidays({
           if (key.includes(`-${day}`) && !key.startsWith("pool-")) next[key] = [];
         }
         next[poolFullDayId(day)] = [];
+        next[poolHalfDayId(day)] = [];
         return next;
       });
       setAvailability((prev) => {
         const next = { ...prev };
-        for (const emp of dbEmployees) next[`${emp.id}-${day}`] = "vacation";
+        for (const key of Object.keys(next)) {
+          const parsed = parseAvailabilityKey(key);
+          if (parsed?.day === day) delete next[key];
+        }
+        for (const emp of dbEmployees) next[availabilityKey(emp.id, day, "full_day")] = "vacation";
         return next;
       });
       const employeeIds = dbEmployees.map((e) => e.id);
@@ -81,7 +87,8 @@ export function useHolidays({
       setAvailability((prev) => {
         const next = { ...prev };
         for (const key of Object.keys(next)) {
-          if (key.endsWith(`-${day}`)) delete next[key];
+          const parsed = parseAvailabilityKey(key);
+          if (parsed?.day === day) delete next[key];
         }
         return next;
       });
@@ -101,7 +108,8 @@ export function useHolidays({
       setAvailability((prev) => {
         const next = { ...prev };
         for (const key of Object.keys(next)) {
-          if (key.endsWith(`-${day}`)) delete next[key];
+          const parsed = parseAvailabilityKey(key);
+          if (parsed?.day === day) delete next[key];
         }
         return next;
       });

@@ -12,7 +12,7 @@ const DAY_WEIGHT: Record<DayPart, number> = {
 
 type WeekRecord = { id: string; startDate: Date };
 type AssignmentRecord = { employeeId: string; projectId: string | null; weekId: string; date: Date; dayPart: string };
-type AvailabilityRecord = { employeeId: string; weekId: string; date: Date; status: string };
+type AvailabilityRecord = { employeeId: string; weekId: string; date: Date; dayPart: string; status: string };
 type EmployeeRecord = { id: string; name: string };
 type ProjectRecord = { id: string; name: string };
 
@@ -180,10 +180,11 @@ const buildWeekSheet = (
     const dayMap = av.status === "sick" ? empSickDays : av.status === "vacation" ? empVacationDays : null;
     if (!countMap || !dayMap) continue;
 
-    countMap.set(av.employeeId, (countMap.get(av.employeeId) ?? 0) + 1);
+    const weight = DAY_WEIGHT[av.dayPart as DayPart] ?? 1;
+    countMap.set(av.employeeId, (countMap.get(av.employeeId) ?? 0) + weight);
     let days = dayMap.get(av.employeeId);
     if (!days) { days = [0, 0, 0, 0, 0]; dayMap.set(av.employeeId, days); }
-    days[dayIndex] = 1;
+    days[dayIndex] = weight;
   }
 
   // ── Employee-driven ──────────────────────────────────────────────────────

@@ -70,7 +70,7 @@ type AssignmentRecord = {
   weekId: string;
   dayPart: string;
 };
-type AvailabilityRecord = { employeeId: string; weekId: string; status: string };
+type AvailabilityRecord = { employeeId: string; weekId: string; dayPart: string; status: string };
 type EmployeeRecord = { id: string; name: string };
 type ProjectRecord = {
   id: string;
@@ -213,10 +213,11 @@ export const getStatsPageData = async (
   const empVacation = new Map<string, number>();
 
   for (const av of availabilities) {
+    const weight = DAY_WEIGHT[av.dayPart as DayPart] ?? 1;
     if (av.status === "sick") {
-      empSick.set(av.employeeId, (empSick.get(av.employeeId) ?? 0) + 1);
+      empSick.set(av.employeeId, (empSick.get(av.employeeId) ?? 0) + weight);
     } else if (av.status === "vacation") {
-      empVacation.set(av.employeeId, (empVacation.get(av.employeeId) ?? 0) + 1);
+      empVacation.set(av.employeeId, (empVacation.get(av.employeeId) ?? 0) + weight);
     }
   }
 
@@ -229,8 +230,8 @@ export const getStatsPageData = async (
       employeeId:   e.id,
       employeeName: e.name,
       totalDays:    round1(empDays.get(e.id) ?? 0),
-      sickDays:     empSick.get(e.id) ?? 0,
-      vacationDays: empVacation.get(e.id) ?? 0,
+      sickDays:     round1(empSick.get(e.id) ?? 0),
+      vacationDays: round1(empVacation.get(e.id) ?? 0),
     }))
     .sort((a, b) => b.totalDays - a.totalDays);
 

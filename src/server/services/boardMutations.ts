@@ -12,6 +12,7 @@ type AvailabilityRow = {
   employeeId: string;
   date: Date;
   weekId: string;
+  dayPart: DayPart;
   status: string;
 };
 
@@ -32,8 +33,9 @@ export type BoardMutationDb = {
     createMany: (args: { data: AssignmentRow[]; skipDuplicates: true }) => Promise<{ count: number }>;
   };
   availability: {
+    findMany: (args: { where: Record<string, unknown> }) => Promise<AvailabilityRow[]>;
     upsert: (args: {
-      where: { employeeId_date: { employeeId: string; date: Date } };
+      where: { employeeId_date_dayPart: { employeeId: string; date: Date; dayPart: DayPart } };
       update: { status: "sick" | "vacation"; weekId: string };
       create: AvailabilityRow;
     }) => Promise<AvailabilityRow>;
@@ -163,9 +165,18 @@ export async function mergeAssignment(
 }
 
 /**
- * Copy all project assignments from one day to another within the same week.
- * Overwrites any existing project assignments on the target date.
- * Pool state is not affected.
+ * Record a sick/vacation absence for a day or half-day.
+ *
+ * full_day: clears every assignment for the date (any dayPart) and any
+ * half-day absence records, then records a single full_day row — a full-day
+ * absence always wins outright.
+ *
+ * pre_lunch/after_lunch: clears only that half's own assignment. A full_day
+ * assignment on the same date is not deleted — it's converted into the
+ * *other* half (same project kept) since that half is still workable. If the
+ * other half already carries the same status, the two half-day records
+ * collapse into a single full_day one (and that half's assignment, if any
+ * survived from a prior partial absence, is cleared too).
  */
 export async function setAvailability(
   database: BoardMutationDb,
@@ -173,32 +184,87 @@ export async function setAvailability(
   dateIso: string,
   weekId: string,
   status: "sick" | "vacation",
+  dayPart: DayPart = "full_day",
 ) {
   const date = new Date(dateIso);
 
   try {
-    // Remove any assignments for this day — the employee is unavailable.
-    await database.assignment.deleteMany({ where: { employeeId, date } });
+    if (dayPart === "full_day") {
+      await database.assignment.deleteMany({ where: { employeeId, date } });
+      await database.availability.deleteMany({
+        where: { employeeId, date, dayPart: { in: ["pre_lunch", "after_lunch"] } },
+      });
+      await database.availability.upsert({
+        where: { employeeId_date_dayPart: { employeeId, date, dayPart: "full_day" } },
+        update: { status, weekId },
+        create: { employeeId, date, weekId, status, dayPart: "full_day" },
+      });
+      return { success: true };
+    }
 
-    await database.availability.upsert({
-      where: { employeeId_date: { employeeId, date } },
-      update: { status, weekId },
-      create: { employeeId, date, weekId, status },
+    const otherHalf: DayPart = dayPart === "pre_lunch" ? "after_lunch" : "pre_lunch";
+
+    await database.assignment.deleteMany({ where: { employeeId, date, dayPart } });
+
+    // A full_day assignment survives as the other half instead of being lost.
+    const [fullDayAssignment] = await database.assignment.findMany({
+      where: { employeeId, date, dayPart: "full_day" },
     });
+    if (fullDayAssignment) {
+      await database.assignment.deleteMany({ where: { employeeId, date, dayPart: "full_day" } });
+      await database.assignment.upsert({
+        where: { employeeId_date_dayPart: { employeeId, date, dayPart: otherHalf } },
+        update: { projectId: fullDayAssignment.projectId, weekId },
+        create: { employeeId, projectId: fullDayAssignment.projectId, date, weekId, dayPart: otherHalf },
+      });
+    }
+
+    // A half-day absence never coexists with a full_day one.
+    await database.availability.deleteMany({ where: { employeeId, date, dayPart: "full_day" } });
+
+    const [otherHalfAvailability] = await database.availability.findMany({
+      where: { employeeId, date, dayPart: otherHalf },
+    });
+
+    if (otherHalfAvailability?.status === status) {
+      // Both halves now share the same status — collapse into one full_day
+      // record, and drop whatever assignment survived the first half-mark.
+      await database.assignment.deleteMany({ where: { employeeId, date } });
+      await database.availability.deleteMany({
+        where: { employeeId, date, dayPart: { in: ["pre_lunch", "after_lunch"] } },
+      });
+      await database.availability.upsert({
+        where: { employeeId_date_dayPart: { employeeId, date, dayPart: "full_day" } },
+        update: { status, weekId },
+        create: { employeeId, date, weekId, status, dayPart: "full_day" },
+      });
+    } else {
+      await database.availability.upsert({
+        where: { employeeId_date_dayPart: { employeeId, date, dayPart } },
+        update: { status, weekId },
+        create: { employeeId, date, weekId, status, dayPart },
+      });
+    }
+
     return { success: true };
   } catch (err) {
-    console.error("[boardMutations:setAvailability]", { employeeId, dateIso, weekId, status }, err);
+    console.error("[boardMutations:setAvailability]", { employeeId, dateIso, weekId, status, dayPart }, err);
     throw err;
   }
 }
 
-export async function clearAvailability(database: BoardMutationDb, employeeId: string, dateIso: string) {
+export async function clearAvailability(
+  database: BoardMutationDb,
+  employeeId: string,
+  dateIso: string,
+  dayPart: DayPart = "full_day",
+) {
   const date = new Date(dateIso);
   try {
-    await database.availability.deleteMany({ where: { employeeId, date } });
+    await database.availability.deleteMany({ where: { employeeId, date, dayPart } });
     return { success: true };
   } catch (err) {
-    console.error("[boardMutations:clearAvailability]", { employeeId, dateIso }, err);
+    console.error("[boardMutations:clearAvailability]", { employeeId, dateIso, dayPart }, err);
     throw err;
   }
 }
@@ -277,11 +343,14 @@ export async function setHoliday(
     await database.assignment.deleteMany({ where: { date } });
 
     if (type === "company_holiday") {
+      await database.availability.deleteMany({
+        where: { date, dayPart: { in: ["pre_lunch", "after_lunch"] } },
+      });
       for (const employeeId of employeeIds) {
         await database.availability.upsert({
-          where: { employeeId_date: { employeeId, date } },
+          where: { employeeId_date_dayPart: { employeeId, date, dayPart: "full_day" } },
           update: { status: "vacation", weekId },
-          create: { employeeId, date, weekId, status: "vacation" },
+          create: { employeeId, date, weekId, status: "vacation", dayPart: "full_day" },
         });
       }
     } else {

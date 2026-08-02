@@ -164,10 +164,11 @@ model Availability {
   weekId     String
   week       Week     @relation(fields: [weekId], references: [id], onDelete: Cascade)
   date       DateTime @db.Date
+  dayPart    DayPart  @default(full_day)
   status     String   // "sick" | "vacation"
   createdAt  DateTime @default(now())
 
-  @@unique([employeeId, date])
+  @@unique([employeeId, date, dayPart])
   @@index([weekId])
 }
 

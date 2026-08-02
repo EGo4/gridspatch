@@ -100,7 +100,7 @@ export function EmployeeCard({
 
           {/* Fly-out buttons */}
           {isHalfDay ? (
-            /* Half-day card: assign-site, comments, merge */
+            /* Half-day card: assign-site, comments, vacation, sick, merge */
             <>
               {onAssignToSite && (
                 <button
@@ -126,6 +126,25 @@ export function EmployeeCard({
                   <CommentIcon />
                 </button>
               )}
+
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onMarkSick(); }}
+                title={t("markAsSick")}
+                className="fly-btn fly-btn-sick-half text-[var(--color-text-secondary)]"
+              >
+                <SyringeIcon />
+              </button>
+
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onMarkVacation(); }}
+                title={t("markAsVacation")}
+                className="fly-btn fly-btn-vacation-half text-[var(--color-text-secondary)]"
+              >
+                <PalmTreeIcon />
+              </button>
+
               {onMergeDay && (
                 <button
                   type="button"

@@ -12,6 +12,7 @@ import {
   afterLunchDroppableId,
   poolFullDayId,
 } from "../boardIds";
+import { parseAvailabilityKey } from "../availabilityKey";
 import type { AvailabilityStatus, EmployeeEntry } from "../types";
 import type { DayName } from "~/lib/constants";
 import type { Assignment, BoardWeek, DayPart, Employee, Project } from "~/types";
@@ -128,8 +129,9 @@ export function useCopy({
 
         const unavailableInTarget = new Set(
           Object.keys(availability)
-            .filter((key) => key.endsWith(`-${targetDay}`))
-            .map((key) => key.slice(0, -(targetDay.length + 1))),
+            .map((key) => parseAvailabilityKey(key))
+            .filter((parsed) => parsed !== null && parsed.day === targetDay)
+            .map((parsed) => parsed!.employeeId),
         );
 
         next[poolFullDayId(targetDay)] = dbEmployees

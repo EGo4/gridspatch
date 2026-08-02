@@ -49,6 +49,7 @@ export type Assignment = {
 export type Availability = {
   employeeId: string;
   date: Date;
+  dayPart: DayPart;
   status: string;
 };
 

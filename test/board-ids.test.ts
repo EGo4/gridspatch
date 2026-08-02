@@ -6,10 +6,12 @@ import {
   getDayFromDroppableId,
   getProjectIdFromDroppableId,
   getDayPartFromDroppableId,
+  isPoolHalfDroppableId,
   fullDayDroppableId,
   preLunchDroppableId,
   afterLunchDroppableId,
   poolFullDayId,
+  poolHalfDayId,
 } from "../src/components/board/boardIds.ts";
 
 const run = async (name: string, fn: () => void | Promise<void>) => {
@@ -46,8 +48,9 @@ await run("fullDayDroppableId/preLunchDroppableId/afterLunchDroppableId encode p
   assert.equal(afterLunchDroppableId("proj1", "Monday"), "proj1-Monday-post");
 });
 
-await run("poolFullDayId encodes pool cells", () => {
+await run("poolFullDayId/poolHalfDayId encode pool cells", () => {
   assert.equal(poolFullDayId("Friday"), "pool-Friday");
+  assert.equal(poolHalfDayId("Friday"), "pool-Friday-half");
 });
 
 await run("getDayFromDroppableId extracts the day from project and pool cells", () => {
@@ -55,6 +58,7 @@ await run("getDayFromDroppableId extracts the day from project and pool cells", 
   assert.equal(getDayFromDroppableId("proj1-Tuesday-pre"), "Tuesday");
   assert.equal(getDayFromDroppableId("proj1-Tuesday-post"), "Tuesday");
   assert.equal(getDayFromDroppableId("pool-Tuesday"), "Tuesday");
+  assert.equal(getDayFromDroppableId("pool-Tuesday-half"), "Tuesday");
 });
 
 await run("getDayFromDroppableId returns empty string for an unrecognised id", () => {
@@ -66,6 +70,7 @@ await run("getProjectIdFromDroppableId extracts the project id, null for pool ce
   assert.equal(getProjectIdFromDroppableId("proj1-Tuesday-pre"), "proj1");
   assert.equal(getProjectIdFromDroppableId("proj1-Tuesday-post"), "proj1");
   assert.equal(getProjectIdFromDroppableId("pool-Tuesday"), null);
+  assert.equal(getProjectIdFromDroppableId("pool-Tuesday-half"), null);
 });
 
 await run("getDayPartFromDroppableId reads the -pre/-post suffix", () => {
@@ -73,4 +78,10 @@ await run("getDayPartFromDroppableId reads the -pre/-post suffix", () => {
   assert.equal(getDayPartFromDroppableId("proj1-Tuesday-post"), "after_lunch");
   assert.equal(getDayPartFromDroppableId("proj1-Tuesday"), "full_day");
   assert.equal(getDayPartFromDroppableId("pool-Tuesday"), "full_day");
+});
+
+await run("isPoolHalfDroppableId identifies only the pool's half-day droppable", () => {
+  assert.equal(isPoolHalfDroppableId("pool-Tuesday-half"), true);
+  assert.equal(isPoolHalfDroppableId("pool-Tuesday"), false);
+  assert.equal(isPoolHalfDroppableId("proj1-Tuesday-half"), false);
 });

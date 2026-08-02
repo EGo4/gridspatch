@@ -9,14 +9,14 @@ import { useLayoutEffect, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { getProjectIdFromDroppableId } from "../boardIds";
 import { AssignSiteIcon } from "~/components/icons";
-import type { Project } from "~/types";
+import type { DayPart, Project } from "~/types";
 import type { SitePickerTarget } from "../types";
 
 type SitePickerPopoverProps = {
   sitePickerFor: SitePickerTarget | null;
   /** Already filtered to sites assignable from a picker (excludes on-hold). */
   projects: Project[];
-  onAssign: (employeeId: string, day: string, projectId: string, sourceCellId: string) => void;
+  onAssign: (employeeId: string, day: string, projectId: string, sourceCellId: string, dayPart: DayPart) => void;
 };
 
 export function SitePickerPopover({ sitePickerFor, projects, onAssign }: SitePickerPopoverProps) {
@@ -49,7 +49,7 @@ export function SitePickerPopover({ sitePickerFor, projects, onAssign }: SitePic
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onAssign(sitePickerFor.employeeId, sitePickerFor.day, project.id, sitePickerFor.sourceCellId);
+              onAssign(sitePickerFor.employeeId, sitePickerFor.day, project.id, sitePickerFor.sourceCellId, sitePickerFor.dayPart);
             }}
             className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs font-medium text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-bg-hover)] hover:text-[var(--color-text-primary)]"
           >

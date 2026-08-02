@@ -16,6 +16,7 @@ export type SitePickerTarget = {
   employeeId: string;
   day: string;
   sourceCellId: string;
+  dayPart: DayPart;
   left: number;
   top: number;
 };

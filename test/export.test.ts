@@ -70,8 +70,8 @@ await run("buildExportData aggregates hours per site and absences per day", asyn
     },
     availability: {
       findMany: async () => [
-        { employeeId: "alice", weekId: "week-1", date: new Date("2026-04-17T00:00:00.000Z"), status: "sick" }, // Fri
-        { employeeId: "bob", weekId: "week-1", date: new Date("2026-04-13T00:00:00.000Z"), status: "vacation" }, // Mon
+        { employeeId: "alice", weekId: "week-1", date: new Date("2026-04-17T00:00:00.000Z"), dayPart: "full_day", status: "sick" }, // Fri
+        { employeeId: "bob", weekId: "week-1", date: new Date("2026-04-13T00:00:00.000Z"), dayPart: "full_day", status: "vacation" }, // Mon
       ],
     },
     employee: { findMany: async () => [{ id: "alice", name: "Alice" }, { id: "bob", name: "Bob" }] },
@@ -101,6 +101,26 @@ await run("buildExportData aggregates hours per site and absences per day", asyn
 
   assert.deepEqual(sheet.siteDriven.sickRows, [{ employeeName: "Alice", days: [0, 0, 0, 0, 1], total: 1 }]);
   assert.deepEqual(sheet.siteDriven.vacationRows, [{ employeeName: "Bob", days: [1, 0, 0, 0, 0], total: 1 }]);
+});
+
+await run("buildExportData weights a half-day absence as 0.5 day, not 1", async () => {
+  const db: ExportDb = {
+    week: { findMany: async () => [{ id: "week-1", startDate: new Date("2026-04-13T00:00:00.000Z") }] },
+    assignment: { findMany: async () => [] },
+    availability: {
+      findMany: async () => [
+        { employeeId: "alice", weekId: "week-1", date: new Date("2026-04-13T00:00:00.000Z"), dayPart: "pre_lunch", status: "sick" }, // Mon AM
+      ],
+    },
+    employee: { findMany: async () => [{ id: "alice", name: "Alice" }] },
+    project: { findMany: async () => [] },
+  };
+
+  const sheets = await buildExportData(db, [week1], 8);
+  const sheet = sheets[0]!;
+
+  assert.deepEqual(sheet.employeeDriven.rows, [{ employeeName: "Alice", hoursPerSite: [], sick: 0.5, vacation: 0 }]);
+  assert.deepEqual(sheet.siteDriven.sickRows, [{ employeeName: "Alice", days: [0.5, 0, 0, 0, 0], total: 0.5 }]);
 });
 
 await run("renderEmployeeDrivenCsv produces one section per week and escapes special characters", () => {

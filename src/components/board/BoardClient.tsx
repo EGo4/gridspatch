@@ -16,6 +16,7 @@ import {
   preLunchDroppableId,
   afterLunchDroppableId,
   poolFullDayId,
+  poolHalfDayId,
 } from "./boardIds";
 import { SyringeIcon, PalmTreeIcon, FilterIcon } from "~/components/icons";
 import { Sidebar } from "~/components/Sidebar";
@@ -40,8 +41,9 @@ import {
   getWeekDateMap,
   toDateParam,
 } from "~/lib/week";
-import type { Assignment, Availability, BoardWeek, Employee, Holiday, Project, ProjectStatus } from "~/types";
+import type { Assignment, Availability, BoardWeek, DayPart, Employee, Holiday, Project, ProjectStatus } from "~/types";
 import { getSuperStatus } from "~/types";
+import { parseAvailabilityKey } from "./availabilityKey";
 import { setSiteTransition } from "~/server/actions/sites";
 import { saveThemePreference } from "~/server/actions/preferences";
 import { reportClientError } from "~/server/actions/errors";
@@ -737,12 +739,12 @@ export function BoardClient({
                   dayPart="full_day"
                   isOpen={openCardId === getDraggableId(entry.employee.id, day, "full_day")}
                   onToggle={() => toggleOpenCard(getDraggableId(entry.employee.id, day, "full_day"))}
-                  onMarkSick={() => markAvailability(entry.employee.id, day, "sick")}
-                  onMarkVacation={() => markAvailability(entry.employee.id, day, "vacation")}
+                  onMarkSick={() => markAvailability(entry.employee.id, day, "sick", entry.dayPart)}
+                  onMarkVacation={() => markAvailability(entry.employee.id, day, "vacation", entry.dayPart)}
                   onSplitDay={() => splitDay(entry.employee.id, day, fdId)}
                   onAssignToSite={isPubHoliday ? undefined : (anchor) => {
                     setOpenCardId(null);
-                    setSitePickerFor({ employeeId: entry.employee.id, day, sourceCellId: fdId, ...anchor });
+                    setSitePickerFor({ employeeId: entry.employee.id, day, sourceCellId: fdId, dayPart: entry.dayPart, ...anchor });
                   }}
                   commentCount={commentCounts[commentKey(entry.employee.id, day)] ?? 0}
                   onOpenComments={() => { setOpenCardId(null); setCommentsFor({ employeeId: entry.employee.id, day }); }}
@@ -794,12 +796,12 @@ export function BoardClient({
                       dayPart="pre_lunch"
                       isOpen={openCardId === getDraggableId(entry.employee.id, day, "pre_lunch")}
                       onToggle={() => toggleOpenCard(getDraggableId(entry.employee.id, day, "pre_lunch"))}
-                      onMarkSick={() => markAvailability(entry.employee.id, day, "sick")}
-                      onMarkVacation={() => markAvailability(entry.employee.id, day, "vacation")}
+                      onMarkSick={() => markAvailability(entry.employee.id, day, "sick", entry.dayPart)}
+                      onMarkVacation={() => markAvailability(entry.employee.id, day, "vacation", entry.dayPart)}
                       onMergeDay={() => mergeDay(entry.employee.id, day, preId)}
                       onAssignToSite={isPubHoliday ? undefined : (anchor) => {
                         setOpenCardId(null);
-                        setSitePickerFor({ employeeId: entry.employee.id, day, sourceCellId: preId, ...anchor });
+                        setSitePickerFor({ employeeId: entry.employee.id, day, sourceCellId: preId, dayPart: entry.dayPart, ...anchor });
                       }}
                       commentCount={commentCounts[commentKey(entry.employee.id, day)] ?? 0}
                       onOpenComments={() => { setOpenCardId(null); setCommentsFor({ employeeId: entry.employee.id, day }); }}
@@ -847,12 +849,12 @@ export function BoardClient({
                       dayPart="after_lunch"
                       isOpen={openCardId === getDraggableId(entry.employee.id, day, "after_lunch")}
                       onToggle={() => toggleOpenCard(getDraggableId(entry.employee.id, day, "after_lunch"))}
-                      onMarkSick={() => markAvailability(entry.employee.id, day, "sick")}
-                      onMarkVacation={() => markAvailability(entry.employee.id, day, "vacation")}
+                      onMarkSick={() => markAvailability(entry.employee.id, day, "sick", entry.dayPart)}
+                      onMarkVacation={() => markAvailability(entry.employee.id, day, "vacation", entry.dayPart)}
                       onMergeDay={() => mergeDay(entry.employee.id, day, postId)}
                       onAssignToSite={isPubHoliday ? undefined : (anchor) => {
                         setOpenCardId(null);
-                        setSitePickerFor({ employeeId: entry.employee.id, day, sourceCellId: postId, ...anchor });
+                        setSitePickerFor({ employeeId: entry.employee.id, day, sourceCellId: postId, dayPart: entry.dayPart, ...anchor });
                       }}
                       commentCount={commentCounts[commentKey(entry.employee.id, day)] ?? 0}
                       onOpenComments={() => { setOpenCardId(null); setCommentsFor({ employeeId: entry.employee.id, day }); }}
@@ -1168,14 +1170,14 @@ export function BoardClient({
                 <div className="flex gap-4 items-stretch">
                   {DAYS.map((day) => {
                     const entries = Object.entries(availability)
-                      .filter(([key]) => key.endsWith(`-${day}`))
                       .map(([key, status]) => {
-                        const employeeId = key.slice(0, -(day.length + 1));
-                        const employee = dbEmployees.find((e) => e.id === employeeId);
-                        return employee ? { employee, status } : null;
+                        const parsed = parseAvailabilityKey(key);
+                        if (parsed?.day !== day) return null;
+                        const employee = dbEmployees.find((e) => e.id === parsed.employeeId);
+                        return employee ? { employee, status, dayPart: parsed.dayPart } : null;
                       })
                       .filter(
-                        (entry): entry is { employee: Employee; status: AvailabilityStatus } =>
+                        (entry): entry is { employee: Employee; status: AvailabilityStatus; dayPart: DayPart } =>
                           entry !== null,
                       );
 
@@ -1186,13 +1188,19 @@ export function BoardClient({
                           day === activeDay ? "flex" : "hidden"
                         } lg:flex ${isPublicHoliday(day) ? "opacity-50" : ""}`}
                       >
-                        {entries.map(({ employee, status }) => (
+                        {entries.map(({ employee, status, dayPart }) => (
                           <button
-                            key={employee.id}
+                            key={`${employee.id}-${dayPart}`}
                             type="button"
-                            onClick={() => clearAvailability(employee.id, day)}
+                            onClick={() => clearAvailability(employee.id, day, dayPart)}
                             title={t("clickToRemoveStatus")}
-                            className="flex w-full min-w-max cursor-pointer items-center gap-2 rounded-full border border-[var(--color-avail-border)] bg-[var(--color-avail-bg)] p-1.5 text-sm transition-colors hover:border-[var(--color-avail-hover)]"
+                            className={`flex w-full min-w-max cursor-pointer items-center gap-2 rounded-full border p-1.5 text-sm transition-colors hover:border-[var(--color-avail-hover)] ${
+                              dayPart === "pre_lunch"
+                                ? "border-[var(--am-border)] bg-[var(--am-card)]"
+                                : dayPart === "after_lunch"
+                                  ? "border-[var(--pm-border)] bg-[var(--pm-card)]"
+                                  : "border-[var(--color-avail-border)] bg-[var(--color-avail-bg)]"
+                            }`}
                           >
                             <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-full bg-[var(--color-avatar-bg)]">
                               {employee.img && (
@@ -1206,6 +1214,11 @@ export function BoardClient({
                             <span className="whitespace-nowrap text-xs font-medium text-[var(--color-text-primary)]">
                               {employee.name}
                             </span>
+                            {dayPart !== "full_day" && (
+                              <span className="text-[9px] font-semibold uppercase tracking-wider text-[var(--color-text-muted)]">
+                                {dayPart === "pre_lunch" ? t("am") : t("pm")}
+                              </span>
+                            )}
                             <span className="ml-auto pl-1 text-[var(--color-text-secondary)]">
                               {status === "sick" ? <SyringeIcon size={16} /> : <PalmTreeIcon size={16} />}
                             </span>
@@ -1330,9 +1343,12 @@ export function BoardClient({
           {!(collapsedRows ?? new Set()).has("pool") && <div className="flex gap-4 items-stretch">
             {DAYS.map((day) => {
               const fdId = poolFullDayId(day);
+              const hdId = poolHalfDayId(day);
               const isDimmed = Boolean(draggingDay && day !== draggingDay);
               const isDraggingFullHere = draggingDay === day && draggingDayPart === "full_day";
+              const isDraggingHalfHere = draggingDay === day && (draggingDayPart === "pre_lunch" || draggingDayPart === "after_lunch");
               const pubHoliday = isPublicHoliday(day);
+              const hasHalfPoolCards = (assignmentsState[hdId] ?? []).length > 0;
 
               return (
                 <div
@@ -1363,16 +1379,59 @@ export function BoardClient({
                             key={`${entry.employee.id}-${day}-pool`}
                             employee={entry.employee}
                             index={index}
-                            draggableId={getDraggableId(entry.employee.id, day, "full_day")}
-                            dayPart="full_day"
+                            draggableId={getDraggableId(entry.employee.id, day, entry.dayPart)}
+                            dayPart={entry.dayPart}
                             isDragDisabled={pubHoliday}
-                            isOpen={openCardId === getDraggableId(entry.employee.id, day, "full_day")}
-                            onToggle={() => toggleOpenCard(getDraggableId(entry.employee.id, day, "full_day"))}
-                            onMarkSick={() => { if (!pubHoliday) markAvailability(entry.employee.id, day, "sick"); }}
-                            onMarkVacation={() => { if (!pubHoliday) markAvailability(entry.employee.id, day, "vacation"); }}
+                            isOpen={openCardId === getDraggableId(entry.employee.id, day, entry.dayPart)}
+                            onToggle={() => toggleOpenCard(getDraggableId(entry.employee.id, day, entry.dayPart))}
+                            onMarkSick={() => { if (!pubHoliday) markAvailability(entry.employee.id, day, "sick", entry.dayPart); }}
+                            onMarkVacation={() => { if (!pubHoliday) markAvailability(entry.employee.id, day, "vacation", entry.dayPart); }}
                             onAssignToSite={pubHoliday ? undefined : (anchor) => {
                               setOpenCardId(null);
-                              setSitePickerFor({ employeeId: entry.employee.id, day, sourceCellId: fdId, ...anchor });
+                              setSitePickerFor({ employeeId: entry.employee.id, day, sourceCellId: fdId, dayPart: entry.dayPart, ...anchor });
+                            }}
+                            commentCount={commentCounts[commentKey(entry.employee.id, day)] ?? 0}
+                            onOpenComments={() => { setOpenCardId(null); setCommentsFor({ employeeId: entry.employee.id, day }); }}
+                          />
+                        ))}
+                        {provided.placeholder}
+                      </div>
+                    )}
+                  </Droppable>
+
+                  {/* Half-day pool cards — own droppable, type-matched to the AM/PM
+                      project columns (not the full-day cell above) so a half-day
+                      card can be dragged directly in and out. */}
+                  {hasHalfPoolCards && <div className="half-day-divider mx-2.5" />}
+                  <Droppable droppableId={hdId} type={`${day}-half`} isDropDisabled={pubHoliday}>
+                    {(provided, snapshot) => (
+                      <div
+                        ref={provided.innerRef}
+                        {...provided.droppableProps}
+                        className={`p-2.5 flex flex-col gap-2.5 transition-colors ${hasHalfPoolCards || snapshot.isDraggingOver ? "min-h-[40px]" : ""} ${
+                          snapshot.isDraggingOver
+                            ? "bg-[var(--color-bg-hover)]"
+                            : isDraggingHalfHere
+                              ? "bg-[var(--color-nav-active-bg)]"
+                              : ""
+                        }`}
+                      >
+                        {(assignmentsState[hdId] ?? []).map((entry, index) => (
+                          <EmployeeCard
+                            key={`${entry.employee.id}-${day}-${entry.dayPart}-pool`}
+                            employee={entry.employee}
+                            index={index}
+                            draggableId={getDraggableId(entry.employee.id, day, entry.dayPart)}
+                            dayPart={entry.dayPart}
+                            isDragDisabled={pubHoliday}
+                            isOpen={openCardId === getDraggableId(entry.employee.id, day, entry.dayPart)}
+                            onToggle={() => toggleOpenCard(getDraggableId(entry.employee.id, day, entry.dayPart))}
+                            onMarkSick={() => { if (!pubHoliday) markAvailability(entry.employee.id, day, "sick", entry.dayPart); }}
+                            onMarkVacation={() => { if (!pubHoliday) markAvailability(entry.employee.id, day, "vacation", entry.dayPart); }}
+                            onMergeDay={() => mergeDay(entry.employee.id, day, hdId)}
+                            onAssignToSite={pubHoliday ? undefined : (anchor) => {
+                              setOpenCardId(null);
+                              setSitePickerFor({ employeeId: entry.employee.id, day, sourceCellId: hdId, dayPart: entry.dayPart, ...anchor });
                             }}
                             commentCount={commentCounts[commentKey(entry.employee.id, day)] ?? 0}
                             onOpenComments={() => { setOpenCardId(null); setCommentsFor({ employeeId: entry.employee.id, day }); }}

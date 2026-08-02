@@ -22,35 +22,47 @@ export const parseFromDraggableId = (id: string): { employeeId: string; day: str
 };
 
 /**
- * Strip the `-pre` / `-post` suffix to get the base droppable ID,
+ * Strip the `-pre` / `-post` / `-half` suffix to get the base droppable ID,
  * then extract the day name from it.
  */
 export const getDayFromDroppableId = (droppableId: string): string => {
-  const stripped = droppableId.replace(/-(pre|post)$/, "");
+  const stripped = droppableId.replace(/-(pre|post|half)$/, "");
   if (stripped.startsWith("pool-")) return stripped.replace("pool-", "");
   return DAYS.find((day) => stripped.endsWith(`-${day}`)) ?? "";
 };
 
 /** Extract the projectId from a droppable ID (null for pool droppables). */
 export const getProjectIdFromDroppableId = (droppableId: string): string | null => {
-  const stripped = droppableId.replace(/-(pre|post)$/, "");
+  const stripped = droppableId.replace(/-(pre|post|half)$/, "");
   if (stripped.startsWith("pool-")) return null;
   const day = DAYS.find((d) => stripped.endsWith(`-${d}`));
   if (!day) return null;
   return stripped.slice(0, -(day.length + 1));
 };
 
-/** Determine which DayPart a droppable represents from its suffix. */
+/**
+ * Determine which DayPart a droppable represents from its suffix.
+ * Not meaningful for the pool's half-day droppable (`pool-${day}-half`) —
+ * that one holds *both* halves at once, so its own id doesn't pick one;
+ * callers must use `isPoolHalfDroppableId` and keep the dragged card's own
+ * dayPart instead of asking the destination.
+ */
 export const getDayPartFromDroppableId = (droppableId: string): DayPart => {
   if (droppableId.endsWith("-pre")) return "pre_lunch";
   if (droppableId.endsWith("-post")) return "after_lunch";
   return "full_day";
 };
 
+/** The pool's half-day droppable holds both AM and PM half cards together. */
+export const isPoolHalfDroppableId = (droppableId: string): boolean =>
+  droppableId.startsWith("pool-") && droppableId.endsWith("-half");
+
 // Droppable IDs — project cells
 export const fullDayDroppableId    = (projectId: string, day: string) => `${projectId}-${day}`;
 export const preLunchDroppableId   = (projectId: string, day: string) => `${projectId}-${day}-pre`;
 export const afterLunchDroppableId = (projectId: string, day: string) => `${projectId}-${day}-post`;
 
-// Droppable IDs — pool (full-day only, no split section)
+// Droppable IDs — pool
 export const poolFullDayId = (day: string) => `pool-${day}`;
+/** Holds half-day pool cards (dayPart pre_lunch/after_lunch), type-matched to the AM/PM project columns so half cards can drag directly in and out. */
+export const poolHalfDayId = (day: string) => `pool-${day}-half`;

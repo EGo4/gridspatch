@@ -19,7 +19,7 @@
     "lint:fix": "next lint --fix",
     "preview": "next build && next start",
     "start": "next start",
-    "test": "node --experimental-strip-types test/week-planning.test.ts && node --experimental-strip-types test/export.test.ts && node --experimental-strip-types test/board-ids.test.ts && node --experimental-strip-types test/image-upload.test.ts && node --experimental-strip-types test/board-mutations.test.ts && node --experimental-strip-types test/activity-years.test.ts && npm run test:components",
+    "test": "node --experimental-strip-types test/week-planning.test.ts && node --experimental-strip-types test/export.test.ts && node --experimental-strip-types test/board-ids.test.ts && node --experimental-strip-types test/image-upload.test.ts && node --experimental-strip-types test/board-mutations.test.ts && node --experimental-strip-types test/activity-years.test.ts && node --experimental-strip-types test/availability-key.test.ts && node --experimental-strip-types test/pool-merge.test.ts && npm run test:components",
     "test:components": "vitest run",
     "test:components:watch": "vitest",
     "typecheck": "tsc --noEmit"

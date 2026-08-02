@@ -125,6 +125,7 @@ const baseProps = {
 };
 
 const poolCell = (day: string) => document.querySelector(`[data-rfd-droppable-id="pool-${day}"]`) as HTMLElement;
+const poolHalfCell = (day: string) => document.querySelector(`[data-rfd-droppable-id="pool-${day}-half"]`) as HTMLElement;
 const projectCell = (projectId: string, day: string) =>
   document.querySelector(`[data-rfd-droppable-id="${projectId}-${day}"]`) as HTMLElement;
 const halfCell = (projectId: string, day: string, half: "pre" | "post") =>
@@ -178,7 +179,7 @@ describe("BoardClient", () => {
     await user.click(within(cardOf(monday, "Alice")).getByTitle("markAsSick"));
 
     expect(within(poolCell("Monday")).queryByText("Alice")).not.toBeInTheDocument();
-    expect(boardActions.setAvailability).toHaveBeenCalledWith("e1", weekDates.Monday, "week-1", "sick");
+    expect(boardActions.setAvailability).toHaveBeenCalledWith("e1", weekDates.Monday, "week-1", "sick", "full_day");
   });
 
   it("splitting then merging a full-day project assignment round-trips back to a single card", async () => {
@@ -205,6 +206,73 @@ describe("BoardClient", () => {
 
     expect(boardActions.mergeAssignment).toHaveBeenCalledWith("e1", "p1", weekDates.Monday, "week-1");
     expect(within(projectCell("p1", "Monday")).getByText("Alice")).toBeInTheDocument();
+  });
+
+  it("keeps both halves when marked with different statuses (no false collapse)", async () => {
+    const dbAssignments: Assignment[] = [
+      { employeeId: "e1", projectId: "p1", date: new Date(weekDates.Monday), weekId: "week-1", dayPart: "full_day" },
+    ];
+    const user = userEvent.setup();
+    render(<BoardClient {...baseProps} dbAssignments={dbAssignments} />);
+
+    const fullCell = projectCell("p1", "Monday");
+    await user.click(within(fullCell).getByText("Alice"));
+    await user.click(within(cardOf(fullCell, "Alice")).getByTitle("splitIntoHalfDays"));
+
+    const amCellEl = halfCell("p1", "Monday", "pre");
+    const pmCellEl = halfCell("p1", "Monday", "post");
+
+    await user.click(within(amCellEl).getByText("Alice"));
+    await user.click(within(cardOf(amCellEl, "Alice")).getByTitle("markAsSick"));
+
+    // The PM half must survive marking the AM half — it wasn't touched, and
+    // the two statuses differ so there's no collapse into a full_day record.
+    await user.click(within(pmCellEl).getByText("Alice"));
+    await user.click(within(cardOf(pmCellEl, "Alice")).getByTitle("markAsVacation"));
+
+    expect(boardActions.setAvailability).toHaveBeenNthCalledWith(1, "e1", weekDates.Monday, "week-1", "sick", "pre_lunch");
+    expect(boardActions.setAvailability).toHaveBeenNthCalledWith(2, "e1", weekDates.Monday, "week-1", "vacation", "after_lunch");
+
+    // Expand the swimlane and confirm both chips are there — this is the
+    // actual regression check: local availability state used to get wiped
+    // for the first half when the second half was marked, even though the
+    // two statuses differ and shouldn't collapse into one full_day record.
+    await user.click(within(document.body).getByText("sickVacation"));
+    expect(within(document.body).getAllByTitle("clickToRemoveStatus")).toHaveLength(2);
+  });
+
+  it("clearing both halves of a swimlane absence one at a time merges them into one full-day pool card", async () => {
+    const dbAssignments: Assignment[] = [
+      { employeeId: "e1", projectId: "p1", date: new Date(weekDates.Monday), weekId: "week-1", dayPart: "full_day" },
+    ];
+    const user = userEvent.setup();
+    render(<BoardClient {...baseProps} dbAssignments={dbAssignments} />);
+
+    const fullCell = projectCell("p1", "Monday");
+    await user.click(within(fullCell).getByText("Alice"));
+    await user.click(within(cardOf(fullCell, "Alice")).getByTitle("splitIntoHalfDays"));
+
+    const amCellEl = halfCell("p1", "Monday", "pre");
+    const pmCellEl = halfCell("p1", "Monday", "post");
+
+    await user.click(within(amCellEl).getByText("Alice"));
+    await user.click(within(cardOf(amCellEl, "Alice")).getByTitle("markAsSick"));
+    await user.click(within(pmCellEl).getByText("Alice"));
+    await user.click(within(cardOf(pmCellEl, "Alice")).getByTitle("markAsVacation"));
+
+    await user.click(within(document.body).getByText("sickVacation"));
+
+    // Clear the first chip — that half alone goes to the half-day pool bucket.
+    await user.click(within(document.body).getAllByTitle("clickToRemoveStatus")[0]!);
+    expect(within(poolHalfCell("Monday")).getByText("Alice")).toBeInTheDocument();
+    expect(within(poolCell("Monday")).queryByText("Alice")).not.toBeInTheDocument();
+
+    // Clear the remaining chip — this is the regression check: it must merge
+    // with the half already sitting in the pool into a single full-day card,
+    // not stack a second half card next to it under a colliding React key.
+    await user.click(within(document.body).getByTitle("clickToRemoveStatus"));
+    expect(within(poolCell("Monday")).getByText("Alice")).toBeInTheDocument();
+    expect(within(poolHalfCell("Monday")).queryByText("Alice")).not.toBeInTheDocument();
   });
 
   it(
@@ -477,7 +545,7 @@ describe("BoardClient — past-week edits", () => {
 
     await user.click(within(document.body).getByText("pastWeekConfirm"));
 
-    expect(boardActions.setAvailability).toHaveBeenCalledWith("e1", pastWeekDates.Monday, "past-week", "sick");
+    expect(boardActions.setAvailability).toHaveBeenCalledWith("e1", pastWeekDates.Monday, "past-week", "sick", "full_day");
     expect(within(poolCell("Monday")).queryByText("Alice")).not.toBeInTheDocument();
   });
 
@@ -490,13 +558,13 @@ describe("BoardClient — past-week edits", () => {
     await user.click(within(cardOf(monday, "Alice")).getByTitle("markAsSick"));
     await user.click(within(document.body).getByText("pastWeekMute"));
 
-    expect(boardActions.setAvailability).toHaveBeenCalledWith("e1", pastWeekDates.Monday, "past-week", "sick");
+    expect(boardActions.setAvailability).toHaveBeenCalledWith("e1", pastWeekDates.Monday, "past-week", "sick", "full_day");
 
     // Second edit, same session: no modal this time.
     await user.click(within(monday).getByText("Bob"));
     await user.click(within(cardOf(monday, "Bob")).getByTitle("markAsVacation"));
 
     expect(document.body).not.toHaveTextContent("pastWeekTitle");
-    expect(boardActions.setAvailability).toHaveBeenCalledWith("e2", pastWeekDates.Monday, "past-week", "vacation");
+    expect(boardActions.setAvailability).toHaveBeenCalledWith("e2", pastWeekDates.Monday, "past-week", "vacation", "full_day");
   });
 });

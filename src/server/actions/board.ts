@@ -5,7 +5,7 @@ import { db } from "~/server/db";
 import * as mutations from "~/server/services/boardMutations";
 import type { DayPart } from "~/types";
 import { requireSession } from "~/server/better-auth/roles";
-import { zAvailabilityStatus, zDateIso, zHolidayType, zId } from "~/server/validation";
+import { zAvailabilityStatus, zDateIso, zDayPart, zHolidayType, zId } from "~/server/validation";
 
 // requireSession() on every export, unlike most action files. See the
 // board.ts note in CLAUDE.md: middleware now only checks cookie presence
@@ -61,20 +61,23 @@ export async function setAvailability(
   dateIso: string,
   weekId: string,
   status: "sick" | "vacation",
+  dayPart: DayPart = "full_day",
 ) {
   await requireSession();
   employeeId = zId.parse(employeeId);
   dateIso = zDateIso.parse(dateIso);
   weekId = zId.parse(weekId);
   status = zAvailabilityStatus.parse(status);
-  return mutations.setAvailability(db, employeeId, dateIso, weekId, status);
+  dayPart = zDayPart.parse(dayPart);
+  return mutations.setAvailability(db, employeeId, dateIso, weekId, status, dayPart);
 }
 
-export async function clearAvailability(employeeId: string, dateIso: string) {
+export async function clearAvailability(employeeId: string, dateIso: string, dayPart: DayPart = "full_day") {
   await requireSession();
   employeeId = zId.parse(employeeId);
   dateIso = zDateIso.parse(dateIso);
-  return mutations.clearAvailability(db, employeeId, dateIso);
+  dayPart = zDayPart.parse(dayPart);
+  return mutations.clearAvailability(db, employeeId, dateIso, dayPart);
 }
 
 export async function copyWeekAssignments(

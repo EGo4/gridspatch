@@ -5,6 +5,7 @@ import {
   splitAssignment,
   mergeAssignment,
   setAvailability,
+  clearAvailability,
   copyWeekAssignments,
   copyDayAssignments,
   type BoardMutationDb,
@@ -34,6 +35,11 @@ const matchesWhere = (where: Row) => (row: Row): boolean => {
       for (const [nk, nv] of Object.entries(notClause)) {
         if (valueEquals(row[nk], nv)) return false;
       }
+      continue;
+    }
+    if (value && typeof value === "object" && !(value instanceof Date) && "in" in (value as Row)) {
+      const options = (value as { in: unknown[] }).in;
+      if (!options.some((opt) => valueEquals(row[key], opt))) return false;
       continue;
     }
     if (!valueEquals(row[key], value)) return false;
@@ -93,10 +99,14 @@ class FakeBoardDb implements BoardMutationDb {
   };
 
   availability = {
-    upsert: async ({ where, update, create }: { where: { employeeId_date: Row }; update: Row; create: Row }) => {
-      const key = where.employeeId_date;
+    findMany: async ({ where }: { where: Row }) => this.availabilities.filter(matchesWhere(where)) as never,
+    upsert: async ({ where, update, create }: { where: { employeeId_date_dayPart: Row }; update: Row; create: Row }) => {
+      const key = where.employeeId_date_dayPart;
       const idx = this.availabilities.findIndex(
-        (row) => row.employeeId === key.employeeId && valueEquals(row.date, key.date),
+        (row) =>
+          row.employeeId === key.employeeId &&
+          valueEquals(row.date, key.date) &&
+          row.dayPart === key.dayPart,
       );
       if (idx >= 0) {
         this.availabilities[idx] = { ...this.availabilities[idx], ...update };
@@ -164,6 +174,67 @@ await run("marking an absence clears exactly that day's assignments and no more"
   );
   assert.equal(db.availabilities.length, 1);
   assert.equal(db.availabilities[0]!.employeeId, "e1");
+});
+
+await run("marking one half sick converts a full_day assignment into the surviving half", async () => {
+  const db = new FakeBoardDb();
+  await updateAssignment(db, "e1", "p1", DAY, WEEK, "full_day");
+
+  await setAvailability(db, "e1", DAY, WEEK, "sick", "pre_lunch");
+
+  assert.deepEqual(
+    db.assignments.map((a) => ({ dayPart: a.dayPart, projectId: a.projectId })),
+    [{ dayPart: "after_lunch", projectId: "p1" }],
+  );
+  assert.deepEqual(
+    db.availabilities.map((a) => ({ dayPart: a.dayPart, status: a.status })),
+    [{ dayPart: "pre_lunch", status: "sick" }],
+  );
+});
+
+await run("marking the second half with the same status collapses to one full_day absence, no assignment left", async () => {
+  const db = new FakeBoardDb();
+  await updateAssignment(db, "e1", "p1", DAY, WEEK, "full_day");
+  await setAvailability(db, "e1", DAY, WEEK, "sick", "pre_lunch");
+
+  await setAvailability(db, "e1", DAY, WEEK, "sick", "after_lunch");
+
+  assert.equal(db.assignments.filter((a) => a.employeeId === "e1").length, 0);
+  assert.deepEqual(
+    db.availabilities.map((a) => ({ dayPart: a.dayPart, status: a.status })),
+    [{ dayPart: "full_day", status: "sick" }],
+  );
+});
+
+await run("marking the second half with a different status keeps two half-day records", async () => {
+  const db = new FakeBoardDb();
+  await updateAssignment(db, "e1", "p1", DAY, WEEK, "full_day");
+  await setAvailability(db, "e1", DAY, WEEK, "sick", "pre_lunch");
+
+  await setAvailability(db, "e1", DAY, WEEK, "vacation", "after_lunch");
+
+  assert.equal(db.assignments.filter((a) => a.employeeId === "e1").length, 0);
+  assert.deepEqual(
+    db.availabilities
+      .map((a) => ({ dayPart: String(a.dayPart), status: a.status }))
+      .sort((a, b) => a.dayPart.localeCompare(b.dayPart)),
+    [
+      { dayPart: "after_lunch", status: "vacation" },
+      { dayPart: "pre_lunch", status: "sick" },
+    ],
+  );
+});
+
+await run("clearAvailability removes only the matching dayPart", async () => {
+  const db = new FakeBoardDb();
+  await setAvailability(db, "e1", DAY, WEEK, "sick", "pre_lunch");
+  await setAvailability(db, "e1", DAY, WEEK, "vacation", "after_lunch");
+  assert.equal(db.availabilities.length, 2);
+
+  await clearAvailability(db, "e1", DAY, "pre_lunch");
+
+  assert.equal(db.availabilities.length, 1);
+  assert.equal(db.availabilities[0]!.dayPart, "after_lunch");
 });
 
 await run("copyDayAssignments overwrites existing target-day project assignments", async () => {
