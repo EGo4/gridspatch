@@ -228,6 +228,7 @@
     "clearFilter": "Filter löschen",
     "expand": "Ausklappen",
     "collapse": "Einklappen",
+    "cannotCollapse": "Nicht einklappbar — dieser Standort hat zugewiesene Mitarbeiter",
     "clickToRemoveStatus": "Zum Entfernen klicken",
     "copyWeekTitle": "Vorwoche kopieren",
     "copyWeekBody": "Alle Zuweisungen von {from} nach {to} kopieren?",

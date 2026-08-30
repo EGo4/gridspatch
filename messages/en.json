@@ -228,6 +228,7 @@
     "clearFilter": "Clear filter",
     "expand": "Expand",
     "collapse": "Collapse",
+    "cannotCollapse": "Cannot collapse — this site has assigned employees",
     "clickToRemoveStatus": "Click to remove status",
     "copyWeekTitle": "Copy previous week",
     "copyWeekBody": "Copy all assignments from {from} into {to}?",

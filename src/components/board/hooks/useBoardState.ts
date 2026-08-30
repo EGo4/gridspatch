@@ -115,6 +115,15 @@ export function useBoardState({
         next[targetId] = [...(next[targetId] ?? []), { employee, dayPart }];
         return next;
       });
+      // The site picker can put someone on a collapsed row, where the cells
+      // aren't rendered at all. Drop the stored collapse flag so the row stays
+      // open once it's empty again too, instead of snapping shut.
+      setCollapsedRows((prev) => {
+        if (!prev?.has(projectId)) return prev;
+        const next = new Set(prev);
+        next.delete(projectId);
+        return next;
+      });
       setSitePickerFor(null);
       setOpenCardId(null);
       const dateIso = weekDates[day as DayName];

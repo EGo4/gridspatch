@@ -361,6 +361,20 @@ export function BoardClient({
     localStorage.setItem(COLLAPSED_LS_KEY, JSON.stringify([...collapsedRows]));
   }, [collapsedRows]);
 
+  // ── Collapse guard ────────────────────────────────────────────────────────
+  // A collapsed site row hides its cells entirely. Since workers can now be
+  // put on a site straight from the pool via the site picker (no drag into a
+  // visible cell needed), a collapsed row could end up holding people nobody
+  // can see. So collapsing is only ever effective while a row is empty: any
+  // assignment in any day/half of the week forces the row open.
+  const projectHasAssignments = (projectId: string) =>
+    DAYS.some(
+      (day) =>
+        (assignmentsState[fullDayDroppableId(projectId, day)]?.length ?? 0) > 0 ||
+        (assignmentsState[preLunchDroppableId(projectId, day)]?.length ?? 0) > 0 ||
+        (assignmentsState[afterLunchDroppableId(projectId, day)]?.length ?? 0) > 0,
+    );
+
   // ── Collapse toggle ───────────────────────────────────────────────────────
   const toggleCollapsed = (id: string) => {
     setCollapsedRows((prev) => {
@@ -1087,7 +1101,10 @@ export function BoardClient({
                 return s !== "done" && s !== "inactive" && s !== "on_hold";
               })
               .map((project) => {
-                const isCollapsed = (collapsedRows ?? new Set()).has(project.id);
+                // Rows holding people never collapse, however the stored
+                // collapse flag reads — see projectHasAssignments above.
+                const canCollapse = !projectHasAssignments(project.id);
+                const isCollapsed = canCollapse && (collapsedRows ?? new Set()).has(project.id);
                 const es = effectiveStatus(project);
                 const isPlanned = es === "planned";
                 return (
@@ -1095,9 +1112,12 @@ export function BoardClient({
                     <div className="flex items-center gap-2 py-1">
                       <button
                         type="button"
-                        onClick={() => toggleCollapsed(project.id)}
-                        title={isCollapsed ? t("expand") : t("collapse")}
-                        className="flex-shrink-0 text-[var(--color-text-muted)] transition-colors hover:text-[var(--color-text-primary)]"
+                        onClick={() => canCollapse && toggleCollapsed(project.id)}
+                        disabled={!canCollapse}
+                        title={!canCollapse ? t("cannotCollapse") : isCollapsed ? t("expand") : t("collapse")}
+                        className={`flex-shrink-0 text-[var(--color-text-muted)] transition-colors ${
+                          canCollapse ? "hover:text-[var(--color-text-primary)]" : "cursor-default opacity-40"
+                        }`}
                       >
                         <svg
                           className={`h-3 w-3 transition-transform duration-200 ${isCollapsed ? "-rotate-90" : ""}`}
@@ -1108,7 +1128,8 @@ export function BoardClient({
                       </button>
                       <button
                         type="button"
-                        onClick={() => toggleCollapsed(project.id)}
+                        onClick={() => canCollapse && toggleCollapsed(project.id)}
+                        title={!canCollapse ? t("cannotCollapse") : undefined}
                         className="flex min-w-0 items-center gap-1 text-left text-sm font-semibold text-[var(--color-text-primary)] transition-colors hover:text-[var(--color-text-primary)]"
                       >
                         <span className="truncate">{project.name}</span>
