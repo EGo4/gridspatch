@@ -22,7 +22,7 @@ Planned work lives in [FEATURE_ROADMAP.md](FEATURE_ROADMAP.md) — check it befo
 
 ```bash
 npm run dev          # start dev server (Turbopack)
-npm run check        # lint + typecheck — run this before calling work done
+npm run check        # lint + typecheck + `npm audit --audit-level=high` — run this before calling work done
 npm run typecheck    # tsc --noEmit only
 npm run test         # runs every test/*.test.ts via node --experimental-strip-types, then test:components
 npm run test:components         # vitest run — component tests under test/components/*.test.tsx (jsdom + RTL)
@@ -139,6 +139,7 @@ Guards in [roles.ts](src/server/better-auth/roles.ts): `requireAdminPage()` and 
 - `@hello-pangea/dnd` renders its drag attributes as `data-rfd-*` (its own fork prefix), not `data-rbd-*` — query droppables/draggables in tests via `[data-rfd-droppable-id="..."]` / `[data-rfd-draggable-id="..."]`.
 - Vitest has no Jest-style auto-registration for React Testing Library's cleanup; without `afterEach(cleanup)` in `setup.ts`, every `render()` in a file leaves its tree in `document.body` and a later `document.querySelector` in the same file can silently match a *previous* test's stale, empty element instead of the current render's.
 - CSS classes that hide inactive days (`hidden`, `lg:flex`) do nothing in jsdom — no stylesheet is loaded — so every day column and every unassigned employee's pool card across all five days are simultaneously present in the DOM. Scope queries to one day/cell's container (via its `data-rfd-droppable-id`) rather than querying by employee name alone.
+- On Windows, run Vitest from a cwd whose drive letter is **uppercase** (`C:...`). From a lowercase `c:...` cwd (how VS Code terminals and some tools open), `vitest` gets loaded as two module instances and *every* file fails with "Vitest failed to find the current suite" at the first top-level `afterEach` — even a trivial probe test. Pre-existing, not caused by any test or config here; `cd /c/...` in Git Bash or `Set-Location C:...` fixes it.
 - Fixture weeks must resolve to a date **after** the real system clock, not just after some fictional "today" — `confirmPastEdit()` compares `selectedWeek.startDateIso` against `getCurrentWeekStart()`, which calls real `new Date()`. A fixture dated in the actual past silently routes every mutation through the past-week confirmation modal instead of running it, and the test just sees nothing happen.
 
 ## DB Connection
@@ -146,6 +147,14 @@ Guards in [roles.ts](src/server/better-auth/roles.ts): `requireAdminPage()` and 
 PostgreSQL runs in WSL; Prisma connects via `localhost:5432` from Windows. Docker Compose + Caddy configs live in the repo root for deployment.
 
 **The runtime image has no global npm/npx/corepack.** [Dockerfile](Dockerfile)'s `runner` stage deliberately deletes them — every CVE a container scan turns up on this image lives inside npm's own bundled dependency tree (baked into `node:20-alpine`, not ours or Alpine's), and the container never invokes global npm: [docker-entrypoint.sh](docker-entrypoint.sh) only runs local `node_modules/.bin/{prisma,next}`. If a future change needs the global `npm`/`npx` binary inside the running container, that's a sign something is being done at runtime that should happen at build time instead — don't just re-add the binaries back.
+
+## Changing Dependencies
+
+**npm 10 (the pinned `packageManager`) cannot build this dependency tree from scratch.** Any command that re-resolves the tree — `npm install <pkg>`, `npm update`, `npm audit fix`, or a fresh install without a lockfile — crashes with `Cannot read properties of null (reading 'edgesOut')` in arborist's `#loadPeerSet`. The trigger is a peer cycle: better-auth ≥1.7 declares an optional peer on `vitest`, whose peer set reaches `@vitest/browser-playwright`, which peers back on `vitest@*`. Workaround: resolve with npm 11 (`npx -y npm@11 install ...`) — same lockfile format — then run plain `npm ci` with npm 10 so install scripts (Prisma engines, `postinstall` → `prisma generate`) actually run, since npm 11 skips them by default. `npm ci` with npm 10 works fine against an existing lockfile, so the Docker build is unaffected.
+
+**`overrides` in package.json are deliberate.** Each one forces a patched version past an *exact* upstream pin that has no in-range fix: `next` → `postcss` (next pins 8.4.31), `@prisma/config` → `deepmerge-ts` (Prisma 6 pins 7.1.5), `@typescript-eslint/typescript-estree` → `minimatch` (it wants ^10; the fix is 11.0.1). Drop an override once upstream's own range covers the fix — check with `npm view <parent>@<version> dependencies`.
+
+**better-auth ≥1.7 validates the Prisma schema at startup.** Any column a configured plugin declares but the schema lacks makes *every* auth request 500 with `SCHEMA_MISMATCH` — login is down, not degraded. After bumping better-auth or adding a plugin, start the prod server and hit `/api/auth/get-session` before assuming it works; the error only shows in the server log.
 
 ## Compaction Instructions
 

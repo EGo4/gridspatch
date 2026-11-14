@@ -132,7 +132,29 @@ git pull
 docker compose up -d --build
 ```
 
-The entry point always runs `prisma migrate deploy` on start-up, so schema changes are applied automatically.
+The entry point applies schema changes on start-up: it runs `prisma migrate deploy` if the image contains migration files, and otherwise falls back to `prisma db push` from `prisma/schema.prisma`. `prisma/migrations/` is gitignored, so a server updated via `git pull` takes the `db push` path.
+
+### Upgrade notes
+
+#### Dependency security upgrade (better-auth 1.7, zod 4) — schema change required
+
+better-auth ≥ 1.7 validates the database schema at start-up. If any column a configured plugin expects is missing, **every** auth request fails with HTTP 500 (`BetterAuthError: Prisma schema mismatch … SCHEMA_MISMATCH`). That means nobody can log in, and the cause only appears in the server log. This upgrade adds the admin plugin's `Session.impersonatedBy` column, which was previously absent:
+
+```sql
+ALTER TABLE "Session" ADD COLUMN "impersonatedBy" TEXT;
+```
+
+It's nullable and doesn't touch existing rows, so it's safe on a live database. How it gets applied:
+
+- **Docker (`git pull` + `docker compose up -d --build`):** automatic. The entry point's `prisma db push` adds the column. Nothing to do.
+- **Local development:** `npx prisma migrate dev`. This creates and applies a local migration, since migrations aren't committed.
+- **Any other database managed by hand:** run the SQL above *before* starting the new version.
+
+To verify after deploying, `GET /api/auth/get-session` should return `200` (with `null` when logged out), not `500`:
+
+```bash
+curl -i http://<server-ip>:3000/api/auth/get-session
+```
 
 ---
 

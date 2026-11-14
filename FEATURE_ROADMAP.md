@@ -11,33 +11,7 @@ Order is based on practical relevance: core planning workflow first, security/ad
 - **Apprentice role and school days** — role key list in [roles.ts](src/lib/roles.ts), intentionally limited to `apprentice` and `staff` for now; admin role select; one-off free-text migration ([normalize-employee-roles.ts](scripts/normalize-employee-roles.ts), already run against the local dev DB); `Availability.status` widened to include `school`; apprentice-only school fly-out button (graduation-cap icon); swimlane/statistics/export school bucket.
 - **Site-selective day copy, both variants** — shipped together as planned, sharing one server implementation. Variant 1: picking a source day from the day-header popover opens [SiteCopyDialog](src/components/board/modals/SiteCopyDialog.tsx) (all sites checked by default, per-site source/target counts, replaces the old unconditional overwrite-confirm modal) instead of copying immediately. Variant 2: a small copy control on each site's own day cell opens [SiteDayCopyPopover](src/components/board/modals/SiteDayCopyPopover.tsx) listing the week's other days with per-day counts for that one site. Both call `copyDayAssignments`/`copySiteDayAssignments` ([board.ts](src/server/actions/board.ts)), which now takes an optional `projectIds` scope and skips (and counts) employees already booked on an unselected site or absent on the target day rather than silently dropping or stealing them — see [copyScoped.ts](src/components/board/copyScoped.ts) for the shared optimistic-state/conflict logic used by both variants' UI.
 - **Remove start and end date from construction sites** — dropped from the `Project` schema (migration `remove_project_start_end_date`), the type, the create/edit form, table columns/sort keys, and JSON import/export in [SitesClient.tsx](src/app/admin/sites/SitesClient.tsx); pass-through mapping removed from [sites.ts](src/server/actions/sites.ts) and [board.ts](src/server/services/board.ts). Import stays tolerant of old exports carrying the extra fields — they're just not read. Employee `startDate`/`endDate` and `Week.startDate`/`endDate` were unrelated and untouched.
-
-## Fix all npm vulnerabilities
-
-Goal:
-`npm audit` reports zero vulnerabilities, and dependency drift is caught early from then on.
-
-Current state (as of this writing): 9 vulnerabilities — 1 critical, 6 high, 1 moderate, 1 low.
-
-| Package | Severity | Note |
-| --- | --- | --- |
-| better-auth ≤1.6.21 | critical | session/OAuth advisories, incl. stale sessions after user deletion |
-| next | high | Server Actions DoS, middleware bypass, SSRF — this app uses Server Actions everywhere |
-| postcss, sharp, js-yaml, kysely, brace-expansion | high | mostly transitive (next, better-auth toolchains) |
-| next-intl ≤4.9.1 | moderate | prototype pollution via translation catalog keys |
-| icu-minify | low | transitive of next-intl |
-
-Requirements:
-
-- `npm audit fix` resolves all of them without `--force` (confirmed by dry run), i.e. all fixes are inside the declared semver ranges — no major upgrade needed.
-- After the fix: `npm run check`, `npx prisma generate`, then a manual smoke test of login, board drag/drop, and export.
-- Pay attention to the `better-auth` jump (^1.3 → ≥1.6.22) — read its changelog for session/cookie behaviour changes before assuming the smoke test covers it.
-- Add a recurring check: `npm audit --audit-level=high` as part of `npm run check` or a CI step, so this does not silently rot again.
-
-Acceptance criteria:
-
-- `npm audit` reports 0 vulnerabilities.
-- Login, board mutations and export still work after the upgrade.
+- **Fix all npm vulnerabilities** — `npm audit` at 0 (was 28: 2 critical, 14 high by the time work started, up from the 9 originally listed). In-range bumps: next 15.5.29, better-auth 1.7.25, next-intl 4.15, vitest 4.1.12, typescript-eslint 8.72, postcss 8.5.33; one major: zod 3→4 with @t3-oss/env-nextjs 0.13 (no code changes needed — no zod-3-only APIs in use). `overrides` in package.json for three upstream exact pins with no in-range fix: next→postcss 8.4.31, @prisma/config→deepmerge-ts 7.1.5, typescript-estree→minimatch ^10. better-auth 1.7 now validates the DB schema at startup and fails every auth request on a mismatch, so `Session.impersonatedBy` (admin plugin) was added — migration `add_session_impersonated_by`. `npm run check` now ends with `npm audit --audit-level=high` (`audit:deps` script). Smoke-tested against a prod build: login/bad password/forged cookie/sign-out, a real `setHoliday`/`clearHoliday` server-action round trip incl. zod rejection, and CSV export in both layouts.
 
 ## Excel and PDF export
 

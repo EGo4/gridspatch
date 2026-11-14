@@ -35,7 +35,7 @@ export const addHalfToPool = (
     return {
       ...assignmentsState,
       [halfPoolId]: halfPool.filter((e) => !(e.employee.id === employee.id && e.dayPart === otherHalf)),
-      [fullPoolId]: [...(assignmentsState[fullPoolId] ?? []), { employee, dayPart: "full_day" as DayPart }],
+      [fullPoolId]: [...(assignmentsState[fullPoolId] ?? []), { employee, dayPart: "full_day" }],
     };
   }
 

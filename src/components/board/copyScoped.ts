@@ -150,7 +150,7 @@ export const applyScopedDayCopy = (
 
   next[poolFullDayId(targetDay)] = dbEmployees
     .filter((e) => !assignedInTarget.has(e.id) && !unavailableInTarget.has(e.id))
-    .map((e) => ({ employee: e, dayPart: "full_day" as DayPart }));
+    .map((e) => ({ employee: e, dayPart: "full_day" }));
 
   return { state: next, skipped };
 };

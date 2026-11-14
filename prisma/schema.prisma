@@ -42,6 +42,10 @@ model Session {
   updatedAt DateTime @updatedAt
   ipAddress String?
   userAgent String?
+  // Better Auth admin plugin field. Unused by the app (no impersonation), but
+  // better-auth >=1.7 validates the schema at startup and rejects every auth
+  // request with SCHEMA_MISMATCH if a plugin-declared column is missing.
+  impersonatedBy String?
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
