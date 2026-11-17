@@ -82,6 +82,24 @@ const POOL_DEFAULT_HEIGHT = 200;
 const POOL_MIN_HEIGHT = 60;
 const POOL_MAX_HEIGHT = 600;
 
+// ── z-index ladder ────────────────────────────────────────────────────────────
+// Everything under <main> shares one stacking context (nothing sets isolation/
+// contain between them), so plain z-index order decides paint order while
+// scrolling. Keep this ladder in mind before adding another z- class here or
+// in EmployeeCard/StatusChip/DayHeaderCell:
+//   z-20        per-cell copy button, mobile day-selector dropdown
+//   z-[25]      open-card fly-out wrapper (EmployeeCard's `card-open`)
+//   z-30        status-transition popover (StatusChip)
+//   z-[35]      sticky day-header row (DayHeaderCell's own popovers inherit it)
+//   z-40 / z-50 modal backdrops/panels (every modals/* component), desktop
+//               week dropdown, site picker & site-day-copy popovers (z-[100])
+//   z-[95]      sync status badge
+//   5000        @hello-pangea/dnd's dragged clone (inline style, library-owned)
+// Do not reach for isolation/contain/overflow on main or a row/cell to solve a
+// stacking bug instead — it traps the dnd drag clone (position: fixed,
+// z-index: 5000) inside that context, so a dragged card renders behind later
+// rows/the pool instead of above them mid-drag.
+
 // ── Theme toggle ──────────────────────────────────────────────────────────────
 
 function ThemeToggle() {
@@ -1074,7 +1092,7 @@ export function BoardClient({
           <div className="w-full lg:min-w-max flex flex-col gap-4">
 
             {/* Day headers — sticky so column labels stay visible while scrolling */}
-            <div className="sticky top-0 z-20 hidden lg:flex gap-4 bg-[var(--color-bg-page)] -mt-4 pt-4 pb-2 shadow-[0_6px_0_6px_var(--color-bg-page)]">
+            <div className="sticky top-0 z-[35] hidden lg:flex gap-4 bg-[var(--color-bg-page)] -mt-4 pt-4 pb-2 shadow-[0_6px_0_6px_var(--color-bg-page)]">
               {DAYS.map((day) => (
                 <DayHeaderCell
                   key={day}

@@ -58,7 +58,7 @@ export function EmployeeCard({
         <div
           ref={provided.innerRef}
           {...provided.draggableProps}
-          className={`relative ${isOpen ? "card-open z-50" : ""}`}
+          className={`relative ${isOpen ? "card-open z-[25]" : ""}`}
         >
           {/* Card — drag handle + click target */}
           <div
